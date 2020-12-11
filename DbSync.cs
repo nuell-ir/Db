@@ -286,6 +286,35 @@ namespace nuell.Sync
             return val is null ? default : (T)Convert.ChangeType(val, typeof(T));
         }
 
+        public static object[] GetValues(string query, params SqlParameter[] parameters)
+            => GetValues(query, false, parameters);
+        
+        public static object[] GetValues(string query, bool isStoredProc, params SqlParameter[] parameters)
+        {
+            using var cnnct = new SqlConnection(Data.ConnStr);
+            using var cmnd = new SqlCommand(query, cnnct);
+            if (isStoredProc)
+                cmnd.CommandType = CommandType.StoredProcedure;
+            cmnd.Parameters.AddRange(parameters);
+            cnnct.Open();
+            using var reader = cmnd.ExecuteReader();
+            var results = new List<object>();
+            AddValues();
+            while (reader.NextResult())
+                AddValues();
+            return results.ToArray();
+
+            void AddValues()
+            {
+                if (reader.Read())
+                {
+                    var values = new object[reader.FieldCount];
+                    reader.GetValues(values);
+                    results.AddRange(values);
+                }
+            }
+        }
+
         public static string GetStr(string query)
         {
             using var cnnct = new SqlConnection(Data.ConnStr);

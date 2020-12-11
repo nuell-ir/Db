@@ -105,13 +105,13 @@ namespace nuell.Async
             if (isStoredProc)
                 cmnd.CommandType = CommandType.StoredProcedure;
             cmnd.Parameters.AddRange(parameters);
-            cnnct.Open();
-            using var reader = cmnd.ExecuteReader();
+            await cnnct.OpenAsync();
+            using var reader = await cmnd.ExecuteReaderAsync();
             var results = new List<string>
             {
                 (await ReadCsvResult(reader)).ToString()
             };
-            while (reader.NextResult())
+            while (await reader.NextResultAsync())
                 results.Add(await ReadCsvResult(reader));
             return results.ToArray();
         }
@@ -220,6 +220,35 @@ namespace nuell.Async
             await cnnct.OpenAsync();
             var val = await cmnd.ExecuteScalarAsync();
             return val is null ? default : (T)Convert.ChangeType(val, typeof(T));
+        }
+
+        public static Task<object[]> GetValues(string query, params SqlParameter[] parameters)
+            => GetValues(query, false, parameters);
+        
+        public async static Task<object[]> GetValues(string query, bool isStoredProc, params SqlParameter[] parameters)
+        {
+            using var cnnct = new SqlConnection(Data.ConnStr);
+            using var cmnd = new SqlCommand(query, cnnct);
+            if (isStoredProc)
+                cmnd.CommandType = CommandType.StoredProcedure;
+            cmnd.Parameters.AddRange(parameters);
+            await cnnct.OpenAsync();
+            using var reader = await cmnd.ExecuteReaderAsync();
+            var results = new List<object>();
+            await AddValues();
+            while (await reader.NextResultAsync())
+                await AddValues();
+            return results.ToArray();
+
+            async Task AddValues()
+            {
+                if (await reader.ReadAsync())
+                {
+                    var values = new object[reader.FieldCount];
+                    reader.GetValues(values);
+                    results.AddRange(values);
+                }
+            }
         }
 
         public async static Task<string> GetStr(string query)
