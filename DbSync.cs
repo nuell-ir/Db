@@ -308,11 +308,11 @@ namespace nuell.Sync
             }
         }
 
-        public static JObject GetNamedValues(Tuple<string, string>[] queries, params SqlParameter[] parameters)
+        public static JObject GetNamedValues((string Name, string Query)[] queries, params SqlParameter[] parameters)
         {
             var result = new JObject();
             using var cnnct = new SqlConnection(Data.ConnStr);
-            using var cmnd = new SqlCommand(string.Join(';', queries.Select(t => t.Item2)), cnnct);
+            using var cmnd = new SqlCommand(string.Join(';', queries.Select(t => t.Query)), cnnct);
             cmnd.Parameters.AddRange(parameters);
             cnnct.Open();
             using var reader = cmnd.ExecuteReader();
@@ -324,7 +324,7 @@ namespace nuell.Sync
 
             void AddValue()
             {
-                result[queries[i].Item1] = reader.Read() ? JToken.FromObject(reader[0]) : null;
+                result[queries[i].Name] = reader.Read() ? JToken.FromObject(reader[0]) : null;
                 i++;
             }
         }

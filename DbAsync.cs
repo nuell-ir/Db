@@ -243,11 +243,11 @@ namespace nuell.Async
                 results.AddRange(values);
             }
         }
-        public static async Task<JObject> GetNamedValues(Tuple<string, string>[] queries, params SqlParameter[] parameters)
+        public static async Task<JObject> GetNamedValues((string Name, string Query)[] queries, params SqlParameter[] parameters)
         {
             var result = new JObject();
             using var cnnct = new SqlConnection(Data.ConnStr);
-            using var cmnd = new SqlCommand(string.Join(';', queries.Select(t => t.Item2)), cnnct);
+            using var cmnd = new SqlCommand(string.Join(';', queries.Select(t => t.Query)), cnnct);
             cmnd.Parameters.AddRange(parameters);
             await cnnct.OpenAsync();
             using var reader = await cmnd.ExecuteReaderAsync();
@@ -259,7 +259,7 @@ namespace nuell.Async
 
             async Task AddValue()
             {
-                result[queries[i].Item1] = await reader.ReadAsync() ? JToken.FromObject(reader[0]) : null;
+                result[queries[i].Name] = await reader.ReadAsync() ? JToken.FromObject(reader[0]) : null;
                 i++;
             }
         }
