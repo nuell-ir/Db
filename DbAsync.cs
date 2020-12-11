@@ -222,15 +222,10 @@ namespace nuell.Async
             return val is null ? default : (T)Convert.ChangeType(val, typeof(T));
         }
 
-        public static Task<object[]> GetValues(string query, params SqlParameter[] parameters)
-            => GetValues(query, false, parameters);
-        
-        public async static Task<object[]> GetValues(string query, bool isStoredProc, params SqlParameter[] parameters)
+        public async static Task<object[]> GetValues(string query, params SqlParameter[] parameters)
         {
             using var cnnct = new SqlConnection(Data.ConnStr);
             using var cmnd = new SqlCommand(query, cnnct);
-            if (isStoredProc)
-                cmnd.CommandType = CommandType.StoredProcedure;
             cmnd.Parameters.AddRange(parameters);
             await cnnct.OpenAsync();
             using var reader = await cmnd.ExecuteReaderAsync();
@@ -242,12 +237,30 @@ namespace nuell.Async
 
             async Task AddValues()
             {
+                var values = new object[reader.FieldCount];
                 if (await reader.ReadAsync())
-                {
-                    var values = new object[reader.FieldCount];
                     reader.GetValues(values);
-                    results.AddRange(values);
-                }
+                results.AddRange(values);
+            }
+        }
+        public static async Task<JObject> GetNamedValues(Tuple<string, string>[] queries, params SqlParameter[] parameters)
+        {
+            var result = new JObject();
+            using var cnnct = new SqlConnection(Data.ConnStr);
+            using var cmnd = new SqlCommand(string.Join(';', queries.Select(t => t.Item2)), cnnct);
+            cmnd.Parameters.AddRange(parameters);
+            await cnnct.OpenAsync();
+            using var reader = await cmnd.ExecuteReaderAsync();
+            int i = 0;
+            await AddValue();
+            while (await reader.NextResultAsync())
+                await AddValue();
+            return result;
+
+            async Task AddValue()
+            {
+                result[queries[i].Item1] = await reader.ReadAsync() ? JToken.FromObject(reader[0]) : null;
+                i++;
             }
         }
 

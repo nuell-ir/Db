@@ -287,14 +287,9 @@ namespace nuell.Sync
         }
 
         public static object[] GetValues(string query, params SqlParameter[] parameters)
-            => GetValues(query, false, parameters);
-        
-        public static object[] GetValues(string query, bool isStoredProc, params SqlParameter[] parameters)
         {
             using var cnnct = new SqlConnection(Data.ConnStr);
             using var cmnd = new SqlCommand(query, cnnct);
-            if (isStoredProc)
-                cmnd.CommandType = CommandType.StoredProcedure;
             cmnd.Parameters.AddRange(parameters);
             cnnct.Open();
             using var reader = cmnd.ExecuteReader();
@@ -306,12 +301,31 @@ namespace nuell.Sync
 
             void AddValues()
             {
+                var values = new object[reader.FieldCount];
                 if (reader.Read())
-                {
-                    var values = new object[reader.FieldCount];
                     reader.GetValues(values);
-                    results.AddRange(values);
-                }
+                results.AddRange(values);
+            }
+        }
+
+        public static JObject GetNamedValues(Tuple<string, string>[] queries, params SqlParameter[] parameters)
+        {
+            var result = new JObject();
+            using var cnnct = new SqlConnection(Data.ConnStr);
+            using var cmnd = new SqlCommand(string.Join(';', queries.Select(t => t.Item2)), cnnct);
+            cmnd.Parameters.AddRange(parameters);
+            cnnct.Open();
+            using var reader = cmnd.ExecuteReader();
+            int i = 0;
+            AddValue();
+            while (reader.NextResult())
+                AddValue();
+            return result;
+
+            void AddValue()
+            {
+                result[queries[i].Item1] = reader.Read() ? JToken.FromObject(reader[0]) : null;
+                i++;
             }
         }
 
