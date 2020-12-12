@@ -14,7 +14,7 @@ namespace nuell.Async
 {
     public enum Results
     {
-        Object, JObject, Csv
+        Object, JObject, Json, Csv
     }
 
     public static class Db
@@ -88,23 +88,26 @@ namespace nuell.Async
             await cnnct.OpenAsync();
             using var reader = await cmnd.ExecuteReaderAsync();
             if (reader.HasRows)
-            {
-                await reader.ReadAsync();
-                var str = new StringBuilder();
-                var sw = new StringWriter(str);
-                using var writer = new JsonTextWriter(sw);
-                writer.WriteStartObject();
-                int count = reader.VisibleFieldCount;
-                for (int i = 0; i < count; i++)
-                {
-                    writer.WritePropertyName(reader.GetName(i));
-                    writer.WriteValue(reader.GetValue(i));
-                }
-                writer.WriteEndObject();
-                return str.ToString();
-            }
+                return await Json(reader);
             else
                 return null;
+        }
+
+        private static async Task<string> Json(SqlDataReader reader)
+        {
+            await reader.ReadAsync();
+            var str = new StringBuilder();
+            var sw = new StringWriter(str);
+            using var writer = new JsonTextWriter(sw);
+            writer.WriteStartObject();
+            int count = reader.VisibleFieldCount;
+            for (int i = 0; i < count; i++)
+            {
+                writer.WritePropertyName(reader.GetName(i));
+                writer.WriteValue(reader.GetValue(i));
+            }
+            writer.WriteEndObject();
+            return str.ToString();
         }
 
         public static Task<List<T>> List<T>(string query, params SqlParameter[] parameters)
@@ -199,16 +202,21 @@ namespace nuell.Async
             return val is DBNull ? null : val.ToString();
         }
 
-        public async static Task<object[]> GetValues(string query, params SqlParameter[] parameters)
+        public static Task<object[]> GetValues(string query, params SqlParameter[] parameters)
+            => GetValues(query, false, parameters);
+
+        public static async Task<object[]> GetValues(string query, bool isStoredProc, params SqlParameter[] parameters)
         {
             using var cnnct = new SqlConnection(Data.ConnStr);
             using var cmnd = new SqlCommand(query, cnnct);
+            if (isStoredProc)
+                cmnd.CommandType = CommandType.StoredProcedure;
             cmnd.Parameters.AddRange(parameters);
             await cnnct.OpenAsync();
             using var reader = await cmnd.ExecuteReaderAsync();
             var results = new List<object>();
             await AddValues();
-            while (await reader.NextResultAsync())
+            while (reader.NextResult())
                 await AddValues();
             return results.ToArray();
 
@@ -220,7 +228,6 @@ namespace nuell.Async
                 results.AddRange(values);
             }
         }
-
 
         public static Task<JObject> Retrieve(string query, (string Name, Results ResultType)[] props, params SqlParameter[] parameters)
             => Retrieve(query, props, false, parameters);
@@ -255,6 +262,9 @@ namespace nuell.Async
                         case Results.JObject:
                             await reader.ReadAsync();
                             result.Add(props[index++].Name, JObject(reader));
+                            break;
+                        case Results.Json:
+                            result.Add(props[index++].Name, await Json(reader));
                             break;
                         case Results.Csv:
                             result.Add(props[index++].Name, await ReadCsvResult(reader));

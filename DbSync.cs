@@ -14,7 +14,7 @@ namespace nuell.Sync
 {
     public enum Results
     {
-        Object, JObject, Csv
+        Object, JObject, Json, Csv
     }
 
     public static class Db
@@ -84,23 +84,26 @@ namespace nuell.Sync
             cnnct.Open();
             using var reader = cmnd.ExecuteReader();
             if (reader.HasRows)
-            {
-                reader.Read();
-                var str = new StringBuilder();
-                var sw = new StringWriter(str);
-                using var writer = new JsonTextWriter(sw);
-                writer.WriteStartObject();
-                int count = reader.VisibleFieldCount;
-                for (int i = 0; i < count; i++)
-                {
-                    writer.WritePropertyName(reader.GetName(i));
-                    writer.WriteValue(reader.GetValue(i));
-                }
-                writer.WriteEndObject();
-                return str.ToString();
-            }
+                return Json(reader);
             else
                 return null;
+        }
+
+        private static string Json(SqlDataReader reader)
+        {
+            reader.Read();
+            var str = new StringBuilder();
+            var sw = new StringWriter(str);
+            using var writer = new JsonTextWriter(sw);
+            writer.WriteStartObject();
+            int count = reader.VisibleFieldCount;
+            for (int i = 0; i < count; i++)
+            {
+                writer.WritePropertyName(reader.GetName(i));
+                writer.WriteValue(reader.GetValue(i));
+            }
+            writer.WriteEndObject();
+            return str.ToString();
         }
 
         public static string Csv(object[] items)
@@ -297,6 +300,9 @@ namespace nuell.Sync
                         case Results.JObject:
                             reader.Read();
                             result.Add(props[index++].Name, JObject(reader));
+                            break;
+                        case Results.Json:
+                            result.Add(props[index++].Name, Json(reader));
                             break;
                         case Results.Csv:
                             result.Add(props[index++].Name, ReadCsvResult(reader));
