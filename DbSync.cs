@@ -12,10 +12,20 @@ using System.Text.RegularExpressions;
 
 namespace nuell.Sync
 {
+    public enum Results
+    {
+        Object, JObject, Csv
+    }
+
     public static class Db
     {
+        const char sep = '~';
+        const char line = '|';
+        const char stringField = '$';
+        const char dateField = '#';
+
         public static DataTable Table(string query, params SqlParameter[] parameters)
-            => Table(query, false, parameters);
+        => Table(query, false, parameters);
 
         public static DataTable Table(string query, bool isStoredProc, params SqlParameter[] parameters)
         {
@@ -47,19 +57,29 @@ namespace nuell.Sync
             if (reader.HasRows)
             {
                 reader.Read();
-                var json = new JObject();
-                for (int i = 0; i < reader.VisibleFieldCount; i++)
-                    json.Add(reader.GetName(i), JToken.FromObject(reader.GetValue(i)));
-                return json;
+                return JObject(reader);
             }
             else
                 return null;
         }
 
+        private static JObject JObject(SqlDataReader reader)
+        {
+            var json = new JObject();
+            for (int i = 0; i < reader.FieldCount; i++)
+                json.Add(reader.GetName(i), JToken.FromObject(reader.GetValue(i)));
+            return json;
+        }
+
         public static string Json(string query, params SqlParameter[] parameters)
+            => Json(query, false, parameters);
+
+        public static string Json(string query, bool isStoredProc, params SqlParameter[] parameters)
         {
             using var cnnct = new SqlConnection(Data.ConnStr);
             using var cmnd = new SqlCommand(query, cnnct);
+            if (isStoredProc)
+                cmnd.CommandType = CommandType.StoredProcedure;
             cmnd.Parameters.AddRange(parameters);
             cnnct.Open();
             using var reader = cmnd.ExecuteReader();
@@ -83,94 +103,10 @@ namespace nuell.Sync
                 return null;
         }
 
-        public static string Csv(string query, params SqlParameter[] parameters)
-            => Csv(query, false, parameters);
-
-        public static string Csv(string query, bool isStoredProc, params SqlParameter[] parameters)
-        {
-            using var cnnct = new SqlConnection(Data.ConnStr);
-            using var cmnd = new SqlCommand(query, cnnct);
-            if (isStoredProc)
-                cmnd.CommandType = CommandType.StoredProcedure;
-            cmnd.Parameters.AddRange(parameters);
-            cnnct.Open();
-            using var reader = cmnd.ExecuteReader();
-            return ReadCsvResult(reader);
-        }
-
-        public static string[] MultiCsv(string query, bool isStoredProc, params SqlParameter[] parameters)
-        {
-            using var cnnct = new SqlConnection(Data.ConnStr);
-            using var cmnd = new SqlCommand(query, cnnct);
-            if (isStoredProc)
-                cmnd.CommandType = CommandType.StoredProcedure;
-            cmnd.Parameters.AddRange(parameters);
-            cnnct.Open();
-            using var reader = cmnd.ExecuteReader();
-            var results = new List<string>
-            {
-                ReadCsvResult(reader)
-            };
-            while (reader.NextResult())
-                results.Add(ReadCsvResult(reader));
-            return results.ToArray();
-        }
-
-        private static string ReadCsvResult(SqlDataReader reader)
-        {
-            if (!reader.HasRows)
-                return null;
-            const char sep = '~';
-            const char line = '|';
-            var str = new StringBuilder();
-            int count = reader.VisibleFieldCount;
-            for (int i = 0; i < count; i++)
-            {
-                var fieldType = reader.GetFieldType(i);
-                if (fieldType == typeof(string) || fieldType == typeof(TimeSpan) || fieldType == typeof(byte[]))
-                    str.Append('$');
-                else if (fieldType == typeof(DateTime))
-                    str.Append('#');
-                str.Append(reader.GetName(i));
-                str.Append(sep);
-            }
-            str.Remove(str.Length - 1, 1);
-            str.Append(line);
-            while (reader.Read())
-            {
-                for (int i = 0; i < count; i++)
-                {
-                    var val = reader.GetValue(i);
-                    if (val is bool b)
-                        str.Append(b ? "true" : "false"); //to prevent boolean capitalisation ('True' is not true in javascript)
-                    else if (val is DateTime d)
-                    {
-                        if (d.Ticks == 0)
-                            str.Append(d.ToString("yyyy-MM-dd"));
-                        else
-                            str.Append(d.ToString("yyyy-MM-ddTHH:mm:ss"));
-                    }
-                    else if (val is TimeSpan)
-                        str.Append(reader.GetTimeSpan(i).ToString(@"hh\:mm\:ss"));
-                    else if (val is byte[] bytes)
-                        str.Append(Convert.ToBase64String(bytes));
-                    else
-                        str.Append(val);
-                    str.Append(sep);
-                }
-                str.Remove(str.Length - 1, 1);
-                str.Append(line);
-            }
-            str.Remove(str.Length - 1, 1);
-            return str.ToString();
-        }
-
         public static string Csv(object[] items)
         {
             if (items == null)
                 return null;
-            const char sep = '~';
-            const char line = '|';
             var str = new StringBuilder();
             var props = new List<PropertyInfo>(items[0].GetType().GetProperties());
             foreach (var prop in props)
@@ -178,9 +114,9 @@ namespace nuell.Sync
                 if (prop.PropertyType == typeof(string)
                     || prop.PropertyType == typeof(TimeSpan)
                     || prop.PropertyType == typeof(byte[]))
-                    str.Append('$');
+                    str.Append(stringField);
                 else if (prop.PropertyType == typeof(DateTime))
-                    str.Append('#');
+                    str.Append(dateField);
                 str.Append(prop.Name);
                 str.Append(sep);
             }
@@ -286,10 +222,30 @@ namespace nuell.Sync
             return val is null ? default : (T)Convert.ChangeType(val, typeof(T));
         }
 
-        public static object[] GetValues(string query, params SqlParameter[] parameters)
+        public static string GetStr(string query, params SqlParameter[] parameters)
+            => GetStr(query, parameters);
+
+        public static string GetStr(string query, bool isStoredProc, params SqlParameter[] parameters)
         {
             using var cnnct = new SqlConnection(Data.ConnStr);
             using var cmnd = new SqlCommand(query, cnnct);
+            cnnct.Open();
+            if (isStoredProc)
+                cmnd.CommandType = CommandType.StoredProcedure;
+            cmnd.Parameters.AddRange(parameters);
+            var val = cmnd.ExecuteScalar();
+            return val is DBNull ? null : val.ToString();
+        }
+
+        public static object[] GetValues(string query, params SqlParameter[] parameters)
+            => GetValues(query, false, parameters);
+
+        public static object[] GetValues(string query, bool isStoredProc, params SqlParameter[] parameters)
+        {
+            using var cnnct = new SqlConnection(Data.ConnStr);
+            using var cmnd = new SqlCommand(query, cnnct);
+            if (isStoredProc)
+                cmnd.CommandType = CommandType.StoredProcedure;
             cmnd.Parameters.AddRange(parameters);
             cnnct.Open();
             using var reader = cmnd.ExecuteReader();
@@ -308,34 +264,133 @@ namespace nuell.Sync
             }
         }
 
-        public static JObject GetNamedValues((string Name, string Query)[] queries, params SqlParameter[] parameters)
+        public static JObject Retrieve(string query, (string Name, Results ResultType)[] props, params SqlParameter[] parameters)
+            => Retrieve(query, props, false, parameters);
+
+        public static JObject Retrieve(string query, (string Name, Results ResultType)[] props, bool isStoredProc, params SqlParameter[] parameters)
         {
             var result = new JObject();
+            int index = 0;
             using var cnnct = new SqlConnection(Data.ConnStr);
-            using var cmnd = new SqlCommand(string.Join(';', queries.Select(t => t.Query)), cnnct);
+            using var cmnd = new SqlCommand(query, cnnct);
+            if (isStoredProc)
+                cmnd.CommandType = CommandType.StoredProcedure;
             cmnd.Parameters.AddRange(parameters);
             cnnct.Open();
             using var reader = cmnd.ExecuteReader();
-            int i = 0;
-            AddValue();
+            Read();
             while (reader.NextResult())
-                AddValue();
+                Read();
             return result;
 
-            void AddValue()
+            void Read()
             {
-                result[queries[i].Name] = reader.Read() ? JToken.FromObject(reader[0]) : null;
-                i++;
+                if (!reader.HasRows)
+                    result[props[index++].Name] = null;
+                else
+                    switch (props[index].ResultType)
+                    {
+                        case Results.Object:
+                            reader.Read();
+                            result.Add(props[index++].Name, JToken.FromObject(reader[0]));
+                            break;
+                        case Results.JObject:
+                            reader.Read();
+                            result.Add(props[index++].Name, JObject(reader));
+                            break;
+                        case Results.Csv:
+                            result.Add(props[index++].Name, ReadCsvResult(reader));
+                            break;
+                    }
             }
         }
 
-        public static string GetStr(string query)
+        public static string Csv(string query, params SqlParameter[] parameters)
+            => Csv(query, false, parameters);
+
+        public static string Csv(string query, bool isStoredProc, params SqlParameter[] parameters)
         {
             using var cnnct = new SqlConnection(Data.ConnStr);
             using var cmnd = new SqlCommand(query, cnnct);
+            if (isStoredProc)
+                cmnd.CommandType = CommandType.StoredProcedure;
+            cmnd.Parameters.AddRange(parameters);
             cnnct.Open();
-            var val = cmnd.ExecuteScalar();
-            return val is DBNull ? null : val.ToString();
+            using var reader = cmnd.ExecuteReader();
+            return ReadCsvResult(reader);
+        }
+
+        public static string[] MultiCsv(string query, bool isStoredProc, params SqlParameter[] parameters)
+        {
+            using var cnnct = new SqlConnection(Data.ConnStr);
+            using var cmnd = new SqlCommand(query, cnnct);
+            if (isStoredProc)
+                cmnd.CommandType = CommandType.StoredProcedure;
+            cmnd.Parameters.AddRange(parameters);
+            cnnct.Open();
+            using var reader = cmnd.ExecuteReader();
+            var results = new List<string>
+            {
+                ReadCsvResult(reader)
+            };
+            while (reader.NextResult())
+                results.Add(ReadCsvResult(reader));
+            return results.ToArray();
+        }
+
+        private static string ReadCsvResult(SqlDataReader reader)
+        {
+            if (!reader.HasRows)
+                return null;
+            var str = ReadCsvHeader(reader);
+            while (reader.Read())
+                ReadCsvRow(reader, str);
+            str.Remove(str.Length - 1, 1);
+            return str.ToString();
+        }
+
+        private static StringBuilder ReadCsvHeader(SqlDataReader reader)
+        {
+            var str = new StringBuilder();
+            for (int i = 0; i < reader.FieldCount; i++)
+            {
+                var fieldType = reader.GetFieldType(i);
+                if (fieldType == typeof(string) || fieldType == typeof(TimeSpan) || fieldType == typeof(byte[]))
+                    str.Append(stringField);
+                else if (fieldType == typeof(DateTime))
+                    str.Append(dateField);
+                str.Append(reader.GetName(i));
+                str.Append(sep);
+            }
+            str.Remove(str.Length - 1, 1);
+            str.Append(line);
+            return str;
+        }
+
+        private static void ReadCsvRow(SqlDataReader reader, StringBuilder str)
+        {
+            for (int i = 0; i < reader.FieldCount; i++)
+            {
+                var val = reader.GetValue(i);
+                if (val is bool b)
+                    str.Append(b ? "true" : "false"); //to prevent boolean capitalisation ('True' is not true in javascript)
+                else if (val is DateTime d)
+                {
+                    if (d.Ticks == 0)
+                        str.Append(d.ToString("yyyy-MM-dd"));
+                    else
+                        str.Append(d.ToString("yyyy-MM-ddTHH:mm:ss"));
+                }
+                else if (val is TimeSpan)
+                    str.Append(reader.GetTimeSpan(i).ToString(@"hh\:mm\:ss"));
+                else if (val is byte[] bytes)
+                    str.Append(Convert.ToBase64String(bytes));
+                else
+                    str.Append(val);
+                str.Append(sep);
+            }
+            str.Remove(str.Length - 1, 1);
+            str.Append(line);
         }
 
         public static bool Delete(int id, string table)

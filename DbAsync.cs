@@ -12,8 +12,18 @@ using System.Threading.Tasks;
 
 namespace nuell.Async
 {
+    public enum Results
+    {
+        Object, JObject, Csv
+    }
+
     public static class Db
     {
+        const char sep = '~';
+        const char line = '|';
+        const char stringField = '$';
+        const char dateField = '#';
+
         public static Task<DataTable> Table(string query, params SqlParameter[] parameters)
             => Table(query, false, parameters);
 
@@ -57,10 +67,23 @@ namespace nuell.Async
                 return null;
         }
 
-        public async static Task<string> Json(string query, params SqlParameter[] parameters)
+        private static JObject JObject(SqlDataReader reader)
+        {
+            var json = new JObject();
+            for (int i = 0; i < reader.FieldCount; i++)
+                json.Add(reader.GetName(i), JToken.FromObject(reader.GetValue(i)));
+            return json;
+        }
+
+        public static Task<string> Json(string query, params SqlParameter[] parameters)
+            => Json(query, false, parameters);
+
+        public async static Task<string> Json(string query, bool isStoredProc, params SqlParameter[] parameters)
         {
             using var cnnct = new SqlConnection(Data.ConnStr);
             using var cmnd = new SqlCommand(query, cnnct);
+            if (isStoredProc)
+                cmnd.CommandType = CommandType.StoredProcedure;
             cmnd.Parameters.AddRange(parameters);
             await cnnct.OpenAsync();
             using var reader = await cmnd.ExecuteReaderAsync();
@@ -84,10 +107,10 @@ namespace nuell.Async
                 return null;
         }
 
-        public static Task<string> Csv(string query, params SqlParameter[] parameters)
-            => Csv(query, false, parameters);
+        public static Task<List<T>> List<T>(string query, params SqlParameter[] parameters)
+            => List<T>(query, isStoredProc: false, parameters);
 
-        public static async Task<string> Csv(string query, bool isStoredProc, params SqlParameter[] parameters)
+        public static async Task<List<T>> List<T>(string query, bool isStoredProc, params SqlParameter[] parameters)
         {
             using var cnnct = new SqlConnection(Data.ConnStr);
             using var cmnd = new SqlCommand(query, cnnct);
@@ -95,74 +118,13 @@ namespace nuell.Async
                 cmnd.CommandType = CommandType.StoredProcedure;
             cmnd.Parameters.AddRange(parameters);
             await cnnct.OpenAsync();
-            using var reader = await cmnd.ExecuteReaderAsync();
-            return await ReadCsvResult(reader);
-        }
-        public static async Task<string[]> MultiCsv(string query, bool isStoredProc, params SqlParameter[] parameters)
-        {
-            using var cnnct = new SqlConnection(Data.ConnStr);
-            using var cmnd = new SqlCommand(query, cnnct);
-            if (isStoredProc)
-                cmnd.CommandType = CommandType.StoredProcedure;
-            cmnd.Parameters.AddRange(parameters);
-            await cnnct.OpenAsync();
-            using var reader = await cmnd.ExecuteReaderAsync();
-            var results = new List<string>
-            {
-                (await ReadCsvResult(reader)).ToString()
-            };
-            while (await reader.NextResultAsync())
-                results.Add(await ReadCsvResult(reader));
-            return results.ToArray();
-        }
-
-        private static async Task<string> ReadCsvResult(SqlDataReader reader)
-        {
+            using var reader = cmnd.ExecuteReader();
             if (!reader.HasRows)
                 return null;
-            const char sep = '~';
-            const char line = '|';
-            var str = new StringBuilder();
-            int count = reader.VisibleFieldCount;
-            for (int i = 0; i < count; i++)
-            {
-                var fieldType = reader.GetFieldType(i);
-                if (fieldType == typeof(string) || fieldType == typeof(TimeSpan) || fieldType == typeof(byte[]))
-                    str.Append('$');
-                else if (fieldType == typeof(DateTime))
-                    str.Append('#');
-                str.Append(reader.GetName(i));
-                str.Append(sep);
-            }
-            str.Remove(str.Length - 1, 1);
-            str.Append(line);
+            var list = new List<T>();
             while (await reader.ReadAsync())
-            {
-                for (int i = 0; i < count; i++)
-                {
-                    var val = reader.GetValue(i);
-                    if (val is bool b)
-                        str.Append(b ? "true" : "false"); //to prevent boolean capitalisation ('True' is not true in javascript)
-                    else if (val is DateTime d)
-                    {
-                        if (d.Ticks == 0)
-                            str.Append(d.ToString("yyyy-MM-dd"));
-                        else
-                            str.Append(d.ToString("yyyy-MM-ddTHH:mm:ss"));
-                    }
-                    else if (val is TimeSpan t)
-                        str.Append(t.ToString(@"hh\:mm\:ss"));
-                    else if (val is byte[] bytes)
-                        str.Append(Convert.ToBase64String(bytes));
-                    else
-                        str.Append(val);
-                    str.Append(sep);
-                }
-                str.Remove(str.Length - 1, 1);
-                str.Append(line);
-            }
-            str.Remove(str.Length - 1, 1);
-            return str.ToString();
+                list.Add((T)Convert.ChangeType(reader[0], typeof(T)));
+            return list;
         }
 
         public static Task<int> Execute(string query, params SqlParameter[] parameters)
@@ -222,6 +184,21 @@ namespace nuell.Async
             return val is null ? default : (T)Convert.ChangeType(val, typeof(T));
         }
 
+        public static Task<string> GetStr(string query, params SqlParameter[] parameters)
+            => GetStr(query, parameters);
+
+        public static async Task<string> GetStr(string query, bool isStoredProc, params SqlParameter[] parameters)
+        {
+            using var cnnct = new SqlConnection(Data.ConnStr);
+            using var cmnd = new SqlCommand(query, cnnct);
+            await cnnct.OpenAsync();
+            if (isStoredProc)
+                cmnd.CommandType = CommandType.StoredProcedure;
+            cmnd.Parameters.AddRange(parameters);
+            var val = await cmnd.ExecuteScalarAsync();
+            return val is DBNull ? null : val.ToString();
+        }
+
         public async static Task<object[]> GetValues(string query, params SqlParameter[] parameters)
         {
             using var cnnct = new SqlConnection(Data.ConnStr);
@@ -243,34 +220,134 @@ namespace nuell.Async
                 results.AddRange(values);
             }
         }
-        public static async Task<JObject> GetNamedValues((string Name, string Query)[] queries, params SqlParameter[] parameters)
+
+
+        public static Task<JObject> Retrieve(string query, (string Name, Results ResultType)[] props, params SqlParameter[] parameters)
+            => Retrieve(query, props, false, parameters);
+
+        public static async Task<JObject> Retrieve(string query, (string Name, Results ResultType)[] props, bool isStoredProc, params SqlParameter[] parameters)
         {
             var result = new JObject();
+            int index = 0;
             using var cnnct = new SqlConnection(Data.ConnStr);
-            using var cmnd = new SqlCommand(string.Join(';', queries.Select(t => t.Query)), cnnct);
+            using var cmnd = new SqlCommand(query, cnnct);
+            if (isStoredProc)
+                cmnd.CommandType = CommandType.StoredProcedure;
             cmnd.Parameters.AddRange(parameters);
             await cnnct.OpenAsync();
-            using var reader = await cmnd.ExecuteReaderAsync();
-            int i = 0;
-            await AddValue();
-            while (await reader.NextResultAsync())
-                await AddValue();
+            using var reader = cmnd.ExecuteReader();
+            await Read();
+            while (reader.NextResult())
+                await Read();
             return result;
 
-            async Task AddValue()
+            async Task Read()
             {
-                result[queries[i].Name] = await reader.ReadAsync() ? JToken.FromObject(reader[0]) : null;
-                i++;
+                if (!reader.HasRows)
+                    result[props[index++].Name] = null;
+                else
+                    switch (props[index].ResultType)
+                    {
+                        case Results.Object:
+                            await reader.ReadAsync();
+                            result.Add(props[index++].Name, JToken.FromObject(reader[0]));
+                            break;
+                        case Results.JObject:
+                            await reader.ReadAsync();
+                            result.Add(props[index++].Name, JObject(reader));
+                            break;
+                        case Results.Csv:
+                            result.Add(props[index++].Name, await ReadCsvResult(reader));
+                            break;
+                    }
             }
         }
 
-        public async static Task<string> GetStr(string query)
+        public static Task<string> Csv(string query, params SqlParameter[] parameters)
+            => Csv(query, false, parameters);
+
+        public static async Task<string> Csv(string query, bool isStoredProc, params SqlParameter[] parameters)
         {
             using var cnnct = new SqlConnection(Data.ConnStr);
             using var cmnd = new SqlCommand(query, cnnct);
+            if (isStoredProc)
+                cmnd.CommandType = CommandType.StoredProcedure;
+            cmnd.Parameters.AddRange(parameters);
             await cnnct.OpenAsync();
-            var val = await cmnd.ExecuteScalarAsync();
-            return val is DBNull ? null : val.ToString();
+            using var reader = await cmnd.ExecuteReaderAsync();
+            return await ReadCsvResult(reader);
+        }
+        public static async Task<string[]> MultiCsv(string query, bool isStoredProc, params SqlParameter[] parameters)
+        {
+            using var cnnct = new SqlConnection(Data.ConnStr);
+            using var cmnd = new SqlCommand(query, cnnct);
+            if (isStoredProc)
+                cmnd.CommandType = CommandType.StoredProcedure;
+            cmnd.Parameters.AddRange(parameters);
+            await cnnct.OpenAsync();
+            using var reader = await cmnd.ExecuteReaderAsync();
+            var results = new List<string>
+            {
+                (await ReadCsvResult(reader)).ToString()
+            };
+            while (await reader.NextResultAsync())
+                results.Add(await ReadCsvResult(reader));
+            return results.ToArray();
+        }
+
+        private static async Task<string> ReadCsvResult(SqlDataReader reader)
+        {
+            if (!reader.HasRows)
+                return null;
+            var str = ReadCsvHeader(reader);
+            while (await reader.ReadAsync())
+                ReadCsvRow(reader, str);
+            str.Remove(str.Length - 1, 1);
+            return str.ToString();
+        }
+
+        private static StringBuilder ReadCsvHeader(SqlDataReader reader)
+        {
+            var str = new StringBuilder();
+            for (int i = 0; i < reader.FieldCount; i++)
+            {
+                var fieldType = reader.GetFieldType(i);
+                if (fieldType == typeof(string) || fieldType == typeof(TimeSpan) || fieldType == typeof(byte[]))
+                    str.Append(stringField);
+                else if (fieldType == typeof(DateTime))
+                    str.Append(dateField);
+                str.Append(reader.GetName(i));
+                str.Append(sep);
+            }
+            str.Remove(str.Length - 1, 1);
+            str.Append(line);
+            return str;
+        }
+
+        private static void ReadCsvRow(SqlDataReader reader, StringBuilder str)
+        {
+            for (int i = 0; i < reader.FieldCount; i++)
+            {
+                var val = reader.GetValue(i);
+                if (val is bool b)
+                    str.Append(b ? "true" : "false"); //to prevent boolean capitalisation ('True' is not true in javascript)
+                else if (val is DateTime d)
+                {
+                    if (d.Ticks == 0)
+                        str.Append(d.ToString("yyyy-MM-dd"));
+                    else
+                        str.Append(d.ToString("yyyy-MM-ddTHH:mm:ss"));
+                }
+                else if (val is TimeSpan)
+                    str.Append(reader.GetTimeSpan(i).ToString(@"hh\:mm\:ss"));
+                else if (val is byte[] bytes)
+                    str.Append(Convert.ToBase64String(bytes));
+                else
+                    str.Append(val);
+                str.Append(sep);
+            }
+            str.Remove(str.Length - 1, 1);
+            str.Append(line);
         }
 
         public async static Task<bool> Delete(int id, string table)
