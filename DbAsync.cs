@@ -188,7 +188,7 @@ namespace nuell.Async
         }
 
         public static Task<string> GetStr(string query, params SqlParameter[] parameters)
-            => GetStr(query, parameters);
+            => GetStr(query, false, parameters);
 
         public static async Task<string> GetStr(string query, bool isStoredProc, params SqlParameter[] parameters)
         {
@@ -423,67 +423,8 @@ namespace nuell.Async
             return id;
         }
 
-        public async static Task<JObject> NewItem(string table)
-        {
-            var regDefault = new Regex(@"\((?:(?:N?'([^']+)')|(?:\(([^()]+)\)))\)", RegexOptions.Compiled);
-            // ((some number)) or (N'some text') or ('some text')
-            var item = new JObject();
-            using var cnnct = new SqlConnection(Data.ConnStr);
-            using var cmnd = new SqlCommand($@"select COLUMN_NAME, DATA_TYPE, IS_NULLABLE, COLUMN_DEFAULT
-                    from INFORMATION_SCHEMA.COLUMNS where TABLE_NAME='{table}' order by ORDINAL_POSITION", cnnct);
-            await cnnct.OpenAsync();
-            using var reader = await cmnd.ExecuteReaderAsync();
-            while (await reader.ReadAsync())
-            {
-                string col = reader.GetString("COLUMN_NAME");
-                var colDefault = reader.GetValue("COLUMN_DEFAULT");
-                if (!Convert.IsDBNull(colDefault))
-                {
-                    var match = regDefault.Match(colDefault.ToString());
-                    string defaultVal = match.Groups[match.Groups[1].Success ? 1 : 2].Value;
-                    switch (reader.GetString("DATA_TYPE"))
-                    {
-                        case "int":
-                        case "smallint":
-                        case "tinyint":
-                        case "bigint":
-                            item[col] = long.Parse(defaultVal);
-                            break;
-                        case "real":
-                        case "float":
-                            item[col] = float.Parse(defaultVal);
-                            break;
-                        case "bit":
-                            item[col] = float.TryParse(defaultVal, out float bitDefault)
-                                ? bitDefault != 0
-                                : string.Equals(defaultVal, "true", StringComparison.InvariantCultureIgnoreCase);
-                            break;
-                        default:
-                            item[col] = defaultVal;
-                            break;
-                    }
-                }
-                else if (reader.GetString("IS_NULLABLE") == "NO")
-                    switch (reader.GetString("DATA_TYPE"))
-                    {
-                        case "int":
-                        case "smallint":
-                        case "tinyint":
-                        case "bigint":
-                        case "real":
-                        case "float":
-                            item[col] = 0;
-                            break;
-                        case "bit":
-                            item[col] = false;
-                            break;
-                        default:
-                            item[col] = string.Empty;
-                            break;
-                    }
-            }
-            return item;
-        }
+        public static async Task<string> NewItem(string table)
+            => await GetStr(nuell.Data.NewItem, new SqlParameter("@table", table));
     }
 }
 
