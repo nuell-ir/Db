@@ -1,4 +1,6 @@
-﻿using Microsoft.Data.SqlClient;
+﻿using System;
+using Microsoft.Data.SqlClient;
+using Newtonsoft.Json.Linq;
 
 namespace nuell
 {
@@ -21,14 +23,14 @@ namespace nuell
                             return A;
                         }");
 
-        public static readonly string NewItem = 
+        public static readonly string NewItem =
             @"select '{' + (
                 select '""' + COLUMN_NAME + '"":' + 
                     case 
                         when COLUMN_DEFAULT is null then
                             case
                                 when IS_NULLABLE = 'YES' then 'null'
-                                else iif(DATA_TYPE in ('int', 'smallint', 'tinyint', 'bigint', 'float', 'real', 'bit'), '0', '""')
+                                else iif(DATA_TYPE in ('int', 'smallint', 'tinyint', 'bigint', 'float', 'real', 'bit'), '0', '""""')
                             end
                         else
                             case 
@@ -49,6 +51,19 @@ namespace nuell
 
         public static SqlParameter NS(string name, string value)
             => new SqlParameter(name, string.IsNullOrWhiteSpace(value) ? null : value.Trim());
+
+        public static object JPropValue(JProperty prop)
+            => prop.Value.Type switch
+            {
+                JTokenType.Null => DBNull.Value,
+                JTokenType.Integer => (long)prop.Value,
+                JTokenType.Float => (float)prop.Value,
+                JTokenType.Boolean => (bool)prop.Value,
+                JTokenType.Date => (DateTime)prop.Value,
+                JTokenType.TimeSpan => (TimeSpan)prop.Value,
+                JTokenType.Bytes => (byte[])prop.Value,
+                _ => (string)prop.Value,
+            };
 
         //public static T RowToEntity<T>(DataRow row) where T : new()
         //{

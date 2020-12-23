@@ -384,17 +384,7 @@ namespace nuell.Async
                     Value = new SqlParameter
                     {
                         ParameterName = "@" + prop.Name,
-                        Value = prop.Value.Type switch
-                        {
-                            JTokenType.Null => DBNull.Value,
-                            JTokenType.String => (string)prop.Value,
-                            JTokenType.Integer => (long)prop.Value,
-                            JTokenType.Float => (float)prop.Value,
-                            JTokenType.Boolean => (bool)prop.Value,
-                            JTokenType.Date => (DateTime)prop.Value,
-                            JTokenType.TimeSpan => (TimeSpan)prop.Value,
-                            JTokenType.Bytes => (byte[])prop.Value
-                        }
+                        Value = Data.JPropValue(prop)
                     }
                 };
             int id = (int)jsonEntity.Properties().First(p => p.Name == "Id").Value;
