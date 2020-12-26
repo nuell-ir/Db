@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Text.RegularExpressions;
 using Microsoft.Data.SqlClient;
 using Newtonsoft.Json.Linq;
 
@@ -6,22 +7,44 @@ namespace nuell
 {
     public static class Data
     {
-        public static string ConnStr { get; set; }
+        public static string ConnectionString { get; set; }
 
-        public static string Obj()
-            => Util.Compress(
-                @"function obj(C) {
-                            let R = C.split('|'), L = R.length, A = [], h = R[0].split('~'), l = h.length;
-                            for (let i = 1; i < L; i++) {
-                                let o = {}, c = R[i].split('~');
-                                for (let j = 0; j < l; j++)
-                                    h[j][0] == '$' ? o[h[j].slice(1)] = c[j] : 
-                                    h[j][0] == '#' ? o[h[j].slice(1)] = new Date(c[j]) 
-                                        : o[h[j]] = eval(c[j]);
-                                A.push(o);
-                            }
-                            return A;
-                        }");
+        public static string ParseCsv()
+            => Compress(
+                @"function parseCsv(csv) {
+                    let output = [];
+                    if (!csv)
+                        return output;
+                    const rows = csv.split('|'),
+                          rowCount = rows.length,
+                          headers = rows[0].split('~'),
+                          headerCount = headers.length,
+                          parse = (header, val) => {
+                              switch (header[0]) {
+                                  case '$':
+                                    return { [header.slice(1)]: val };
+                                  case '#':
+                                    return { [header.slice(1)]: new Date(val) };
+                                  default:
+                                    return { [header]: eval(val) };
+                              }
+                          };
+                    for (let i = 1; i < rowCount; i++) {
+                        let obj = {},
+                        values = rows[i].split('~');
+                        for (let j = 0; j < headerCount; j++)
+                            obj = Object.assign(obj, parse(headers[j], values[j]));
+                        output.push(obj);
+                    }
+                    return output;
+                }");
+
+        private static string Compress(string code)
+        {
+            string s2 = Regex.Replace(code, @"([;{})>+-,:])\s*\n\s*", "$1", RegexOptions.Multiline);
+            s2 = Regex.Replace(s2, @"\s*\n\s*", " ", RegexOptions.Multiline);
+            return Regex.Replace(s2, @"\s*([(){},;:=<>/*+\-?&|'])\s*", "$1", RegexOptions.Multiline);
+        }
 
         public static readonly string NewItem =
             @"select '{' + (

@@ -7,6 +7,10 @@
     <Company>nuell</Company>
     <Product>Db</Product>
     <Authors>Ako Mahmoodi</Authors>
+    <PackageId>nuell_Db</PackageId>
+    <RepositoryUrl>https://github.com/pellk/Db</RepositoryUrl>
+    <PackageLicenseFile>LICENSE</PackageLicenseFile>
+    <PackageTags>SQL Server, JSON, CSV</PackageTags>
   </PropertyGroup>
 
   <ItemGroup>
@@ -15,7 +19,10 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\Util\Util.csproj" />
+    <None Include="LICENSE">
+      <Pack>True</Pack>
+      <PackagePath></PackagePath>
+    </None>
   </ItemGroup>
 
 </Project>

@@ -113,7 +113,7 @@ function parseCsv(csv) {
 For more convenience, the builtin minified parser function can be included an ASP.NET razor page:
 
 ```
-<script>@Html.Raw(nuell.Data.Obj())</script>
+<script>@Html.Raw(nuell.Data.ParseCsv())</script>
 ```
 
 ## MultiCsv
@@ -140,7 +140,7 @@ string json = await Db.Json($"select * from Customers where Id={1}");
 Converts one data row into [Json.net JObject](https://www.newtonsoft.com/json/help/html/T_Newtonsoft_Json_Linq_JObject.htm).
 
 ```c#
-var jobject = await Db.JObject("select Id, FullName, BirthDate, IsMarried from Employees where Id=@id", new SqlParameter("@id", id));
+var jobject = await Db.JObject("select * from Employees where Id=@id", new SqlParameter("@id", id));
 ```
 
 ## Table
@@ -283,7 +283,7 @@ Returns a JSON value containing a new record from the specified table.
 Default values of the table fields will be respected. If a table field has no default values, the values for nullable, numeric, boolean, and string fields will be `null`, 0, `false`, and empty string, respectively.
 
 ```c#
-string json = await NewItem("Employees");
+string json = await Db.NewItem("Employees");
 //returns e.g. { "Id": 0, "FullName": "", "Married": false, "Address": null }
 ```
 

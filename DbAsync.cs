@@ -29,7 +29,7 @@ namespace nuell.Async
 
         public static async Task<DataTable> Table(string query, bool isStoredProc, params SqlParameter[] parameters)
         {
-            using var cnnct = new SqlConnection(Data.ConnStr);
+            using var cnnct = new SqlConnection(Data.ConnectionString);
             using var cmnd = new SqlCommand(query, cnnct);
             if (isStoredProc)
                 cmnd.CommandType = CommandType.StoredProcedure;
@@ -47,7 +47,7 @@ namespace nuell.Async
 
         public async static Task<JObject> JObject(string query, bool isStoredProc, params SqlParameter[] parameters)
         {
-            using var cnnct = new SqlConnection(Data.ConnStr);
+            using var cnnct = new SqlConnection(Data.ConnectionString);
             using var cmnd = new SqlCommand(query, cnnct);
             if (isStoredProc)
                 cmnd.CommandType = CommandType.StoredProcedure;
@@ -80,7 +80,7 @@ namespace nuell.Async
 
         public async static Task<string> Json(string query, bool isStoredProc, params SqlParameter[] parameters)
         {
-            using var cnnct = new SqlConnection(Data.ConnStr);
+            using var cnnct = new SqlConnection(Data.ConnectionString);
             using var cmnd = new SqlCommand(query, cnnct);
             if (isStoredProc)
                 cmnd.CommandType = CommandType.StoredProcedure;
@@ -115,7 +115,7 @@ namespace nuell.Async
 
         public static async Task<List<T>> List<T>(string query, bool isStoredProc, params SqlParameter[] parameters)
         {
-            using var cnnct = new SqlConnection(Data.ConnStr);
+            using var cnnct = new SqlConnection(Data.ConnectionString);
             using var cmnd = new SqlCommand(query, cnnct);
             if (isStoredProc)
                 cmnd.CommandType = CommandType.StoredProcedure;
@@ -135,7 +135,7 @@ namespace nuell.Async
 
         public async static Task<int> Execute(string query, bool isStoredProc, params SqlParameter[] parameters)
         {
-            using var cnnct = new SqlConnection(Data.ConnStr);
+            using var cnnct = new SqlConnection(Data.ConnectionString);
             using var cmnd = new SqlCommand(query, cnnct);
             if (isStoredProc)
                 cmnd.CommandType = CommandType.StoredProcedure;
@@ -152,7 +152,7 @@ namespace nuell.Async
             if (queries == null)
                 return null;
             var result = new int[queries.Count()];
-            using (var cnnct = new SqlConnection(Data.ConnStr))
+            using (var cnnct = new SqlConnection(Data.ConnectionString))
             {
                 using var cmnd = cnnct.CreateCommand();
                 await cnnct.OpenAsync();
@@ -177,7 +177,7 @@ namespace nuell.Async
 
         public async static Task<T> GetVal<T>(string query, bool isStoredProc, params SqlParameter[] parameters) where T : struct
         {
-            using var cnnct = new SqlConnection(Data.ConnStr);
+            using var cnnct = new SqlConnection(Data.ConnectionString);
             using var cmnd = new SqlCommand(query, cnnct);
             if (isStoredProc)
                 cmnd.CommandType = CommandType.StoredProcedure;
@@ -192,7 +192,7 @@ namespace nuell.Async
 
         public static async Task<string> GetStr(string query, bool isStoredProc, params SqlParameter[] parameters)
         {
-            using var cnnct = new SqlConnection(Data.ConnStr);
+            using var cnnct = new SqlConnection(Data.ConnectionString);
             using var cmnd = new SqlCommand(query, cnnct);
             await cnnct.OpenAsync();
             if (isStoredProc)
@@ -207,7 +207,7 @@ namespace nuell.Async
 
         public static async Task<object[]> GetValues(string query, bool isStoredProc, params SqlParameter[] parameters)
         {
-            using var cnnct = new SqlConnection(Data.ConnStr);
+            using var cnnct = new SqlConnection(Data.ConnectionString);
             using var cmnd = new SqlCommand(query, cnnct);
             if (isStoredProc)
                 cmnd.CommandType = CommandType.StoredProcedure;
@@ -236,7 +236,7 @@ namespace nuell.Async
         {
             var result = new JObject();
             int index = 0;
-            using var cnnct = new SqlConnection(Data.ConnStr);
+            using var cnnct = new SqlConnection(Data.ConnectionString);
             using var cmnd = new SqlCommand(query, cnnct);
             if (isStoredProc)
                 cmnd.CommandType = CommandType.StoredProcedure;
@@ -278,7 +278,7 @@ namespace nuell.Async
 
         public static async Task<string> Csv(string query, bool isStoredProc, params SqlParameter[] parameters)
         {
-            using var cnnct = new SqlConnection(Data.ConnStr);
+            using var cnnct = new SqlConnection(Data.ConnectionString);
             using var cmnd = new SqlCommand(query, cnnct);
             if (isStoredProc)
                 cmnd.CommandType = CommandType.StoredProcedure;
@@ -289,7 +289,7 @@ namespace nuell.Async
         }
         public static async Task<string[]> MultiCsv(string query, bool isStoredProc, params SqlParameter[] parameters)
         {
-            using var cnnct = new SqlConnection(Data.ConnStr);
+            using var cnnct = new SqlConnection(Data.ConnectionString);
             using var cmnd = new SqlCommand(query, cnnct);
             if (isStoredProc)
                 cmnd.CommandType = CommandType.StoredProcedure;
@@ -389,7 +389,7 @@ namespace nuell.Async
                 };
             int id = (int)jsonEntity.Properties().First(p => p.Name == "Id").Value;
             if (id == 0)
-                using (var cnnct = new SqlConnection(Data.ConnStr))
+                using (var cnnct = new SqlConnection(Data.ConnectionString))
                 {
                     using var cmnd = cnnct.CreateCommand();
                     cmnd.CommandText = string.Format("insert into [{0}] ({1}) values ({2})",
