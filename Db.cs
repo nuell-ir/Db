@@ -73,7 +73,9 @@ namespace nuell
             ) + '}'";
 
         public static SqlParameter NS(string name, string value)
-            => new SqlParameter(name, string.IsNullOrWhiteSpace(value) ? null : value.Trim());
+            => string.IsNullOrWhiteSpace(value)
+               ? new SqlParameter(name, System.Data.SqlDbType.NVarChar) { Value = null }
+               : new SqlParameter(name, value.Trim());
 
         public static object JPropValue(JProperty prop)
             => prop.Value.Type switch
