@@ -155,6 +155,14 @@ Converts a one-field query into a `System.Collections.Generic.List< T >`. For ex
 var idList = await Db.List<int>("select Id from Employees");
 ```
 
+## Dictionary<K, V>
+
+Converts a two-field query into a `System.Collections.Generic.Dictionary<K, V>`. For example:
+
+```c#
+var cities = await Db.Dictionary<int>("select ZipCode, City from Addresses");
+```
+
 ## GetStr
 
 Returns one string value. For example:

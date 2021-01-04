@@ -3,7 +3,7 @@
   <PropertyGroup>
     <TargetFramework>netcoreapp3.1</TargetFramework>
     <RootNamespace>nuell</RootNamespace>
-    <Version>1.0.3</Version>
+    <Version>1.2.0</Version>
     <LangVersion>9.0</LangVersion>
     <Company>nuell</Company>
     <Product>Db</Product>

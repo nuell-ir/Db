@@ -130,6 +130,26 @@ namespace nuell.Async
             return list;
         }
 
+        public static Task<Dictionary<K, V>> Dictionary<K, V>(string query, params SqlParameter[] parameters)
+            => Dictionary<K, V>(query, isStoredProc: false, parameters);
+
+        public static async Task<Dictionary<K, V>> Dictionary<K, V>(string query, bool isStoredProc, params SqlParameter[] parameters)
+        {
+            using var cnnct = new SqlConnection(Data.ConnectionString);
+            using var cmnd = new SqlCommand(query, cnnct);
+            if (isStoredProc)
+                cmnd.CommandType = CommandType.StoredProcedure;
+            cmnd.Parameters.AddRange(parameters);
+            await cnnct.OpenAsync();
+            using var reader = cmnd.ExecuteReader();
+            if (!reader.HasRows)
+                return null;
+            var dictionary = new Dictionary<K, V>();
+            while (await reader.ReadAsync())
+                dictionary.Add((K)Convert.ChangeType(reader[0], typeof(K)), (V)Convert.ChangeType(reader[1], typeof(V)));
+            return dictionary;
+        }
+
         public static Task<int> Execute(string query, params SqlParameter[] parameters)
             => Execute(query, false, parameters);
 
