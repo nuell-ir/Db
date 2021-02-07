@@ -219,7 +219,7 @@ namespace nuell.Async
                 cmnd.CommandType = CommandType.StoredProcedure;
             cmnd.Parameters.AddRange(parameters);
             var val = await cmnd.ExecuteScalarAsync();
-            return val is DBNull ? null : val.ToString();
+            return val is DBNull ? null : val?.ToString();
         }
 
         public static Task<object[]> GetValues(string query, params SqlParameter[] parameters)

@@ -257,7 +257,7 @@ namespace nuell.Sync
                 cmnd.CommandType = CommandType.StoredProcedure;
             cmnd.Parameters.AddRange(parameters);
             var val = cmnd.ExecuteScalar();
-            return val is DBNull ? null : val.ToString();
+            return val is DBNull ? null : val?.ToString();
         }
 
         public static object[] GetValues(string query, params SqlParameter[] parameters)
