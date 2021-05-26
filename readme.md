@@ -261,26 +261,17 @@ int[] rows = await Db.Transaction(query1 + query2);
 
 ## Save
 
-Saves a `JObject` to the specified table and returns the **Id** of the saved record.
+Saves a `JObject` or `object` to the specified table and returns the **Id** of the saved record.
 
-The `JObject` parameter must include an **Id** property, and the target table must have an **Id** field as the identity primary key.
+The `JObject` or `object` parameter must include an **Id** property (case insensitive), and the target table must have an **Id** field as the identity primary key.
 
-If the value of **Id** is zero, it will be ignored and the rest of the properties will be inserted into the table. Then the new **Id** (created by table identity) will be returned. For example:
-
-```json
-{ "Id": 0, "FullName": "Shelley Askem", "Age": 34, "Balance": 1520 }
-```
-
-Otherwise, the record with the given **Id** will be updated. For example:
-
-```json
-{ "Id": 25, "FullName": "Shelley Askem", "Age": 34, "Balance": 1520 }
-```
+If the value of **Id** is zero, it will be ignored and the rest of the properties will be inserted into the table. Then the new **Id** (created by table identity) will be returned. Otherwise, the record with the given **Id** will be updated. 
 
 All the properties *must* match the table fields.
 
 ```c#
-var employee = JObject.Parse(jsonString);
+var employee = JObject.Parse("{ \"Id\": 0, \"FullName\": \"Shelley Askem\", \"Age\": 34, \"Balance\": 1520 }");
+var employee = new { Id = 0, FullName = "Shelley Askem", Age = 34, Balance = 1520 }
 int id = await Save(employee, "Employees");
 ```
 
