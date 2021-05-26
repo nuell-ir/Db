@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Text.RegularExpressions;
+
 using Microsoft.Data.SqlClient;
 using Newtonsoft.Json.Linq;
 
@@ -87,15 +88,6 @@ namespace nuell
                 JTokenType.Bytes => (byte[])prop.Value,
                 _ => (string)prop.Value,
             };
-
-        //public static T RowToEntity<T>(DataRow row) where T : new()
-        //{
-        //    var entity = new T();
-        //    var props = new List<PropertyInfo>(entity.GetType().GetProperties());
-        //    foreach (var prop in props)
-        //        prop.SetValue(entity, row[prop.Name] == DBNull.Value ? null : row[prop.Name]);
-        //    return entity;
-        //}
     }
 }
 

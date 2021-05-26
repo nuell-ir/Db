@@ -1,14 +1,14 @@
-﻿using Microsoft.Data.SqlClient;
-using Newtonsoft.Json;
-using Newtonsoft.Json.Linq;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Data;
 using System.IO;
 using System.Linq;
 using System.Text;
-using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+
+using Microsoft.Data.SqlClient;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 
 namespace nuell.Async
 {
@@ -392,31 +392,27 @@ namespace nuell.Async
             }
         }
 
-        public async static Task<int> Save(JObject jsonEntity, string table)
+        public async static Task<int> Save(JObject jobj, string table)
+            => await Save(jobj.Properties().Select(p => (p.Name, Data.JPropValue(p))), table);
+
+        public async static Task<int> Save(object obj, string table)
+            => await Save(obj.GetType().GetProperties().Select(p => (p.Name, p.GetValue(obj))), table);
+
+        private async static Task<int> Save(IEnumerable<(string Name, object Value)> props, string table)
         {
-            var props =
-                from prop in jsonEntity.Properties()
-                where prop.Name != "Id"
-                select new
-                {
-                    Name = $"[{prop.Name}]",
-                    ParamName = "@" + prop.Name,
-                    Value = new SqlParameter
-                    {
-                        ParameterName = "@" + prop.Name,
-                        Value = Data.JPropValue(prop)
-                    }
-                };
-            int id = (int)jsonEntity.Properties().First(p => p.Name == "Id").Value;
+            var idProp = props.Where(prop => string.Compare(prop.Name, "Id", true) == 0);
+            int id = (int)idProp.First().Value;
+            props = props.Except(idProp);
+            var sqlParams = props.Select(prop => new SqlParameter("@" + prop.Name, prop.Value)).ToArray();
             if (id == 0)
                 using (var cnnct = new SqlConnection(Data.ConnectionString))
                 {
                     using var cmnd = cnnct.CreateCommand();
                     cmnd.CommandText = string.Format("insert into [{0}] ({1}) values ({2})",
                         table,
-                        string.Join(',', props.Select(prop => prop.Name)),
-                        string.Join(',', props.Select(prop => prop.ParamName)));
-                    cmnd.Parameters.AddRange(props.Select(prop => prop.Value).ToArray());
+                        string.Join(',', props.Select(prop => $"[{prop.Name}]")),
+                        string.Join(',', props.Select(prop => "@" + prop.Name)));
+                    cmnd.Parameters.AddRange(sqlParams);
 
                     await cnnct.OpenAsync();
                     await cmnd.ExecuteNonQueryAsync();
@@ -427,8 +423,8 @@ namespace nuell.Async
                 await Execute(
                     string.Format("update [{0}] set {1} where Id=" + id,
                         table,
-                        string.Join(',', props.Select(prop => prop.Name + '=' + prop.ParamName))),
-                    props.Select(prop => prop.Value).ToArray());
+                        string.Join(',', props.Select(prop => $"[{prop.Name}]=@{prop.Name}"))),
+                    sqlParams);
 
             return id;
         }
