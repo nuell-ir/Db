@@ -392,11 +392,11 @@ namespace nuell.Async
             }
         }
 
-        public async static Task<int> Save(JObject jobj, string table)
-            => await Save(jobj.Properties().Select(p => (p.Name, Data.JPropValue(p))), table);
+        public static Task<int> Save(JObject jobj, string table)
+            => Save(jobj.Properties().Select(p => (p.Name, Data.JPropValue(p))), table);
 
-        public async static Task<int> Save(object obj, string table)
-            => await Save(obj.GetType().GetProperties().Select(p => (p.Name, p.GetValue(obj))), table);
+        public static Task<int> Save(object obj, string table)
+            => Save(obj.GetType().GetProperties().Select(p => (p.Name, p.GetValue(obj))), table);
 
         private async static Task<int> Save(IEnumerable<(string Name, object Value)> props, string table)
         {
@@ -429,8 +429,8 @@ namespace nuell.Async
             return id;
         }
 
-        public static async Task<string> NewItem(string table)
-            => await GetStr(nuell.Data.NewItem, new SqlParameter("@table", table));
+        public static Task<string> NewItem(string table)
+            => GetStr(nuell.Data.NewItem, new SqlParameter("@table", table));
     }
 }
 
