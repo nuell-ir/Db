@@ -3,7 +3,7 @@
   <PropertyGroup>
     <TargetFramework>net5.0</TargetFramework>
     <RootNamespace>nuell</RootNamespace>
-    <Version>1.3.0</Version>
+    <Version>1.3.2</Version>
     <LangVersion>9.0</LangVersion>
     <Company>nuell</Company>
     <Product>Db</Product>

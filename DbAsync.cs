@@ -318,7 +318,7 @@ namespace nuell.Async
             using var reader = await cmnd.ExecuteReaderAsync();
             var results = new List<string>
             {
-                (await ReadCsvResult(reader)).ToString()
+                await ReadCsvResult(reader)
             };
             while (await reader.NextResultAsync())
                 results.Add(await ReadCsvResult(reader));
