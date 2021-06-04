@@ -24,8 +24,11 @@ namespace nuell.Async
         const char stringField = '$';
         const char dateField = '#';
 
-        public static Task<DataTable> Table(string query, params SqlParameter[] parameters)
-            => Table(query, false, parameters);
+        public static Task<DataTable> Table(string query, params (string name, object value)[] parameters)
+            => Table(query, false, Data.SqlParams(parameters));
+
+        public static Task<DataTable> Table(string query, bool isStoredProc, params (string name, object value)[] parameters)
+            => Table(query, isStoredProc, Data.SqlParams(parameters));
 
         public static async Task<DataTable> Table(string query, bool isStoredProc, params SqlParameter[] parameters)
         {
@@ -42,8 +45,11 @@ namespace nuell.Async
             return dt;
         }
 
-        public static Task<JObject> JObject(string query, params SqlParameter[] parameters)
-            => JObject(query, isStoredProc: false, parameters);
+        public static Task<JObject> JObject(string query, params (string name, object value)[] parameters)
+            => JObject(query, false, Data.SqlParams(parameters));
+
+        public static Task<JObject> JObject(string query, bool isStoredProc, params (string name, object value)[] parameters)
+            => JObject(query, isStoredProc, Data.SqlParams(parameters));
 
         public async static Task<JObject> JObject(string query, bool isStoredProc, params SqlParameter[] parameters)
         {
@@ -75,8 +81,11 @@ namespace nuell.Async
             return json;
         }
 
-        public static Task<string> Json(string query, params SqlParameter[] parameters)
-            => Json(query, false, parameters);
+        public static Task<string> Json(string query, params (string name, object value)[] parameters)
+            => Json(query, false, Data.SqlParams(parameters));
+
+        public static Task<string> Json(string query, bool isStoredProc, params (string name, object value)[] parameters)
+            => Json(query, isStoredProc, Data.SqlParams(parameters));
 
         public async static Task<string> Json(string query, bool isStoredProc, params SqlParameter[] parameters)
         {
@@ -110,8 +119,11 @@ namespace nuell.Async
             return str.ToString();
         }
 
-        public static Task<List<T>> List<T>(string query, params SqlParameter[] parameters)
-            => List<T>(query, isStoredProc: false, parameters);
+        public static Task<List<T>> List<T>(string query, params (string name, object value)[] parameters)
+            => List<T>(query, false, Data.SqlParams(parameters));
+
+        public static Task<List<T>> List<T>(string query, bool isStoredProc, params (string name, object value)[] parameters)
+            => List<T>(query, isStoredProc, Data.SqlParams(parameters));
 
         public static async Task<List<T>> List<T>(string query, bool isStoredProc, params SqlParameter[] parameters)
         {
@@ -130,8 +142,11 @@ namespace nuell.Async
             return list;
         }
 
-        public static Task<Dictionary<K, V>> Dictionary<K, V>(string query, params SqlParameter[] parameters)
-            => Dictionary<K, V>(query, isStoredProc: false, parameters);
+        public static Task<Dictionary<K, V>> Dictionary<K, V>(string query, params (string name, object value)[] parameters)
+            => Dictionary<K, V>(query, false, Data.SqlParams(parameters));
+
+        public static Task<Dictionary<K, V>> Dictionary<K, V>(string query, bool isStoredProc, params (string name, object value)[] parameters)
+            => Dictionary<K, V>(query, isStoredProc, Data.SqlParams(parameters));
 
         public static async Task<Dictionary<K, V>> Dictionary<K, V>(string query, bool isStoredProc, params SqlParameter[] parameters)
         {
@@ -150,8 +165,11 @@ namespace nuell.Async
             return dictionary;
         }
 
-        public static Task<int> Execute(string query, params SqlParameter[] parameters)
-            => Execute(query, false, parameters);
+        public static Task<int> Execute(string query, params (string name, object value)[] parameters)
+            => Execute(query, false, Data.SqlParams(parameters));
+
+        public static Task<int> Execute(string query, bool isStoredProc, params (string name, object value)[] parameters)
+            => Execute(query, isStoredProc, Data.SqlParams(parameters));
 
         public async static Task<int> Execute(string query, bool isStoredProc, params SqlParameter[] parameters)
         {
@@ -192,9 +210,12 @@ namespace nuell.Async
         public static Task<JObject> Get(int id, string table)
             => JObject($"select top 1 * from {table} where Id={id}");
 
-        public static Task<T> GetVal<T>(string query, params SqlParameter[] parameters) where T : struct
-            => GetVal<T>(query, false, parameters);
+        public static Task<T> GetVal<T>(string query, params (string name, object value)[] parameters) where T : struct
+            => GetVal<T>(query, false, Data.SqlParams(parameters));
 
+        public static Task<T> GetVal<T>(string query, bool isStoredProc, params (string name, object value)[] parameters) where T : struct
+            => GetVal<T>(query, isStoredProc, Data.SqlParams(parameters));
+        
         public async static Task<T> GetVal<T>(string query, bool isStoredProc, params SqlParameter[] parameters) where T : struct
         {
             using var cnnct = new SqlConnection(Data.ConnectionString);
@@ -207,8 +228,11 @@ namespace nuell.Async
             return val is null ? default : (T)Convert.ChangeType(val, typeof(T));
         }
 
-        public static Task<string> GetStr(string query, params SqlParameter[] parameters)
-            => GetStr(query, false, parameters);
+        public static Task<string> GetStr(string query, params (string name, object value)[] parameters)
+            => GetStr(query, false, Data.SqlParams(parameters));
+
+        public static Task<string> GetStr(string query, bool isStoredProc, params (string name, object value)[] parameters)
+            => GetStr(query, isStoredProc, Data.SqlParams(parameters));
 
         public static async Task<string> GetStr(string query, bool isStoredProc, params SqlParameter[] parameters)
         {
@@ -222,8 +246,11 @@ namespace nuell.Async
             return val is DBNull ? null : val?.ToString();
         }
 
-        public static Task<object[]> GetValues(string query, params SqlParameter[] parameters)
-            => GetValues(query, false, parameters);
+        public static Task<object[]> GetValues(string query, params (string name, object value)[] parameters)
+            => GetValues(query, false, Data.SqlParams(parameters));
+
+        public static Task<object[]> GetValues(string query, bool isStoredProc, params (string name, object value)[] parameters)
+            => GetValues(query, isStoredProc, Data.SqlParams(parameters));
 
         public static async Task<object[]> GetValues(string query, bool isStoredProc, params SqlParameter[] parameters)
         {
@@ -249,10 +276,13 @@ namespace nuell.Async
             }
         }
 
-        public static Task<JObject> Retrieve(string query, (string Name, Results ResultType)[] props, params SqlParameter[] parameters)
-            => Retrieve(query, props, false, parameters);
+        public static Task<JObject> Retrieve(string query, (string Name, Results ResultType)[] props, params (string name, object value)[] parameters)
+            => Retrieve(query, props, false, Data.SqlParams(parameters));
 
-        public static async Task<JObject> Retrieve(string query, (string Name, Results ResultType)[] props, bool isStoredProc, params SqlParameter[] parameters)
+        public static Task<JObject> Retrieve(string query, (string Name, Results ResultType)[] props, bool isStoredProc, params (string name, object value)[] parameters)
+            => Retrieve(query, props, isStoredProc, Data.SqlParams(parameters));
+
+        public static async Task<JObject> Retrieve(string query, (string Name, Results ResultType)[] props, bool isStoredProc = false, params SqlParameter[] parameters)
         {
             var result = new JObject();
             int index = 0;
@@ -293,8 +323,11 @@ namespace nuell.Async
             }
         }
 
-        public static Task<string> Csv(string query, params SqlParameter[] parameters)
-            => Csv(query, false, parameters);
+        public static Task<string> Csv(string query, params (string name, object value)[] parameters)
+            => Csv(query, false, Data.SqlParams(parameters));
+
+        public static Task<string> Csv(string query, bool isStoredProc, params (string name, object value)[] parameters)
+            => Csv(query, isStoredProc, Data.SqlParams(parameters));
 
         public static async Task<string> Csv(string query, bool isStoredProc, params SqlParameter[] parameters)
         {
@@ -307,6 +340,13 @@ namespace nuell.Async
             using var reader = await cmnd.ExecuteReaderAsync();
             return await ReadCsvResult(reader);
         }
+
+        public static Task<string[]> MultiCsv(string query, params (string name, object value)[] parameters)
+            => MultiCsv(query, false, Data.SqlParams(parameters));
+
+        public static Task<string[]> MultiCsv(string query, bool isStoredProc, params (string name, object value)[] parameters)
+            => MultiCsv(query, isStoredProc, Data.SqlParams(parameters));
+
         public static async Task<string[]> MultiCsv(string query, bool isStoredProc, params SqlParameter[] parameters)
         {
             using var cnnct = new SqlConnection(Data.ConnectionString);
@@ -401,7 +441,7 @@ namespace nuell.Async
         private async static Task<int> Save(IEnumerable<(string Name, object Value)> props, string table)
         {
             var idProp = props.Where(prop => string.Compare(prop.Name, "Id", true) == 0);
-            int id = (int)idProp.First().Value;
+            int id = Convert.ToInt32(idProp.First().Value);
             props = props.Except(idProp);
             var sqlParams = props.Select(prop => new SqlParameter("@" + prop.Name, prop.Value)).ToArray();
             if (id == 0)
@@ -424,13 +464,14 @@ namespace nuell.Async
                     string.Format("update [{0}] set {1} where Id=" + id,
                         table,
                         string.Join(',', props.Select(prop => $"[{prop.Name}]=@{prop.Name}"))),
+                    false,
                     sqlParams);
 
             return id;
         }
 
         public static Task<string> NewItem(string table)
-            => GetStr(nuell.Data.NewItem, new SqlParameter("@table", table));
+            => GetStr(nuell.Data.NewItem, false, new SqlParameter("@table", table));
     }
 }
 

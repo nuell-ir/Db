@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Linq;
 using System.Text.RegularExpressions;
 
 using Microsoft.Data.SqlClient;
@@ -9,6 +10,9 @@ namespace nuell
     public static class Data
     {
         public static string ConnectionString { get; set; }
+
+        public static SqlParameter[] SqlParams((string name, object value)[] parameters)
+            => parameters.Select(p => new SqlParameter(p.name, p.value)).ToArray();
 
         public static string ParseCsv()
             => Compress(

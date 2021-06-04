@@ -24,8 +24,11 @@ namespace nuell.Sync
         const char stringField = '$';
         const char dateField = '#';
 
-        public static DataTable Table(string query, params SqlParameter[] parameters)
-        => Table(query, false, parameters);
+        public static DataTable Table(string query, params (string name, object value)[] parameters)
+            => Table(query, false, Data.SqlParams(parameters));
+
+        public static DataTable Table(string query, bool isStoredProc, params (string name, object value)[] parameters)
+            => Table(query, isStoredProc, Data.SqlParams(parameters));
 
         public static DataTable Table(string query, bool isStoredProc, params SqlParameter[] parameters)
         {
@@ -42,8 +45,11 @@ namespace nuell.Sync
             return dt;
         }
 
-        public static JObject JObject(string query, params SqlParameter[] parameters)
-            => JObject(query, isStoredProc: false, parameters);
+        public static JObject JObject(string query, params (string name, object value)[] parameters)
+            => JObject(query, false, Data.SqlParams(parameters));
+
+        public static JObject JObject(string query, bool isStoredProc, params (string name, object value)[] parameters)
+            => JObject(query, isStoredProc, Data.SqlParams(parameters));
 
         public static JObject JObject(string query, bool isStoredProc, params SqlParameter[] parameters)
         {
@@ -71,8 +77,11 @@ namespace nuell.Sync
             return json;
         }
 
-        public static string Json(string query, params SqlParameter[] parameters)
-            => Json(query, false, parameters);
+        public static string Json(string query, params (string name, object value)[] parameters)
+            => Json(query, false, Data.SqlParams(parameters));
+
+        public static string Json(string query, bool isStoredProc, params (string name, object value)[] parameters)
+            => Json(query, isStoredProc, Data.SqlParams(parameters));
 
         public static string Json(string query, bool isStoredProc, params SqlParameter[] parameters)
         {
@@ -153,8 +162,11 @@ namespace nuell.Sync
             return str.ToString();
         }
 
-        public static List<T> List<T>(string query, params SqlParameter[] parameters)
-            => List<T>(query, isStoredProc: false, parameters);
+        public static List<T> List<T>(string query, params (string name, object value)[] parameters)
+            => List<T>(query, false, Data.SqlParams(parameters));
+
+        public static List<T> List<T>(string query, bool isStoredProc, params (string name, object value)[] parameters)
+            => List<T>(query, isStoredProc, Data.SqlParams(parameters));
 
         public static List<T> List<T>(string query, bool isStoredProc, params SqlParameter[] parameters)
         {
@@ -173,8 +185,11 @@ namespace nuell.Sync
             return list;
         }
 
-        public static Dictionary<K, V> Dictionary<K, V>(string query, params SqlParameter[] parameters)
-            => Dictionary<K, V>(query, isStoredProc: false, parameters);
+        public static Dictionary<K, V> Dictionary<K, V>(string query, params (string name, object value)[] parameters)
+            => Dictionary<K, V>(query, false, Data.SqlParams(parameters));
+
+        public static Dictionary<K, V> Dictionary<K, V>(string query, bool isStoredProc, params (string name, object value)[] parameters)
+            => Dictionary<K, V>(query, isStoredProc, Data.SqlParams(parameters));
 
         public static Dictionary<K, V> Dictionary<K, V>(string query, bool isStoredProc, params SqlParameter[] parameters)
         {
@@ -193,10 +208,18 @@ namespace nuell.Sync
             return dictionary;
         }
 
-        public static int Execute(string query, params SqlParameter[] parameters)
+        public static int Execute(string query, params (string name, object value)[] parameters)
+            => Execute(query, false, Data.SqlParams(parameters));
+
+        public static int Execute(string query, bool isStoredProc, params (string name, object value)[] parameters)
+            => Execute(query, isStoredProc, Data.SqlParams(parameters));
+
+        public static int Execute(string query, bool isStoredProc, params SqlParameter[] parameters)
         {
             using var cnnct = new SqlConnection(Data.ConnectionString);
             using var cmnd = new SqlCommand(query, cnnct);
+            if (isStoredProc)
+                cmnd.CommandType = CommandType.StoredProcedure;
             cmnd.Parameters.AddRange(parameters);
             cnnct.Open();
             return cmnd.ExecuteNonQuery();
@@ -230,8 +253,11 @@ namespace nuell.Sync
         public static JObject Get(int id, string table)
             => JObject($"select top 1 * from {table} where Id={id}");
 
-        public static T GetVal<T>(string query, params SqlParameter[] parameters) where T : struct
-            => GetVal<T>(query, false, parameters);
+        public static T GetVal<T>(string query, params (string name, object value)[] parameters) where T : struct
+            => GetVal<T>(query, false, Data.SqlParams(parameters));
+
+        public static T GetVal<T>(string query, bool isStoredProc, params (string name, object value)[] parameters) where T : struct
+            => GetVal<T>(query, isStoredProc, Data.SqlParams(parameters));
 
         public static T GetVal<T>(string query, bool isStoredProc, params SqlParameter[] parameters) where T : struct
         {
@@ -245,8 +271,11 @@ namespace nuell.Sync
             return val is null ? default : (T)Convert.ChangeType(val, typeof(T));
         }
 
-        public static string GetStr(string query, params SqlParameter[] parameters)
-            => GetStr(query, false, parameters);
+        public static string GetStr(string query, params (string name, object value)[] parameters)
+            => GetStr(query, false, Data.SqlParams(parameters));
+
+        public static string GetStr(string query, bool isStoredProc, params (string name, object value)[] parameters)
+            => GetStr(query, isStoredProc, Data.SqlParams(parameters));
 
         public static string GetStr(string query, bool isStoredProc, params SqlParameter[] parameters)
         {
@@ -260,8 +289,11 @@ namespace nuell.Sync
             return val is DBNull ? null : val?.ToString();
         }
 
-        public static object[] GetValues(string query, params SqlParameter[] parameters)
-            => GetValues(query, false, parameters);
+        public static object[] GetValues(string query, params (string name, object value)[] parameters)
+            => GetValues(query, false, Data.SqlParams(parameters));
+
+        public static object[] GetValues(string query, bool isStoredProc, params (string name, object value)[] parameters)
+            => GetValues(query, isStoredProc, Data.SqlParams(parameters));
 
         public static object[] GetValues(string query, bool isStoredProc, params SqlParameter[] parameters)
         {
@@ -287,8 +319,11 @@ namespace nuell.Sync
             }
         }
 
-        public static JObject Retrieve(string query, (string Name, Results ResultType)[] props, params SqlParameter[] parameters)
-            => Retrieve(query, props, false, parameters);
+        public static JObject Retrieve(string query, (string Name, Results ResultType)[] props, params (string name, object value)[] parameters)
+            => Retrieve(query, props, false, Data.SqlParams(parameters));
+
+        public static JObject Retrieve(string query, (string Name, Results ResultType)[] props, bool isStoredProc, params (string name, object value)[] parameters)
+            => Retrieve(query, props, isStoredProc, Data.SqlParams(parameters));
 
         public static JObject Retrieve(string query, (string Name, Results ResultType)[] props, bool isStoredProc, params SqlParameter[] parameters)
         {
@@ -331,8 +366,11 @@ namespace nuell.Sync
             }
         }
 
-        public static string Csv(string query, params SqlParameter[] parameters)
-            => Csv(query, false, parameters);
+        public static string Csv(string query, params (string name, object value)[] parameters)
+            => Csv(query, false, Data.SqlParams(parameters));
+
+        public static string Csv(string query, bool isStoredProc, params (string name, object value)[] parameters)
+            => Csv(query, isStoredProc, Data.SqlParams(parameters));
 
         public static string Csv(string query, bool isStoredProc, params SqlParameter[] parameters)
         {
@@ -345,6 +383,12 @@ namespace nuell.Sync
             using var reader = cmnd.ExecuteReader();
             return ReadCsvResult(reader);
         }
+        
+        public static string[] MultiCsv(string query, params (string name, object value)[] parameters)
+            => MultiCsv(query, false, Data.SqlParams(parameters));
+
+        public static string[] MultiCsv(string query, bool isStoredProc, params (string name, object value)[] parameters)
+            => MultiCsv(query, isStoredProc, Data.SqlParams(parameters));
 
         public static string[] MultiCsv(string query, bool isStoredProc, params SqlParameter[] parameters)
         {
@@ -463,13 +507,14 @@ namespace nuell.Sync
                     string.Format("update [{0}] set {1} where Id=" + id,
                         table,
                         string.Join(',', props.Select(prop => $"[{prop.Name}]=@{prop.Name}"))),
+                    false,
                     sqlParams);
 
             return id;
         }
 
         public static string NewItem(string table)
-            => GetStr(nuell.Data.NewItem, new SqlParameter("@table", table));
+            => GetStr(nuell.Data.NewItem, false, new SqlParameter("@table", table));
     }
 }
 
