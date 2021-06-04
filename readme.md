@@ -35,14 +35,18 @@ string result = await Db.Csv("exec dbo.GetResults");
 
 ## Parameters
 
-Most of the methods allow SQL parameters. 
+Since it is very important to pass user input as parameters in order to prevent SQL injection, most of the methods allow SQL parameters. 
 
 ```c#
 string query = "select count(1) from Employees where City=@city";
-int count = await Db.GetVal<int>(query, new SqlParameter("@city", "London"));
+int count = await Db.GetVal<int>(query, isStoredProc: false, new SqlParameter("@city", "London"));
 ```
 
-It is very important to pass user input as parameters in order to prevent SQL injection.
+Simpler overloads accepting `ValueTuple(name, value)` parameters can also be used to pass the SQL parameters.
+
+```c#
+int count = await Db.GetVal<int>(query, ("@city", "London"));
+```
 
 A shorthand for Nullable string parameters is the `nuell.Data.NS` function, which replaces empty strings with a `null` value.
 
