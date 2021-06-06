@@ -289,7 +289,7 @@ namespace nuell.Sync
             cmnd.Parameters.AddRange(parameters);
             cnnct.Open();
             var val = cmnd.ExecuteScalar();
-            return val is null ? default : (T)Convert.ChangeType(val, typeof(T));
+            return val is DBNull ? default : (T)Convert.ChangeType(val, typeof(T));
         }
 
         public static string GetStr(string query, params (string name, object value)[] parameters)
