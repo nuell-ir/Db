@@ -520,7 +520,7 @@ namespace nuell.Sync
         private static int Save(IEnumerable<(string Name, object Value)> props, string table)
         {
             var idProp = props.Where(prop => string.Compare(prop.Name, "Id", true) == 0);
-            int id = (int)idProp.First().Value;
+            int id = Convert.ToInt32(idProp.First().Value);
             props = props.Except(idProp);
             var sqlParams = props.Select(prop => new SqlParameter("@" + prop.Name, prop.Value)).ToArray();
             if (id == 0)
