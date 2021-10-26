@@ -1,23 +1,23 @@
 # Introduction
 
-Db is specifically written for front-end needs of an ASP.NET website. Unlike ORM libraries, the SQL Server data will not be cast as POCO and will be directly available on the fly for JavaScript use, saving development and processing time.
+Generally speaking, `Db` aims to minimise the SQL Server boilerplate code. In addition, several methods target front-end needs of an ASP.NET website. Using methods such as `Json` or `Csv`, the SQL Server data will not be cast as POCO and will be directly available for JavaScript use, saving development and processing time.
 
 ## Initialisation
 
 Set the connection string to get started. This should be done only once and preferably at startup.
 
 ```c#
-nuell.Data.ConnStr = mySqlServerConnectionString;
+nuell.Data.ConnectionString = mySqlServerConnectionString;
 ```
 
-Depending on the use case, you may choose synchronous or asynchronous methods. Typically asynchronous methods are preferred.
+Depending on the use case, you may choose synchronous or asynchronous methods. Typically asynchronous methods are preferred for non-blocking purposes.
 
 ```c#
 using nuell.Sync;
 using nuell.Async;
 ```
 
-Asynchronous methods must be preceded with `await` keyword and put in `async` methods.
+Asynchronous methods must be preceded with the `await` keyword and put in `async` methods.
 
 ## Stored Procedures
 
@@ -39,13 +39,13 @@ Since it is very important to pass user input as parameters in order to prevent 
 
 ```c#
 string query = "select count(1) from Employees where City=@city";
-int count = await Db.GetVal<int>(query, isStoredProc: false, new SqlParameter("@city", "London"));
+int count = await Db.Val<int>(query, isStoredProc: false, new SqlParameter("@city", "London"));
 ```
 
 Simpler overloads accepting `ValueTuple(name, value)` parameters can also be used to pass the SQL parameters.
 
 ```c#
-int count = await Db.GetVal<int>(query, ("@city", "London"));
+int count = await Db.Val<int>(query, ("@city", "London"));
 ```
 
 A shorthand for Nullable string parameters is the `nuell.Data.NS` function, which replaces empty strings with a `null` value.
@@ -62,7 +62,7 @@ All the methods are static.
 
 
 
-## Csv
+## `Csv`
 
 Returns the result of a given query as a CSV string. This drastically reduces response size, in comparison to JSON values.
 
@@ -76,51 +76,53 @@ For instance, let's retrieve the following data in a SQL Server table named Empl
 The `Csv` method returns the result of the given query as a CSV string.
 
 ```c#
-string result = await Db.Csv("select * from Employees");
-//Id~$FullName~#BirthDate~IsMarried|1~Loraine Bickerdicke~1994-08-22~true|2~Shelley Askem~1992-12-07~false
+string csv = await Db.Csv("select * from Employees");
+//!Id~$FullName~#BirthDate~^IsMarried|1~Loraine Bickerdicke~1994-08-22~1|2~Shelley Askem~1992-12-07~0
 ```
 
-Please note that the standard comma and new line characters have been replaced by tilde (~) and pipe (|) respectively in order to avoid conflicts with typical texts.
+Please note that the standard comma and new line characters have been replaced by tilde (~) and pipe (|) respectively in order to avoid conflicts with typical texts. 
 
-This returned CSV value can parsed as a JavaScript array of objects in the client using the following function:
+Moreover, column names begin type flags which are as follows:
 
-```javascript
-function parseCsv(csv) {
-    let output = [];
+| Flag   | Value Type |
+| ------ | ---------- |
+| $      | string     |
+| !      | integer    |
+| %      | float      |
+| ^      | boolean    |
+| #      | date/time  |
+
+The returned CSV value may be parsed in the front-end as a JavaScript array of objects using the following function:
+
+```typescript
+function parseCsv<T>(csv: string): T[] {
+    const output: T[] = [];
     if (!csv)
         return output;
     const rows = csv.split('|');
     const rowCount = rows.length;
     const headers = rows[0].split('~');
     const headerCount = headers.length;
-    const parse = (header, val) => {
-        switch (header[0]) {
-            case '$':
-                return { [header.slice(1)]: val };
-            case '#':
-                return { [header.slice(1)]: new Date(val) };
-            default:
-                return { [header]: eval(val) };
-        }
-    };
     for (let i = 1; i < rowCount; i++) {
-        let obj = {};
-        let values = rows[i].split('~');
-        for (let j = 0; j < headerCount; j++)
-            obj = Object.assign(obj, parse(headers[j], values[j]));
+        const obj: T = {} as T;
+        const values = rows[i].split('~');
+        for (let h = 0; h < headerCount; h++)
+            obj[headers[h].slice(1)] = values[h] == 'Ø' ? null : parser[headers[h][0]](values[h]);
         output.push(obj);
     }
     return output;
 }
+
+const parser = {
+    '$': (val: string) => val,
+    '!': (val: string) => parseInt(val),
+    '%': (val: string) => parseFloat(val),
+    '^': (val: string) => val == '1',
+    '#': (val: string) => new Date(parseInt(val)),
+};
 ```
 
-For more convenience, the builtin minified parser function can be included an ASP.NET razor page:
-
-```
-<script>@Html.Raw(nuell.Data.ParseCsv())</script>
-```
-
-## MultiCsv
+## `MultiCsv`
 
 In case your query returns more than one result, use `MultiCsv` to return a string array containing CSV values of the results. For example:
 
@@ -130,86 +132,96 @@ string[] results = await Db.MultiCsv("select * from Employees; select * from Cus
 
 The returned array has two elements containing Employees and Customers CSV values.
 
-## Json
+## `Json`
 
-Converts one data row into standard JSON.
+Converts one data row to standard JSON.
 
 ```c#
-string json = await Db.Json($"select * from Customers where Id={1}");
+string json = await Db.Json($"select * from Customers where Id={id}");
 //{"Id":1,"FullName":"Loraine Bickerdicke","BirthDate":"1994-08-22","IsMarried":true}
 ```
 
-## JObject
+## `JObject`
 
-Converts one data row into [Json.net JObject](https://www.newtonsoft.com/json/help/html/T_Newtonsoft_Json_Linq_JObject.htm).
-
-```c#
-var jobject = await Db.JObject("select * from Employees where Id=@id", new SqlParameter("@id", id));
-```
-
-## Table
-
-Converts the query result into `System.Data.DataTable`.
-
-## List< T >
-
-Converts a one-field query into a `System.Collections.Generic.List< T >`. For example:
+Converts one data row to a [Json.net](https://www.newtonsoft.com/json/help/html/T_Newtonsoft_Json_Linq_JObject.htm) `JObject`.
 
 ```c#
-var idList = await Db.List<int>("select Id from Employees");
+JObject jobject = await Db.JObject($"select * from Employees where Id={id}");
 ```
 
-## Dictionary<K, V>
+## `Table`
 
-Converts a two-field query into a `System.Collections.Generic.Dictionary<K, V>`. For example:
+Converts the query result to `System.Data.DataTable`. For example:
+
+```c#
+DataTable idList = await Db.Table("select * from Employees");
+```
+
+## `List<T>`
+
+Converts a one-field query result to a `System.Collections.Generic.List<T>`. For example:
+
+```c#
+List<int> idList = await Db.List<int>("select Id from Employees");
+```
+
+## `Object<T>`
+
+Converts a one-row query result to an object of the class `T`. For example:
+
+```c#
+Employee employee = await Db.Object<Employee>($"select * from Employees where Id={id}");
+```
+
+The names and types of the class properties must match the query fields. Query field name matching is case-sensitive.
+
+## `ObjList<T>`
+
+Converts the query result to a `System.Collections.Generic.List<T>`, where T is a class. For example:
+
+```c#
+List<Employee> employeeList = await Db.ObjList<Employee>("select * from Employees");
+```
+
+The names and types of the class properties must match the query fields. Query field name matching is case-sensitive.
+
+## `Dictionary<K, V>`
+
+Converts a two-field query to a `System.Collections.Generic.Dictionary<K, V>`. For example:
 
 ```c#
 var cities = await Db.Dictionary<int>("select ZipCode, City from Addresses");
 ```
 
-## GetStr
+## `Str`
 
 Returns one string value. For example:
 
 ```c#
-string s = await Db.GetStr("select FullName from Employees where Id=" + id);
+string s = await Db.Str($"select FullName from Employees where Id={id}");
 ```
 
-## GetVal< T >
+## `Val<T>`
 
-Returns one value with the specified primitive type T such as `int`, `boolean`, or `DateTime`.
+Returns one value of the primitive type `T`.
 
 ```c#
-int c = await Db.GetVal<int>("select count(1) from Employees");
+int c = await Db.Val<int>("select count(1) from Employees");
 ```
 
-## GetValues
+## `Values`
 
-Returns all the fields of all the rows as a `System.Object` array. These objects are boxed. For example:
+Returns all the fields of all the rows as a boxed `System.Object` array. For example:
 
 ```c#
-var objects = await Db.GetValues($"select Id, BirthDate from Employees where Id={id}; select count(1) from Customers");
+object[] values = await Db.Values($"select Id, BirthDate from Employees where Id={id}; select count(1) from Customers");
 
-int id = (int)objects[0];
-DateTime birth = (DateTime)objects[1];
-int count = (int)objects[2];
+int id = (int)values[0];
+DateTime birth = (DateTime)values[1];
+int count = (int)values[2];
 ```
 
-## Get
-
-Syntactic sugar to return a record with the specified **Id** from a given table.
-
-```c#
-JObject employee = await Db.Get(5, "Employees");
-```
-
-Which is the equivalent of:
-
-```c#
-var employee = await Db.JObject("select * from Employees where Id=5");
-```
-
-## Retrieve
+## `Retrieve`
 
 If a query returns multiple results of various types and you need to mix `Csv`, `JObject`, `Json`, `GetStr`, and `GetVal` methods, you can use `Retrieve`.
 
@@ -218,10 +230,10 @@ It receives a tuple array that specifies the label and type of each result. For 
 ```c#
 string query = "select count(1) from Employees;"
     + "select * from Employees;"
-    + "select * from Customers where Id=2;"
+    + $"select * from Customers where Id={id};"
     + "select * from Customers";
 
-var results = new [] {
+JObject results = new [] {
     ("EmployeeCount", Results.Object),
     ("Employees", Results.Csv),
     ("SecondCustomer", Results.JObject),
@@ -237,7 +249,7 @@ The returned value in the above example contains 4 properties, which can be acce
 int count = (int)data["EmployeeCount"];
 ```
 
-## Execute
+## `Execute`
 
 Executes a query and returns the number of affected rows.
 
@@ -245,7 +257,7 @@ Executes a query and returns the number of affected rows.
 int rows = await Db.Execute("update Customers set Balance=0 where Balance>0");
 ```
 
-## Delete
+## `Delete`
 
 Deletes a record with the specified **Id** field from the given table and returns a boolean value to report the success of the operation.
 
@@ -253,17 +265,17 @@ Deletes a record with the specified **Id** field from the given table and return
 bool success = await Db.Delete(5, "Customers");
 ```
 
-## Transaction
+## `Transaction`
 
 Executes the query as a [transaction](https://docs.microsoft.com/en-us/sql/t-sql/language-elements/transactions-transact-sql), consisting of multiple operations and returns an array containing the number of affected rows for each operation.
 
 ```c#
-string query1 = "delete from Orders where CustomerId=5;";
-string query2 = "delete from Customers where Id=5;";
+string query1 = $"delete from Orders where CustomerId={id};";
+string query2 = $"delete from Customers where Id={id};";
 int[] rows = await Db.Transaction(query1 + query2);
 ```
 
-## Save
+## `Save`
 
 Saves a `JObject` or `object` to the specified table and returns the **Id** of the saved record.
 
@@ -279,15 +291,15 @@ var employee = new { Id = 0, FullName = "Shelley Askem", Age = 34, Balance = 152
 int id = await Save(employee, "Employees");
 ```
 
-## NewItem
+## `NewItem`
 
 Returns a JSON value containing a new record from the specified table. 
 
-Default values of the table fields will be respected. If a table field has no default values, the values for nullable, numeric, boolean, and string fields will be `null`, 0, `false`, and empty string, respectively.
+Default values of the table fields will be respected. If a table field has no default value, the values for nullable, numeric, boolean, and string fields will be `null`, 0, `false`, and empty string, respectively.
 
 ```c#
 string json = await Db.NewItem("Employees");
 //returns e.g. { "Id": 0, "FullName": "", "Married": false, "Address": null }
 ```
 
-The returned value can used to initialise  a reactive form in the client, such as  React or Angular forms.
+The returned value may be used to initialise  a reactive front-end form.
