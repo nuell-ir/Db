@@ -9,23 +9,15 @@ namespace nuell.Sync
     public static partial class Db
     {
         public static Dictionary<K, V> Dictionary<K, V>(string query, params (string name, object value)[] parameters)
-            where K : struct
-            where V : struct
             => Dictionary<K, V>(query, false, Data.SqlParams(parameters));
 
         public static Dictionary<K, V> Dictionary<K, V>(string query, bool isStoredProc, params (string name, object value)[] parameters)
-            where K : struct
-            where V : struct
             => Dictionary<K, V>(query, isStoredProc, Data.SqlParams(parameters));
 
         public static Dictionary<K, V> Dictionary<K, V>(string query, bool isStoredProc = false)
-            where K : struct
-            where V : struct
             => Dictionary<K, V>(query, isStoredProc, Data.NoParams);
 
         public static Dictionary<K, V> Dictionary<K, V>(string query, bool isStoredProc, params SqlParameter[] parameters)
-            where K : struct
-            where V : struct
         {
             using var cnnct = new SqlConnection(Data.ConnectionString);
             using var cmnd = new SqlCommand(query, cnnct);
@@ -49,23 +41,15 @@ namespace nuell.Async
     public static partial class Db
     {
         public static Task<Dictionary<K, V>> Dictionary<K, V>(string query, params (string name, object value)[] parameters)
-            where K : struct
-            where V : struct
             => Dictionary<K, V>(query, false, Data.SqlParams(parameters));
 
         public static Task<Dictionary<K, V>> Dictionary<K, V>(string query, bool isStoredProc, params (string name, object value)[] parameters)
-            where K : struct
-            where V : struct
             => Dictionary<K, V>(query, isStoredProc, Data.SqlParams(parameters));
 
         public static Task<Dictionary<K, V>> Dictionary<K, V>(string query, bool isStoredProc = false)
-            where K : struct
-            where V : struct
             => Dictionary<K, V>(query, isStoredProc, Data.NoParams);
 
         public static async Task<Dictionary<K, V>> Dictionary<K, V>(string query, bool isStoredProc, params SqlParameter[] parameters)
-            where K : struct
-            where V : struct
         {
             using var cnnct = new SqlConnection(Data.ConnectionString);
             using var cmnd = new SqlCommand(query, cnnct);
