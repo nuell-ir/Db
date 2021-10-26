@@ -17,12 +17,21 @@ namespace nuell.Sync
         Object, JObject, Json, Csv
     }
 
+    public enum FieldTypes
+    {
+        Int, Long, Short, Byte, Float, Double, Decimal, DateTime, TimeSpan, Bool, Char, String
+    }
+
     public static class Db
     {
         const char sep = '~';
         const char line = '|';
         const char stringField = '$';
+        const char intField = '!';
+        const char floatField = '%';
         const char dateField = '#';
+        const char boolField = '^';
+        const char nullField = 'Ø';
 
         public static DataTable Table(string query, params (string name, object value)[] parameters)
             => Table(query, false, Data.SqlParams(parameters));
@@ -171,16 +180,16 @@ namespace nuell.Sync
             return str.ToString();
         }
 
-        public static List<T> List<T>(string query, params (string name, object value)[] parameters)
+        public static List<T> List<T>(string query, params (string name, object value)[] parameters) where T : struct
             => List<T>(query, false, Data.SqlParams(parameters));
 
-        public static List<T> List<T>(string query, bool isStoredProc, params (string name, object value)[] parameters)
+        public static List<T> List<T>(string query, bool isStoredProc, params (string name, object value)[] parameters) where T : struct
             => List<T>(query, isStoredProc, Data.SqlParams(parameters));
 
-        public static List<T> List<T>(string query, bool isStoredProc = false)
+        public static List<T> List<T>(string query, bool isStoredProc = false) where T : struct
             => List<T>(query, isStoredProc, Data.NoParams);
 
-        public static List<T> List<T>(string query, bool isStoredProc, params SqlParameter[] parameters)
+        public static List<T> List<T>(string query, bool isStoredProc, params SqlParameter[] parameters) where T : struct
         {
             using var cnnct = new SqlConnection(Data.ConnectionString);
             using var cmnd = new SqlCommand(query, cnnct);
@@ -191,22 +200,66 @@ namespace nuell.Sync
             using var reader = cmnd.ExecuteReader();
             if (!reader.HasRows)
                 return null;
+
             var list = new List<T>();
             while (reader.Read())
                 list.Add((T)Convert.ChangeType(reader[0], typeof(T)));
             return list;
         }
 
+        public static List<T> ObjList<T>(string query, params (string name, object value)[] parameters) where T : new()
+            => ObjList<T>(query, false, Data.SqlParams(parameters));
+
+        public static List<T> ObjList<T>(string query, bool isStoredProc, params (string name, object value)[] parameters) where T : new()
+            => ObjList<T>(query, isStoredProc, Data.SqlParams(parameters));
+
+        public static List<T> ObjList<T>(string query, bool isStoredProc = false) where T : new()
+            => ObjList<T>(query, isStoredProc, Data.NoParams);
+
+        public static List<T> ObjList<T>(string query, bool isStoredProc, params SqlParameter[] parameters) where T : new()
+        {
+            using var cnnct = new SqlConnection(Data.ConnectionString);
+            using var cmnd = new SqlCommand(query, cnnct);
+            if (isStoredProc)
+                cmnd.CommandType = CommandType.StoredProcedure;
+            cmnd.Parameters.AddRange(parameters);
+            cnnct.Open();
+            using var reader = cmnd.ExecuteReader();
+            if (!reader.HasRows)
+                return null;
+
+            var list = new List<T>();
+            var props = typeof(T).GetProperties().ToDictionary(p => p.Name, p => p);
+            T obj;
+            int fieldCount = reader.FieldCount;
+            while (reader.Read())
+            {
+                obj = new T();
+                for (int i = 0; i < fieldCount; i++)
+                    props[reader.GetName(i)].SetValue(obj, reader.GetValue(i));
+                list.Add(obj);
+            }
+            return list;
+        }
+
         public static Dictionary<K, V> Dictionary<K, V>(string query, params (string name, object value)[] parameters)
+            where K : struct
+            where V : struct
             => Dictionary<K, V>(query, false, Data.SqlParams(parameters));
 
         public static Dictionary<K, V> Dictionary<K, V>(string query, bool isStoredProc, params (string name, object value)[] parameters)
+            where K : struct
+            where V : struct
             => Dictionary<K, V>(query, isStoredProc, Data.SqlParams(parameters));
 
         public static Dictionary<K, V> Dictionary<K, V>(string query, bool isStoredProc = false)
+            where K : struct
+            where V : struct
             => Dictionary<K, V>(query, isStoredProc, Data.NoParams);
 
         public static Dictionary<K, V> Dictionary<K, V>(string query, bool isStoredProc, params SqlParameter[] parameters)
+            where K : struct
+            where V : struct
         {
             using var cnnct = new SqlConnection(Data.ConnectionString);
             using var cmnd = new SqlCommand(query, cnnct);
@@ -448,55 +501,12 @@ namespace nuell.Sync
         {
             if (!reader.HasRows)
                 return null;
-            var str = ReadCsvHeader(reader);
+            var str = new StringBuilder();
+            var fieldTypes = Data.GetCsvHeader(reader.GetColumnSchema(), str);
             while (reader.Read())
-                ReadCsvRow(reader, str);
+                reader.ReadCsvRow(str, fieldTypes);
             str.Remove(str.Length - 1, 1);
             return str.ToString();
-        }
-
-        private static StringBuilder ReadCsvHeader(SqlDataReader reader)
-        {
-            var str = new StringBuilder();
-            for (int i = 0; i < reader.FieldCount; i++)
-            {
-                var fieldType = reader.GetFieldType(i);
-                if (fieldType == typeof(string) || fieldType == typeof(TimeSpan) || fieldType == typeof(byte[]))
-                    str.Append(stringField);
-                else if (fieldType == typeof(DateTime))
-                    str.Append(dateField);
-                str.Append(reader.GetName(i));
-                str.Append(sep);
-            }
-            str.Remove(str.Length - 1, 1);
-            str.Append(line);
-            return str;
-        }
-
-        private static void ReadCsvRow(SqlDataReader reader, StringBuilder str)
-        {
-            for (int i = 0; i < reader.FieldCount; i++)
-            {
-                var val = reader.GetValue(i);
-                if (val is bool b)
-                    str.Append(b ? "true" : "false"); //to prevent boolean capitalisation ('True' is not true in javascript)
-                else if (val is DateTime d)
-                {
-                    if (d.Ticks == 0)
-                        str.Append(d.ToString("yyyy-MM-dd"));
-                    else
-                        str.Append(d.ToString("yyyy-MM-ddTHH:mm:ss"));
-                }
-                else if (val is TimeSpan)
-                    str.Append(reader.GetTimeSpan(i).ToString(@"hh\:mm\:ss"));
-                else if (val is byte[] bytes)
-                    str.Append(Convert.ToBase64String(bytes));
-                else
-                    str.Append(val);
-                str.Append(sep);
-            }
-            str.Remove(str.Length - 1, 1);
-            str.Append(line);
         }
 
         public static bool Delete(int id, string table)

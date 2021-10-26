@@ -19,11 +19,6 @@ namespace nuell.Async
 
     public static class Db
     {
-        const char sep = '~';
-        const char line = '|';
-        const char stringField = '$';
-        const char dateField = '#';
-
         public static Task<DataTable> Table(string query, params (string name, object value)[] parameters)
             => Table(query, false, Data.SqlParams(parameters));
 
@@ -128,16 +123,16 @@ namespace nuell.Async
             return str.ToString();
         }
 
-        public static Task<List<T>> List<T>(string query, params (string name, object value)[] parameters)
+        public static Task<List<T>> List<T>(string query, params (string name, object value)[] parameters) where T : struct
             => List<T>(query, false, Data.SqlParams(parameters));
 
-        public static Task<List<T>> List<T>(string query, bool isStoredProc, params (string name, object value)[] parameters)
+        public static Task<List<T>> List<T>(string query, bool isStoredProc, params (string name, object value)[] parameters) where T : struct
             => List<T>(query, isStoredProc, Data.SqlParams(parameters));
 
-        public static Task<List<T>> List<T>(string query, bool isStoredProc = false)
+        public static Task<List<T>> List<T>(string query, bool isStoredProc = false) where T : struct
             => List<T>(query, isStoredProc, Data.NoParams);
 
-        public static async Task<List<T>> List<T>(string query, bool isStoredProc, params SqlParameter[] parameters)
+        public static async Task<List<T>> List<T>(string query, bool isStoredProc, params SqlParameter[] parameters) where T : struct
         {
             using var cnnct = new SqlConnection(Data.ConnectionString);
             using var cmnd = new SqlCommand(query, cnnct);
@@ -154,16 +149,61 @@ namespace nuell.Async
             return list;
         }
 
+        
+
+        public static Task<List<T>> ObjList<T>(string query, params (string name, object value)[] parameters) where T : new()
+            => ObjList<T>(query, false, Data.SqlParams(parameters));
+
+        public static Task<List<T>> ObjList<T>(string query, bool isStoredProc, params (string name, object value)[] parameters) where T : new()
+            => ObjList<T>(query, isStoredProc, Data.SqlParams(parameters));
+
+        public static Task<List<T>> ObjList<T>(string query, bool isStoredProc = false) where T : new()
+            => ObjList<T>(query, isStoredProc, Data.NoParams);
+
+        public static async Task<List<T>> ObjList<T>(string query, bool isStoredProc, params SqlParameter[] parameters) where T : new()
+        {
+            using var cnnct = new SqlConnection(Data.ConnectionString);
+            using var cmnd = new SqlCommand(query, cnnct);
+            if (isStoredProc)
+                cmnd.CommandType = CommandType.StoredProcedure;
+            cmnd.Parameters.AddRange(parameters);
+            await cnnct.OpenAsync();
+            using var reader = await cmnd.ExecuteReaderAsync();
+            if (!reader.HasRows)
+                return null;
+
+            var list = new List<T>();
+            var props = typeof(T).GetProperties().ToDictionary(p => p.Name, p => p);
+            T obj;
+            int fieldCount = reader.FieldCount;
+            while (await reader.ReadAsync())
+            {
+                obj = new T();
+                for (int i = 0; i < fieldCount; i++)
+                    props[reader.GetName(i)].SetValue(obj, reader.GetValue(i));
+                list.Add(obj);
+            }
+            return list;
+        }
+
         public static Task<Dictionary<K, V>> Dictionary<K, V>(string query, params (string name, object value)[] parameters)
+            where K : struct
+            where V : struct
             => Dictionary<K, V>(query, false, Data.SqlParams(parameters));
 
         public static Task<Dictionary<K, V>> Dictionary<K, V>(string query, bool isStoredProc, params (string name, object value)[] parameters)
+            where K : struct
+            where V : struct
             => Dictionary<K, V>(query, isStoredProc, Data.SqlParams(parameters));
 
         public static Task<Dictionary<K, V>> Dictionary<K, V>(string query, bool isStoredProc = false)
+            where K : struct
+            where V : struct
             => Dictionary<K, V>(query, isStoredProc, Data.NoParams);
 
         public static async Task<Dictionary<K, V>> Dictionary<K, V>(string query, bool isStoredProc, params SqlParameter[] parameters)
+            where K : struct
+            where V : struct
         {
             using var cnnct = new SqlConnection(Data.ConnectionString);
             using var cmnd = new SqlCommand(query, cnnct);
@@ -405,55 +445,13 @@ namespace nuell.Async
         {
             if (!reader.HasRows)
                 return null;
-            var str = ReadCsvHeader(reader);
+            int fieldCount = reader.FieldCount;
+            var str = new StringBuilder();
+            var fieldTypes = Data.GetCsvHeader(await reader.GetColumnSchemaAsync(), str);
             while (await reader.ReadAsync())
-                ReadCsvRow(reader, str);
+                reader.ReadCsvRow(str, fieldTypes);
             str.Remove(str.Length - 1, 1);
             return str.ToString();
-        }
-
-        private static StringBuilder ReadCsvHeader(SqlDataReader reader)
-        {
-            var str = new StringBuilder();
-            for (int i = 0; i < reader.FieldCount; i++)
-            {
-                var fieldType = reader.GetFieldType(i);
-                if (fieldType == typeof(string) || fieldType == typeof(TimeSpan) || fieldType == typeof(byte[]))
-                    str.Append(stringField);
-                else if (fieldType == typeof(DateTime))
-                    str.Append(dateField);
-                str.Append(reader.GetName(i));
-                str.Append(sep);
-            }
-            str.Remove(str.Length - 1, 1);
-            str.Append(line);
-            return str;
-        }
-
-        private static void ReadCsvRow(SqlDataReader reader, StringBuilder str)
-        {
-            for (int i = 0; i < reader.FieldCount; i++)
-            {
-                var val = reader.GetValue(i);
-                if (val is bool b)
-                    str.Append(b ? "true" : "false"); //to prevent boolean capitalisation ('True' is not true in javascript)
-                else if (val is DateTime d)
-                {
-                    if (d.Ticks == 0)
-                        str.Append(d.ToString("yyyy-MM-dd"));
-                    else
-                        str.Append(d.ToString("yyyy-MM-ddTHH:mm:ss"));
-                }
-                else if (val is TimeSpan)
-                    str.Append(reader.GetTimeSpan(i).ToString(@"hh\:mm\:ss"));
-                else if (val is byte[] bytes)
-                    str.Append(Convert.ToBase64String(bytes));
-                else
-                    str.Append(val);
-                str.Append(sep);
-            }
-            str.Remove(str.Length - 1, 1);
-            str.Append(line);
         }
 
         public async static Task<bool> Delete(int id, string table)
