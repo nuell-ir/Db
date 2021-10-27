@@ -45,7 +45,7 @@ namespace nuell.Sync
                 using (var cnnct = new SqlConnection(Data.ConnectionString))
                 {
                     using var cmnd = cnnct.CreateCommand();
-                    cmnd.CommandText = string.Format("insert into [{0}] ({1}) values ({2})",
+                    cmnd.CommandText = string.Format("insert into {0} ({1}) values ({2})",
                         table,
                         string.Join(',', props.Select(prop => $"[{prop.Name}]")),
                         string.Join(',', props.Select(prop => $"@{prop.Name}")));
@@ -58,7 +58,7 @@ namespace nuell.Sync
                 }
             else
                 Execute(
-                    string.Format("update [{0}] set {1} where Id=" + id,
+                    string.Format("update {0} set {1} where Id=" + id,
                         table,
                         string.Join(',', props.Select(prop => $"[{prop.Name}]=@{prop.Name}"))),
                     false,

@@ -26,7 +26,7 @@ namespace nuell.Async
         {
             try
             {
-                return await Execute($"delete from [{table}] where Id={id}") == 1;
+                return await Execute($"delete from {table} where Id={id}") == 1;
             }
             catch
             {

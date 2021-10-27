@@ -21,7 +21,6 @@ namespace nuell
 
         internal static SqlParameter[] SqlParams((string name, object value)[] parameters)
             => parameters.Select(p => new SqlParameter(p.name, p.value)).ToArray();
-
     }
 }
 
