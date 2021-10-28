@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Data;
 using System.Data.Common;
+using System.Reflection;
 using System.Text;
 using System.Threading.Tasks;
 using Microsoft.Data.SqlClient;
@@ -10,7 +11,7 @@ using Microsoft.Data.SqlClient;
 namespace nuell
 {
     public static partial class Data
-    {        
+    {
         internal const char sep = '~';
         internal const char line = '|';
 
@@ -24,6 +25,23 @@ namespace nuell
                 fieldTypes.Add(type);
                 str.Append(GetCsvTypeFlag(type));
                 str.Append(col.ColumnName);
+                str.Append(sep);
+            }
+            str.Remove(str.Length - 1, 1);
+            str.Append(line);
+            return fieldTypes;
+        }
+
+        internal static List<TypeCode> GetCsvHeader(PropertyInfo[] props, StringBuilder str)
+        {
+            var fieldTypes = new List<TypeCode>(props.Length);
+            TypeCode type;
+            foreach (var prop in props)
+            {
+                type = Type.GetTypeCode(prop.PropertyType);
+                fieldTypes.Add(type);
+                str.Append(GetCsvTypeFlag(type));
+                str.Append(prop.Name);
                 str.Append(sep);
             }
             str.Remove(str.Length - 1, 1);
@@ -92,7 +110,7 @@ namespace nuell
                         str.Append(reader.GetDecimal(i));
                         break;
                     case TypeCode.DateTime:
-                        str.Append(new DateTimeOffset(reader.GetDateTime(i)).ToUnixTimeMilliseconds());
+                        str.Append(new DateTimeOffset(reader.GetDateTime(i)).ToUnixTimeSeconds());
                         break;
                     case TypeCode.Boolean:
                         str.Append(reader.GetBoolean(i) ? 1 : 0);
@@ -113,7 +131,7 @@ namespace nuell
 namespace nuell.Sync
 {
     public static partial class Db
-    {        
+    {
         public static string Csv(string query, params (string name, object value)[] parameters)
             => Csv(query, false, Data.SqlParams(parameters));
 
@@ -170,6 +188,46 @@ namespace nuell.Sync
             var fieldTypes = Data.GetCsvHeader(reader.GetColumnSchema(), str);
             while (reader.Read())
                 reader.ReadCsvRow(str, fieldTypes);
+            str.Remove(str.Length - 1, 1);
+            return str.ToString();
+        }
+
+        public static string Csv(object[] objects)
+        {
+            if (objects is null || objects.Length == 0)
+                return null;
+
+            var props = objects[0].GetType().GetProperties();
+            var str = new StringBuilder();
+            var typeCodes = Data.GetCsvHeader(props, str);
+
+            object val;
+            for (int i = 0; i < objects.Length; i++)
+            {
+                for (int p = 0; p < props.Length; p++)
+                {
+                    val = props[p].GetValue(objects[i]);
+                    if (val is not null)
+                        switch (typeCodes[p])
+                        {
+                            case TypeCode.DateTime:
+                                str.Append(new DateTimeOffset((DateTime)val).ToUnixTimeSeconds());
+                                break;
+                            case TypeCode.Boolean:
+                                str.Append((bool)val ? 1 : 0);
+                                break;
+                            default:
+                                str.Append(val);
+                                break;
+                        }
+                    else
+                        str.Append('Ø');
+
+                    str.Append(Data.sep);
+                }
+                str.Remove(str.Length - 1, 1);
+                str.Append(Data.line);
+            }
             str.Remove(str.Length - 1, 1);
             return str.ToString();
         }

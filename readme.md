@@ -64,7 +64,7 @@ All the methods are static.
 
 ## `Csv`
 
-Returns the result of a given query as a CSV string. This drastically reduces response size, in comparison to JSON values.
+Converts the query result or an object array to a CSV string, which drastically reduces response size, in comparison to JSON values.
 
 For instance, let's retrieve the following data in a SQL Server table named Employees:
 
@@ -73,16 +73,35 @@ For instance, let's retrieve the following data in a SQL Server table named Empl
 | 1    | Loraine Bickerdicke | 1994-08-22 | true      |
 | 2    | Shelley Askem       | 1992-12-07 | false     |
 
+The same data may be passed via an array, provided that all the elements have the same properties:
+
+```c#
+new[] {
+    new { 
+        Id = 1, 
+        FullName = "Loraine Bickerdicke", 
+        BirthDate = new DateTime(1994, 8, 22), 
+        IsMarried = true
+    },
+    new { 
+        Id = 2, 
+        FullName = "Shelley Askem", 
+        BirthDate = new DateTime(1992, 12, 7), 
+        IsMarried = false
+    },
+}
+```
+
 The `Csv` method returns the result of the given query as a CSV string.
 
 ```c#
 string csv = await Db.Csv("select * from Employees");
-//!Id~$FullName~#BirthDate~^IsMarried|1~Loraine Bickerdicke~1994-08-22~1|2~Shelley Askem~1992-12-07~0
+//!Id~$FullName~#BirthDate~^IsMarried|1~Loraine Bickerdicke~777497400~1|2~Shelley Askem~723673800~0
 ```
 
-Please note that the standard comma and new line characters have been replaced by tilde (~) and pipe (|) respectively in order to avoid conflicts with typical texts. 
+Please note that the standard comma and new line characters have been replaced by tilde (~) and vertical line (|) respectively in order to avoid conflicts with typical texts. 
 
-Moreover, column names begin type flags which are as follows:
+Moreover, column names have been flagged with the following type markers:
 
 | Flag   | Value Type |
 | ------ | ---------- |
@@ -118,7 +137,7 @@ const parser = {
     '!': (val: string) => parseInt(val),
     '%': (val: string) => parseFloat(val),
     '^': (val: string) => val == '1',
-    '#': (val: string) => new Date(parseInt(val)),
+    '#': (val: string) => new Date(parseInt(val) * 1000),
 };
 ```
 
@@ -154,7 +173,7 @@ JObject jobject = await Db.JObject($"select * from Employees where Id={id}");
 Converts the query result to `System.Data.DataTable`. For example:
 
 ```c#
-DataTable idList = await Db.Table("select * from Employees");
+DataTable employees = await Db.Table("select * from Employees");
 ```
 
 ## `List<T>`
