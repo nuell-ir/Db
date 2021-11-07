@@ -40,7 +40,7 @@ namespace nuell.Sync
             var idProp = props.Where(prop => string.Compare(prop.Name, "Id", true) == 0);
             int id = Convert.ToInt32(idProp.First().Value);
             props = props.Except(idProp);
-            var sqlParams = props.Select(prop => new SqlParameter("@" + prop.Name, prop.Value)).ToArray();
+            var sqlParams = props.Select(prop => new SqlParameter("@" + prop.Name, prop.Value ?? DBNull.Value)).ToArray();
             if (id == 0)
                 using (var cnnct = new SqlConnection(Data.ConnectionString))
                 {
