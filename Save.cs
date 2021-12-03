@@ -1,26 +1,19 @@
-using System;
-using System.Collections.Generic;
 using System.Data;
-using System.Linq;
-using System.Threading.Tasks;
+using System.Text.Json;
 using Microsoft.Data.SqlClient;
-using Newtonsoft.Json.Linq;
 
 namespace nuell
 {
     public static partial class Data
     {
-        internal static object JPropValue(JProperty prop)
-            => prop.Value.Type switch
+        internal static object JsonProp(JsonElement prop)
+            => prop.ValueKind switch
             {
-                JTokenType.Null => DBNull.Value,
-                JTokenType.Integer => (long)prop.Value,
-                JTokenType.Float => (float)prop.Value,
-                JTokenType.Boolean => (bool)prop.Value,
-                JTokenType.Date => (DateTime)prop.Value,
-                JTokenType.TimeSpan => (TimeSpan)prop.Value,
-                JTokenType.Bytes => (byte[])prop.Value,
-                _ => (string)prop.Value,
+                JsonValueKind.Null => DBNull.Value,
+                JsonValueKind.Number => prop.GetDouble(),
+                JsonValueKind.True => true,
+                JsonValueKind.False => false,
+                _ => prop.GetString(),
             };
     }
 }
@@ -29,8 +22,8 @@ namespace nuell.Sync
 {
     public static partial class Db
     {
-        public static int Save(JObject jobj, string table)
-            => Save(jobj.Properties().Select(p => (p.Name, Data.JPropValue(p))), table);
+        public static int Save(JsonElement json, string table)
+            => Save(json.EnumerateObject().Select(p => (p.Name, Data.JsonProp(p.Value))), table);
 
         public static int Save(object obj, string table)
             => Save(obj.GetType().GetProperties().Select(p => (p.Name, p.GetValue(obj))), table);
@@ -73,8 +66,8 @@ namespace nuell.Async
 {
     public static partial class Db
     {
-        public static Task<int> Save(JObject jobj, string table)
-            => Save(jobj.Properties().Select(p => (p.Name, Data.JPropValue(p))), table);
+        public static Task<int> Save(JsonElement json, string table)
+            => Save(json.EnumerateObject().Select(p => (p.Name, Data.JsonProp(p.Value))), table);
 
         public static Task<int> Save(object obj, string table)
             => Save(obj.GetType().GetProperties().Select(p => (p.Name, p.GetValue(obj))), table);

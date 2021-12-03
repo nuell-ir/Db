@@ -1,9 +1,65 @@
+using System.Collections.ObjectModel;
 using System.Data;
-using System.IO;
+using System.Data.Common;
 using System.Text;
-using System.Threading.Tasks;
+using System.Text.Json;
 using Microsoft.Data.SqlClient;
-using Newtonsoft.Json;
+
+namespace nuell
+{
+    public static partial class Data
+    {
+        internal static (List<string>, List<TypeCode>) GetSchema(ReadOnlyCollection<DbColumn> columns)
+        {
+            var fieldTypes = new List<TypeCode>(columns.Count);
+            var fieldNames = new List<string>(columns.Count);
+            foreach (var col in columns)
+            {
+                fieldTypes.Add(Type.GetTypeCode(col.DataType));
+                fieldNames.Add(col.ColumnName);
+            }
+            return (fieldNames, fieldTypes);
+        }
+
+        internal static void WriteDbValue(this Utf8JsonWriter writer, SqlDataReader reader, TypeCode typeCode, int columnIndex)
+        {
+            switch (typeCode)
+            {
+                case TypeCode.Int32:
+                    writer.WriteNumberValue(reader.GetInt32(columnIndex));
+                    break;
+                case TypeCode.Int64:
+                    writer.WriteNumberValue(reader.GetInt64(columnIndex));
+                    break;
+                case TypeCode.Int16:
+                    writer.WriteNumberValue(reader.GetInt16(columnIndex));
+                    break;
+                case TypeCode.Byte:
+                    writer.WriteNumberValue(reader.GetByte(columnIndex));
+                    break;
+                case TypeCode.Single:
+                    writer.WriteNumberValue(reader.GetFloat(columnIndex));
+                    break;
+                case TypeCode.Double:
+                    writer.WriteNumberValue(reader.GetDouble(columnIndex));
+                    break;
+                case TypeCode.Decimal:
+                    writer.WriteNumberValue(reader.GetDecimal(columnIndex));
+                    break;
+                case TypeCode.DateTime:
+                    writer.WriteStringValue(reader.GetDateTime(columnIndex));
+                    break;
+                case TypeCode.Boolean:
+                    writer.WriteBooleanValue(reader.GetBoolean(columnIndex));
+                    break;
+                case TypeCode.Char:
+                case TypeCode.String:
+                    writer.WriteStringValue(reader.GetString(columnIndex));
+                    break;
+            }
+        }
+    }
+}
 
 namespace nuell.Sync
 {
@@ -27,27 +83,32 @@ namespace nuell.Sync
             cmnd.Parameters.AddRange(parameters);
             cnnct.Open();
             using var reader = cmnd.ExecuteReader();
-            if (reader.HasRows)
-                return Json(reader);
-            else
-                return null;
+            return reader.ReadJson();
         }
 
-        private static string Json(SqlDataReader reader)
+        internal static string ReadJson(this SqlDataReader reader)
         {
-            reader.Read();
-            var str = new StringBuilder();
-            var sw = new StringWriter(str);
-            using var writer = new JsonTextWriter(sw);
-            writer.WriteStartObject();
-            int count = reader.VisibleFieldCount;
-            for (int i = 0; i < count; i++)
+            var (fieldNames, fieldTypes) = Data.GetSchema(reader.GetColumnSchema());
+            using var stream = new MemoryStream();
+            using var writer = new Utf8JsonWriter(stream, Data.JsonWriterOptions);
+            writer.WriteStartArray();
+            int count = fieldNames.Count;
+            while (reader.Read())
             {
-                writer.WritePropertyName(reader.GetName(i));
-                writer.WriteValue(reader.GetValue(i));
+                writer.WriteStartObject();
+                for (int i = 0; i < count; i++)
+                {
+                    writer.WritePropertyName(fieldNames[i]);
+                    if (reader.IsDBNull(i))
+                        writer.WriteNullValue();
+                    else
+                        writer.WriteDbValue(reader, fieldTypes[i], i);
+                }
+                writer.WriteEndObject();
             }
-            writer.WriteEndObject();
-            return str.ToString();
+            writer.WriteEndArray();
+            writer.Flush();
+            return Encoding.UTF8.GetString(stream.ToArray());
         }
     }
 }
@@ -74,27 +135,32 @@ namespace nuell.Async
             cmnd.Parameters.AddRange(parameters);
             await cnnct.OpenAsync();
             using var reader = await cmnd.ExecuteReaderAsync();
-            if (reader.HasRows)
-                return await Json(reader);
-            else
-                return null;
+            return await reader.ReadJson();
         }
 
-        private static async Task<string> Json(SqlDataReader reader)
+        internal async static Task<string> ReadJson(this SqlDataReader reader)
         {
-            await reader.ReadAsync();
-            var str = new StringBuilder();
-            var sw = new StringWriter(str);
-            using var writer = new JsonTextWriter(sw);
-            writer.WriteStartObject();
-            int count = reader.VisibleFieldCount;
-            for (int i = 0; i < count; i++)
+            var (fieldNames, fieldTypes) = Data.GetSchema(await reader.GetColumnSchemaAsync());
+            using var stream = new MemoryStream();
+            using var writer = new Utf8JsonWriter(stream, Data.JsonWriterOptions);
+            writer.WriteStartArray();
+            int count = fieldNames.Count;
+            while (await reader.ReadAsync())
             {
-                writer.WritePropertyName(reader.GetName(i));
-                writer.WriteValue(reader.GetValue(i));
+                writer.WriteStartObject();
+                for (int i = 0; i < count; i++)
+                {
+                    writer.WritePropertyName(fieldNames[i]);
+                    if (await reader.IsDBNullAsync(i))
+                        writer.WriteNullValue();
+                    else
+                        writer.WriteDbValue(reader, fieldTypes[i], i);
+                }
+                writer.WriteEndObject();
             }
-            writer.WriteEndObject();
-            return str.ToString();
+            writer.WriteEndArray();
+            await writer.FlushAsync();
+            return Encoding.UTF8.GetString(stream.ToArray());
         }
     }
 }

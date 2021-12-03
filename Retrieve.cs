@@ -1,13 +1,13 @@
 using System.Data;
-using System.Threading.Tasks;
+using System.Text;
+using System.Text.Json;
 using Microsoft.Data.SqlClient;
-using Newtonsoft.Json.Linq;
 
 namespace nuell
 {
     public enum Results
     {
-        Object, JObject, Json, Csv
+        Object, Json, Csv
     }
 }
 
@@ -15,18 +15,17 @@ namespace nuell.Sync
 {
     public static partial class Db
     {
-        public static JObject Retrieve(string query, (string Name, Results ResultType)[] props, params (string name, object value)[] parameters)
+        public static string Retrieve(string query, (string Name, Results ResultType)[] props, params (string name, object value)[] parameters)
             => Retrieve(query, props, false, Data.SqlParams(parameters));
 
-        public static JObject Retrieve(string query, (string Name, Results ResultType)[] props, bool isStoredProc, params (string name, object value)[] parameters)
+        public static string Retrieve(string query, (string Name, Results ResultType)[] props, bool isStoredProc, params (string name, object value)[] parameters)
             => Retrieve(query, props, isStoredProc, Data.SqlParams(parameters));
 
-        public static JObject Retrieve(string query, (string Name, Results ResultType)[] props, bool isStoredProc = false)
+        public static string Retrieve(string query, (string Name, Results ResultType)[] props, bool isStoredProc = false)
             => Retrieve(query, props, isStoredProc, Data.NoParams);
 
-        public static JObject Retrieve(string query, (string Name, Results ResultType)[] props, bool isStoredProc, params SqlParameter[] parameters)
+        public static string Retrieve(string query, (string Name, Results ResultType)[] props, bool isStoredProc, params SqlParameter[] parameters)
         {
-            var result = new JObject();
             int index = 0;
             using var cnnct = new SqlConnection(Data.ConnectionString);
             using var cmnd = new SqlCommand(query, cnnct);
@@ -35,33 +34,37 @@ namespace nuell.Sync
             cmnd.Parameters.AddRange(parameters);
             cnnct.Open();
             using var reader = cmnd.ExecuteReader();
-            Read();
+            using var stream = new MemoryStream();
+            using var writer = new Utf8JsonWriter(stream, Data.JsonWriterOptions);
+            writer.WriteStartObject();
+            ReadResult();
             while (reader.NextResult())
-                Read();
-            return result;
+                ReadResult();
+            writer.WriteEndObject();
+            return Encoding.UTF8.GetString(stream.ToArray());
 
-            void Read()
+            void ReadResult()
             {
+                writer.WritePropertyName(props[index].Name);
                 if (!reader.HasRows)
-                    result[props[index++].Name] = null;
+                    writer.WriteNullValue();
                 else
+                {
                     switch (props[index].ResultType)
                     {
                         case Results.Object:
                             reader.Read();
-                            result.Add(props[index++].Name, JToken.FromObject(reader[0]));
-                            break;
-                        case Results.JObject:
-                            reader.Read();
-                            result.Add(props[index++].Name, JObject(reader));
+                            writer.WriteDbValue(reader, Type.GetTypeCode(reader.GetFieldType(0)), 0);
                             break;
                         case Results.Json:
-                            result.Add(props[index++].Name, Json(reader));
+                            writer.WriteRawValue(reader.ReadJson());
                             break;
                         case Results.Csv:
-                            result.Add(props[index++].Name, ReadCsvResult(reader));
+                            writer.WriteStringValue(reader.ReadCsv());
                             break;
                     }
+                    index++;
+                }
             }
         }
     }
@@ -71,18 +74,17 @@ namespace nuell.Async
 {
     public static partial class Db
     {
-        public static Task<JObject> Retrieve(string query, (string Name, Results ResultType)[] props, params (string name, object value)[] parameters)
+        public static Task<string> Retrieve(string query, (string Name, Results ResultType)[] props, params (string name, object value)[] parameters)
             => Retrieve(query, props, false, Data.SqlParams(parameters));
 
-        public static Task<JObject> Retrieve(string query, (string Name, Results ResultType)[] props, bool isStoredProc, params (string name, object value)[] parameters)
+        public static Task<string> Retrieve(string query, (string Name, Results ResultType)[] props, bool isStoredProc, params (string name, object value)[] parameters)
             => Retrieve(query, props, isStoredProc, Data.SqlParams(parameters));
 
-        public static Task<JObject> Retrieve(string query, (string Name, Results ResultType)[] props, bool isStoredProc = false)
+        public static Task<string> Retrieve(string query, (string Name, Results ResultType)[] props, bool isStoredProc = false)
             => Retrieve(query, props, isStoredProc, Data.NoParams);
 
-        public static async Task<JObject> Retrieve(string query, (string Name, Results ResultType)[] props, bool isStoredProc = false, params SqlParameter[] parameters)
+        public static async Task<string> Retrieve(string query, (string Name, Results ResultType)[] props, bool isStoredProc = false, params SqlParameter[] parameters)
         {
-            var result = new JObject();
             int index = 0;
             using var cnnct = new SqlConnection(Data.ConnectionString);
             using var cmnd = new SqlCommand(query, cnnct);
@@ -90,34 +92,36 @@ namespace nuell.Async
                 cmnd.CommandType = CommandType.StoredProcedure;
             cmnd.Parameters.AddRange(parameters);
             await cnnct.OpenAsync();
-            using var reader = cmnd.ExecuteReader();
-            await Read();
+            using var reader = await cmnd.ExecuteReaderAsync();
+            using var stream = new MemoryStream();
+            using var writer = new Utf8JsonWriter(stream, Data.JsonWriterOptions);
+            await ReadResult();
             while (reader.NextResult())
-                await Read();
-            return result;
+                await ReadResult();
+            return Encoding.UTF8.GetString(stream.ToArray());
 
-            async Task Read()
+            async Task ReadResult()
             {
+                writer.WritePropertyName(props[index].Name);
                 if (!reader.HasRows)
-                    result[props[index++].Name] = null;
+                    writer.WriteNullValue();
                 else
+                {
                     switch (props[index].ResultType)
                     {
                         case Results.Object:
                             await reader.ReadAsync();
-                            result.Add(props[index++].Name, JToken.FromObject(reader[0]));
-                            break;
-                        case Results.JObject:
-                            await reader.ReadAsync();
-                            result.Add(props[index++].Name, JObject(reader));
+                            writer.WriteDbValue(reader, Type.GetTypeCode(reader.GetFieldType(0)), 0);
                             break;
                         case Results.Json:
-                            result.Add(props[index++].Name, await Json(reader));
+                            writer.WriteRawValue(await reader.ReadJson());
                             break;
                         case Results.Csv:
-                            result.Add(props[index++].Name, await ReadCsvResult(reader));
+                            writer.WriteStringValue(await reader.ReadCsv());
                             break;
                     }
+                    index++;
+                }
             }
         }
     }

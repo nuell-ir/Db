@@ -1,6 +1,4 @@
-﻿using System.Threading.Tasks;
-
-namespace nuell.Sync
+﻿namespace nuell.Sync
 {
     public static partial class Db
     {
