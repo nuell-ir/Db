@@ -160,14 +160,6 @@ string json = await Db.Json($"select * from Customers where Id={id}");
 //{"Id":1,"FullName":"Loraine Bickerdicke","BirthDate":"1994-08-22","IsMarried":true}
 ```
 
-## `JObject`
-
-Converts one data row to a [Json.net](https://www.newtonsoft.com/json/help/html/T_Newtonsoft_Json_Linq_JObject.htm) `JObject`.
-
-```c#
-JObject jobject = await Db.JObject($"select * from Employees where Id={id}");
-```
-
 ## `Table`
 
 Converts the query result to `System.Data.DataTable`. For example:
@@ -178,10 +170,18 @@ DataTable employees = await Db.Table("select * from Employees");
 
 ## `List<T>`
 
-Converts a one-field query result to a `System.Collections.Generic.List<T>`. For example:
+Converts a one-field query result to `System.Collections.Generic.List<T>`. For example:
 
 ```c#
 List<int> idList = await Db.List<int>("select Id from Employees");
+```
+
+## `StrList`
+
+Converts a one-field query result to `List<string>`. For example:
+
+```c#
+List<string> names = await Db.StrList("select FullName from Employees");
 ```
 
 ## `Object<T>`
@@ -242,31 +242,26 @@ int count = (int)values[2];
 
 ## `Retrieve`
 
-If a query returns multiple results of various types and you need to mix `Csv`, `JObject`, `Json`, `GetStr`, and `GetVal` methods, you can use `Retrieve`.
+If a query returns multiple results of various types and you need to mix `Csv`, `Json`, `Str`, and `Val` methods, you can use `Retrieve`.
 
 It receives a tuple array that specifies the label and type of each result. For example:
 
 ```c#
 string query = "select count(1) from Employees;"
     + "select * from Employees;"
-    + $"select * from Customers where Id={id};"
     + "select * from Customers";
 
-JObject results = new [] {
+var resultTypes = new [] {
     ("EmployeeCount", Results.Object),
     ("Employees", Results.Csv),
-    ("SecondCustomer", Results.JObject),
     ("Customers", Results.Json),
 };
 
-JObject data = await Retrieve(query, results);
+string json = await Retrieve(query, resultTypes);
+//{"EmployeeCount":1200,"Employees":"...","Customers":[...]}
 ```
 
-The returned value in the above example contains 4 properties, which can be accessed using the given labels, such as:
-
-```c#
-int count = (int)data["EmployeeCount"];
-```
+The returned JSON value in the above example contains 3 properties with the names specified in the tuple.
 
 ## `Execute`
 
@@ -296,16 +291,16 @@ int[] rows = await Db.Transaction(query1 + query2);
 
 ## `Save`
 
-Saves a `JObject` or `object` to the specified table and returns the **Id** of the saved record.
+Saves a `JsonElement` or `object` to the specified table and returns the **Id** of the saved record.
 
-The `JObject` or `object` parameter must include an **Id** property (case insensitive), and the target table must have an **Id** field as the identity primary key.
+The `JsonElement` or `object` parameter must include an **Id** property (case insensitive), and the target table must have an **Id** field as the identity primary key.
 
 If the value of **Id** is zero, it will be ignored and the rest of the properties will be inserted into the table. Then the new **Id** (created by table identity) will be returned. Otherwise, the record with the given **Id** will be updated. 
 
 All the properties *must* match the table fields.
 
 ```c#
-var employee = JObject.Parse("{ \"Id\": 0, \"FullName\": \"Shelley Askem\", \"Age\": 34, \"Balance\": 1520 }");
+var employee = JsonDocument.Parse("{ \"Id\": 0, \"FullName\": \"Shelley Askem\", \"Age\": 34, \"Balance\": 1520 }").RootElement;
 var employee = new { Id = 0, FullName = "Shelley Askem", Age = 34, Balance = 1520 }
 int id = await Save(employee, "Employees");
 ```

@@ -1,11 +1,8 @@
-using System;
-using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Data;
 using System.Data.Common;
 using System.Reflection;
 using System.Text;
-using System.Threading.Tasks;
 using Microsoft.Data.SqlClient;
 
 namespace nuell
@@ -150,7 +147,7 @@ namespace nuell.Sync
             cmnd.Parameters.AddRange(parameters);
             cnnct.Open();
             using var reader = cmnd.ExecuteReader();
-            return ReadCsvResult(reader);
+            return ReadCsv(reader);
         }
 
         public static string[] MultiCsv(string query, params (string name, object value)[] parameters)
@@ -173,14 +170,14 @@ namespace nuell.Sync
             using var reader = cmnd.ExecuteReader();
             var results = new List<string>
             {
-                reader.ReadCsvResult()
+                reader.ReadCsv()
             };
             while (reader.NextResult())
-                results.Add(reader.ReadCsvResult());
+                results.Add(reader.ReadCsv());
             return results.ToArray();
         }
 
-        private static string ReadCsvResult(this SqlDataReader reader)
+        private static string ReadCsv(this SqlDataReader reader)
         {
             if (!reader.HasRows)
                 return null;
@@ -256,7 +253,7 @@ namespace nuell.Async
             cmnd.Parameters.AddRange(parameters);
             await cnnct.OpenAsync();
             using var reader = await cmnd.ExecuteReaderAsync();
-            return await ReadCsvResult(reader);
+            return await ReadCsv(reader);
         }
 
         public static Task<string[]> MultiCsv(string query, params (string name, object value)[] parameters)
@@ -279,14 +276,14 @@ namespace nuell.Async
             using var reader = await cmnd.ExecuteReaderAsync();
             var results = new List<string>
             {
-                await reader.ReadCsvResult()
+                await reader.ReadCsv()
             };
             while (await reader.NextResultAsync())
-                results.Add(await reader.ReadCsvResult());
+                results.Add(await reader.ReadCsv());
             return results.ToArray();
         }
 
-        private static async Task<string> ReadCsvResult(this SqlDataReader reader)
+        private static async Task<string> ReadCsv(this SqlDataReader reader)
         {
             if (!reader.HasRows)
                 return null;
