@@ -291,9 +291,9 @@ int[] rows = await Db.Transaction(query1 + query2);
 
 ## `Save`
 
-Saves a `JsonElement` or `object` to the specified table and returns the **Id** of the saved record.
+Saves a `JsonElement`, `JsonObject`, or `object` to the specified table and returns the **Id** of the saved record.
 
-The `JsonElement` or `object` parameter must include an **Id** property (case insensitive), and the target table must have an **Id** field as the identity primary key.
+The `JsonElement`, `JsonObject`, or `object` parameter must include an **Id** property (case insensitive), and the target table must have an **Id** field as the identity primary key.
 
 If the value of **Id** is zero, it will be ignored and the rest of the properties will be inserted into the table. Then the new **Id** (created by table identity) will be returned. Otherwise, the record with the given **Id** will be updated. 
 
