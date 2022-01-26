@@ -41,6 +41,7 @@ namespace nuell.Sync
             while (reader.NextResult())
                 ReadResult();
             writer.WriteEndObject();
+            writer.Flush();
             return Encoding.UTF8.GetString(stream.ToArray());
 
             void ReadResult()
@@ -95,9 +96,12 @@ namespace nuell.Async
             using var reader = await cmnd.ExecuteReaderAsync();
             using var stream = new MemoryStream();
             using var writer = new Utf8JsonWriter(stream, Data.JsonWriterOptions);
+            writer.WriteStartObject();
             await ReadResult();
             while (reader.NextResult())
                 await ReadResult();
+            writer.WriteEndObject();
+            await writer.FlushAsync();
             return Encoding.UTF8.GetString(stream.ToArray());
 
             async Task ReadResult()
