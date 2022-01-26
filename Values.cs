@@ -64,7 +64,7 @@ namespace nuell.Async
             using var reader = await cmnd.ExecuteReaderAsync();
             var results = new List<object>();
             await AddValues();
-            while (reader.NextResult())
+            while (await reader.NextResultAsync())
                 await AddValues();
             return results.ToArray();
 

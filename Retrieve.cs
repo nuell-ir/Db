@@ -98,7 +98,7 @@ namespace nuell.Async
             using var writer = new Utf8JsonWriter(stream, Data.JsonWriterOptions);
             writer.WriteStartObject();
             await ReadResult();
-            while (reader.NextResult())
+            while (await reader.NextResultAsync())
                 await ReadResult();
             writer.WriteEndObject();
             await writer.FlushAsync();
