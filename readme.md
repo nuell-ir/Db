@@ -153,11 +153,26 @@ The returned array has two elements containing Employees and Customers CSV value
 
 ## `Json`
 
-Converts one data row to standard JSON.
+Converts the query result to JSON.
 
 ```c#
-string json = await Db.Json($"select * from Customers where Id={id}");
+string json = await Db.Json($"select Id, Age from Customers");
+//[{"Id":1,"Age":24},{"Id":2,"Age":36},{"Id":3,"Age":31}]
+```
+
+Using an optional parameter, you may require a JSON object result.
+
+```c#
+string json = await Db.Json($"select * from Customers where Id={id}", Data.Result.Object);
 //{"Id":1,"FullName":"Loraine Bickerdicke","BirthDate":"1994-08-22","IsMarried":true}
+```
+
+## `JsonObject`
+
+Converts one data row to `System.Text.Json.Nodes.JsonObject`.
+
+```c#
+JsonObject jobj = await Db.JsonObject($"select * from Customers where Id={id}");
 ```
 
 ## `Table`
@@ -240,28 +255,30 @@ DateTime birth = (DateTime)values[1];
 int count = (int)values[2];
 ```
 
-## `Retrieve`
+## `ComplexJson`
 
-If a query returns multiple results of various types and you need to mix `Csv`, `Json`, `Str`, and `Val` methods, you can use `Retrieve`.
+If the query returns multiple results of CSV, JSON array, JSON object, and simple values, consider using the `ComplexJson` method.
 
-It receives a tuple array that specifies the label and type of each result. For example:
+It receives a tuple array that specifies the label and type of each result and returns a JSON object. For example:
 
 ```c#
 string query = "select count(1) from Employees;"
+    + "select * from Employees where Id=1;"
     + "select * from Employees;"
     + "select * from Customers";
 
 var resultTypes = new [] {
-    ("EmployeeCount", Results.Object),
-    ("Employees", Results.Csv),
-    ("Customers", Results.Json),
+    ("EmployeeCount", Data.Result.Value),
+    ("OneEmployee", Data.Result.Object),
+    ("EmployeeCsv", Data.Result.Csv),
+    ("CustomersArray", Data.Result.Array),
 };
 
-string json = await Retrieve(query, resultTypes);
-//{"EmployeeCount":1200,"Employees":"...","Customers":[...]}
+string json = await ComplexJson(query, resultTypes);
+//{"EmployeeCount":1200,"OneEmployee":{...},"EmployeeCsv":"...","CustomersArray":[...]}
 ```
 
-The returned JSON value in the above example contains 3 properties with the names specified in the tuple.
+The returned JSON object in the above example includes 4 properties with the names corresponding to those specified in the tuple.
 
 ## `Execute`
 

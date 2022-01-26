@@ -3,28 +3,20 @@ using System.Text;
 using System.Text.Json;
 using Microsoft.Data.SqlClient;
 
-namespace nuell
-{
-    public enum Results
-    {
-        Object, Json, Csv
-    }
-}
-
 namespace nuell.Sync
 {
     public static partial class Db
     {
-        public static string Retrieve(string query, (string Name, Results ResultType)[] props, params (string name, object value)[] parameters)
-            => Retrieve(query, props, false, Data.SqlParams(parameters));
+        public static string ComplexJson(string query, (string Name, Data.Result ResultType)[] props, params (string name, object value)[] parameters)
+            => ComplexJson(query, props, false, Data.SqlParams(parameters));
 
-        public static string Retrieve(string query, (string Name, Results ResultType)[] props, bool isStoredProc, params (string name, object value)[] parameters)
-            => Retrieve(query, props, isStoredProc, Data.SqlParams(parameters));
+        public static string ComplexJson(string query, (string Name, Data.Result ResultType)[] props, bool isStoredProc, params (string name, object value)[] parameters)
+            => ComplexJson(query, props, isStoredProc, Data.SqlParams(parameters));
 
-        public static string Retrieve(string query, (string Name, Results ResultType)[] props, bool isStoredProc = false)
-            => Retrieve(query, props, isStoredProc, Data.NoParams);
+        public static string ComplexJson(string query, (string Name, Data.Result ResultType)[] props, bool isStoredProc = false)
+            => ComplexJson(query, props, isStoredProc, Data.NoParams);
 
-        public static string Retrieve(string query, (string Name, Results ResultType)[] props, bool isStoredProc, params SqlParameter[] parameters)
+        public static string ComplexJson(string query, (string Name, Data.Result ResultType)[] props, bool isStoredProc, params SqlParameter[] parameters)
         {
             int index = 0;
             using var cnnct = new SqlConnection(Data.ConnectionString);
@@ -53,14 +45,17 @@ namespace nuell.Sync
                 {
                     switch (props[index].ResultType)
                     {
-                        case Results.Object:
+                        case Data.Result.Value:
                             reader.Read();
                             writer.WriteDbValue(reader, Type.GetTypeCode(reader.GetFieldType(0)), 0);
                             break;
-                        case Results.Json:
-                            writer.WriteRawValue(reader.ReadJson());
+                        case Data.Result.Array:
+                            writer.WriteRawValue(reader.ReadJson(Data.Result.Array));
                             break;
-                        case Results.Csv:
+                        case Data.Result.Object:
+                            writer.WriteRawValue(reader.ReadJson(Data.Result.Object));
+                            break;
+                        case Data.Result.Csv:
                             writer.WriteStringValue(reader.ReadCsv());
                             break;
                     }
@@ -75,16 +70,16 @@ namespace nuell.Async
 {
     public static partial class Db
     {
-        public static Task<string> Retrieve(string query, (string Name, Results ResultType)[] props, params (string name, object value)[] parameters)
-            => Retrieve(query, props, false, Data.SqlParams(parameters));
+        public static Task<string> ComplexJson(string query, (string Name, Data.Result ResultType)[] props, params (string name, object value)[] parameters)
+            => ComplexJson(query, props, false, Data.SqlParams(parameters));
 
-        public static Task<string> Retrieve(string query, (string Name, Results ResultType)[] props, bool isStoredProc, params (string name, object value)[] parameters)
-            => Retrieve(query, props, isStoredProc, Data.SqlParams(parameters));
+        public static Task<string> ComplexJson(string query, (string Name, Data.Result ResultType)[] props, bool isStoredProc, params (string name, object value)[] parameters)
+            => ComplexJson(query, props, isStoredProc, Data.SqlParams(parameters));
 
-        public static Task<string> Retrieve(string query, (string Name, Results ResultType)[] props, bool isStoredProc = false)
-            => Retrieve(query, props, isStoredProc, Data.NoParams);
+        public static Task<string> ComplexJson(string query, (string Name, Data.Result ResultType)[] props, bool isStoredProc = false)
+            => ComplexJson(query, props, isStoredProc, Data.NoParams);
 
-        public static async Task<string> Retrieve(string query, (string Name, Results ResultType)[] props, bool isStoredProc = false, params SqlParameter[] parameters)
+        public static async Task<string> ComplexJson(string query, (string Name, Data.Result ResultType)[] props, bool isStoredProc = false, params SqlParameter[] parameters)
         {
             int index = 0;
             using var cnnct = new SqlConnection(Data.ConnectionString);
@@ -113,14 +108,17 @@ namespace nuell.Async
                 {
                     switch (props[index].ResultType)
                     {
-                        case Results.Object:
+                        case Data.Result.Value:
                             await reader.ReadAsync();
                             writer.WriteDbValue(reader, Type.GetTypeCode(reader.GetFieldType(0)), 0);
                             break;
-                        case Results.Json:
-                            writer.WriteRawValue(await reader.ReadJson());
+                        case Data.Result.Array:
+                            writer.WriteRawValue(await reader.ReadJson(Data.Result.Array));
                             break;
-                        case Results.Csv:
+                        case Data.Result.Object:
+                            writer.WriteRawValue(await reader.ReadJson(Data.Result.Object));
+                            break;
+                        case Data.Result.Csv:
                             writer.WriteStringValue(await reader.ReadCsv());
                             break;
                     }
