@@ -1,4 +1,3 @@
-using System.Data;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
@@ -15,31 +14,34 @@ namespace nuell
             public SqlParameter[] SqlParams;
         }
 
-        internal static SaveParams SaveQuery((string Name, JsonElement Value)[] props, string table)
+        internal static SaveParams SaveQuery(JsonObject obj, string table)
         {
-            int idIndex = Array.FindIndex<(string Name, JsonElement Value)>(props, prop => string.Compare(prop.Name, "Id", true) == 0);
-            int id = props[idIndex].Value.GetInt32();
+            string idKey = 
+                obj.ContainsKey("Id") ? "Id" : 
+                obj.ContainsKey("id") ? "id" :
+                obj.ContainsKey("ID") ? "ID" : null;
+                
+            int id = obj[idKey].GetValue<int>();
             var sqlParams = new List<SqlParameter>();
-            SqlParameter param;
             var str = new StringBuilder();
             if (id == 0)
             {
                 str.Append("INSERT INTO ");
                 str.Append(table);
                 str.Append('(');
-                for (int i = 0; i < props.Length; i++)
-                    if (i != idIndex)
+                foreach (var p in obj)
+                    if (p.Key != idKey)
                     {
                         str.Append('[');
-                        str.Append(props[i].Name);
+                        str.Append(p.Key);
                         str.Append("],");
                     }
                 str.Remove(str.Length - 1, 1);
                 str.Append(") VALUES (");
-                for (int i = 0; i < props.Length; i++)
-                    if (i != idIndex)
+                foreach (var p in obj)
+                    if (p.Key != idKey)
                     {
-                        AppendValue(props[i]);
+                        AppendValue(p);
                         str.Append(',');
                     }
                 str.Remove(str.Length - 1, 1);
@@ -50,13 +52,13 @@ namespace nuell
                 str.Append("UPDATE ");
                 str.Append(table);
                 str.Append(" SET ");
-                for (int i = 0; i < props.Length; i++)
-                    if (i != idIndex)
+                foreach (var p in obj)
+                    if (p.Key != idKey)
                     {
                         str.Append('[');
-                        str.Append(props[i].Name);
+                        str.Append(p.Key);
                         str.Append("]=");
-                        AppendValue(props[i]);
+                        AppendValue(p);
                         str.Append(',');
                     }
                 str.Remove(str.Length - 1, 1);
@@ -70,28 +72,30 @@ namespace nuell
                 SqlParams = sqlParams.ToArray()
             };
 
-            void AppendValue((string Name, JsonElement Value) prop)
+            void AppendValue(KeyValuePair<string, JsonNode?> prop)
             {
-                switch (prop.Value.ValueKind)
-                {
-                    case JsonValueKind.Number:
-                        str.Append(prop.Value);
-                        break;
-                    case JsonValueKind.True:
-                        str.Append(1);
-                        break;
-                    case JsonValueKind.False:
-                        str.Append(0);
-                        break;
-                    case JsonValueKind.Null:
-                        str.Append("NULL");
-                        break;
-                    case JsonValueKind.String:
-                        param = new SqlParameter("@" + prop.Name, prop.Value.GetString());
-                        str.Append(param.ParameterName);
-                        sqlParams.Add(param);
-                        break;
-                }
+                if (prop.Value is null)
+                    str.Append("NULL");
+                else switch (prop.Value.GetValue<JsonElement>().ValueKind)
+                    {
+                        case JsonValueKind.Number:
+                            str.Append(prop.Value.ToString());
+                            break;
+                        case JsonValueKind.True:
+                            str.Append(1);
+                            break;
+                        case JsonValueKind.False:
+                            str.Append(0);
+                            break;
+                        case JsonValueKind.Null:
+                            str.Append("NULL");
+                            break;
+                        case JsonValueKind.String:
+                            string paramName = $"@{prop.Key}";
+                            str.Append(paramName);
+                            sqlParams.Add(new SqlParameter(paramName, prop.Value.GetValue<string>()));
+                            break;
+                    }
             }
         }
     }
@@ -102,10 +106,10 @@ namespace nuell.Sync
     public static partial class Db
     {
         public static int Save(JsonObject json, string table)
-            => Save(Data.SaveQuery(json.Select(p => (p.Key, p.Value.GetValue<JsonElement>())).ToArray(), table));
+            => Save(Data.SaveQuery(json, table));
 
         public static int Save(JsonElement json, string table)
-            => Save(Data.SaveQuery(json.EnumerateObject().Select(p => (p.Name, p.Value)).ToArray(), table));
+            => Save(System.Text.Json.Nodes.JsonObject.Create(json), table);
 
         private static int Save(Data.SaveParams param)
         {
@@ -130,10 +134,10 @@ namespace nuell.Async
     public static partial class Db
     {
         public static Task<int> Save(JsonObject json, string table)
-            => Save(Data.SaveQuery(json.Select(p => (p.Key, p.Value.GetValue<JsonElement>())).ToArray(), table));
+            => Save(Data.SaveQuery(json, table));
 
         public static Task<int> Save(JsonElement json, string table)
-            => Save(Data.SaveQuery(json.EnumerateObject().Select(p => (p.Name, p.Value)).ToArray(), table));
+            => Save(System.Text.Json.Nodes.JsonObject.Create(json), table);
 
         private static async Task<int> Save(Data.SaveParams param)
         {
