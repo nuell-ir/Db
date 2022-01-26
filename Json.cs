@@ -66,15 +66,17 @@ namespace nuell.Sync
     public static partial class Db
     {
         public static string Json(string query, params (string name, object value)[] parameters)
-            => Json(query, false, Data.SqlParams(parameters));
+        => Json(query, Data.Result.Array, false, Data.SqlParams(parameters));
+        public static string Json(string query, Data.Result result, params (string name, object value)[] parameters)
+        => Json(query, result, false, Data.SqlParams(parameters));
 
         public static string Json(string query, bool isStoredProc, params (string name, object value)[] parameters)
-            => Json(query, isStoredProc, Data.SqlParams(parameters));
+            => Json(query, Data.Result.Array, isStoredProc, Data.SqlParams(parameters));
 
-        public static string Json(string query, bool isStoredProc = false)
-            => Json(query, isStoredProc, Data.NoParams);
+        public static string Json(string query, Data.Result result = Data.Result.Array, bool isStoredProc = false)
+            => Json(query, result, isStoredProc, Data.NoParams);
 
-        public static string Json(string query, bool isStoredProc, params SqlParameter[] parameters)
+        public static string Json(string query, Data.Result result, bool isStoredProc, params SqlParameter[] parameters)
         {
             using var cnnct = new SqlConnection(Data.ConnectionString);
             using var cmnd = new SqlCommand(query, cnnct);
@@ -83,17 +85,36 @@ namespace nuell.Sync
             cmnd.Parameters.AddRange(parameters);
             cnnct.Open();
             using var reader = cmnd.ExecuteReader();
-            return reader.ReadJson();
+            return reader.ReadJson(result);
         }
 
-        internal static string ReadJson(this SqlDataReader reader)
+        internal static string ReadJson(this SqlDataReader reader, Data.Result result)
         {
             var (fieldNames, fieldTypes) = Data.GetSchema(reader.GetColumnSchema());
             using var stream = new MemoryStream();
             using var writer = new Utf8JsonWriter(stream, Data.JsonWriterOptions);
-            writer.WriteStartArray();
             int count = fieldNames.Count;
-            while (reader.Read())
+            switch (result)
+            {
+                case Data.Result.Object:
+                    if (reader.Read())
+                        WriteObject();
+                    else
+                        writer.WriteNullValue();
+                    break;
+                case Data.Result.Array:
+                    writer.WriteStartArray();
+                    while (reader.Read())
+                        WriteObject();
+                    writer.WriteEndArray();
+                    break;
+                default:
+                    throw new ArgumentException("The only valid JSON results are array and object.");
+            }
+            writer.Flush();
+            return Encoding.UTF8.GetString(stream.ToArray());
+
+            void WriteObject()
             {
                 writer.WriteStartObject();
                 for (int i = 0; i < count; i++)
@@ -106,9 +127,6 @@ namespace nuell.Sync
                 }
                 writer.WriteEndObject();
             }
-            writer.WriteEndArray();
-            writer.Flush();
-            return Encoding.UTF8.GetString(stream.ToArray());
         }
     }
 }
@@ -118,15 +136,18 @@ namespace nuell.Async
     public static partial class Db
     {
         public static Task<string> Json(string query, params (string name, object value)[] parameters)
-            => Json(query, false, Data.SqlParams(parameters));
+            => Json(query, Data.Result.Array, false, Data.SqlParams(parameters));
+
+        public static Task<string> Json(string query, Data.Result result, params (string name, object value)[] parameters)
+        => Json(query, result, false, Data.SqlParams(parameters));
 
         public static Task<string> Json(string query, bool isStoredProc, params (string name, object value)[] parameters)
-            => Json(query, isStoredProc, Data.SqlParams(parameters));
+            => Json(query, Data.Result.Array, isStoredProc, Data.SqlParams(parameters));
 
-        public static Task<string> Json(string query, bool isStoredProc = false)
-            => Json(query, isStoredProc, Data.NoParams);
+        public static Task<string> Json(string query, Data.Result result = Data.Result.Array, bool isStoredProc = false)
+            => Json(query, result, isStoredProc, Data.NoParams);
 
-        public async static Task<string> Json(string query, bool isStoredProc, params SqlParameter[] parameters)
+        public async static Task<string> Json(string query, Data.Result result, bool isStoredProc, params SqlParameter[] parameters)
         {
             using var cnnct = new SqlConnection(Data.ConnectionString);
             using var cmnd = new SqlCommand(query, cnnct);
@@ -135,32 +156,48 @@ namespace nuell.Async
             cmnd.Parameters.AddRange(parameters);
             await cnnct.OpenAsync();
             using var reader = await cmnd.ExecuteReaderAsync();
-            return await reader.ReadJson();
+            return await reader.ReadJson(result);
         }
 
-        internal async static Task<string> ReadJson(this SqlDataReader reader)
+        internal async static Task<string> ReadJson(this SqlDataReader reader, Data.Result result)
         {
             var (fieldNames, fieldTypes) = Data.GetSchema(await reader.GetColumnSchemaAsync());
             using var stream = new MemoryStream();
             using var writer = new Utf8JsonWriter(stream, Data.JsonWriterOptions);
-            writer.WriteStartArray();
             int count = fieldNames.Count;
-            while (await reader.ReadAsync())
+            switch (result)
+            {
+                case Data.Result.Object:
+                    if (await reader.ReadAsync())
+                        WriteObject();
+                    else
+                        writer.WriteNullValue();
+                    break;
+                case Data.Result.Array:
+                    writer.WriteStartArray();
+                    while (await reader.ReadAsync())
+                        WriteObject();
+                    writer.WriteEndArray();
+                    break;
+                default:
+                    throw new ArgumentException("The only valid JSON results are array and object.");
+            }
+            await writer.FlushAsync();
+            return Encoding.UTF8.GetString(stream.ToArray());
+
+            void WriteObject()
             {
                 writer.WriteStartObject();
                 for (int i = 0; i < count; i++)
                 {
                     writer.WritePropertyName(fieldNames[i]);
-                    if (await reader.IsDBNullAsync(i))
+                    if (reader.IsDBNull(i))
                         writer.WriteNullValue();
                     else
                         writer.WriteDbValue(reader, fieldTypes[i], i);
                 }
                 writer.WriteEndObject();
             }
-            writer.WriteEndArray();
-            await writer.FlushAsync();
-            return Encoding.UTF8.GetString(stream.ToArray());
         }
     }
 }

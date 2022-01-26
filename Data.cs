@@ -10,6 +10,11 @@ namespace nuell
     {
         public static string ConnectionString { get; set; }
 
+        public enum Result
+        {
+            Array, Object, Value, Csv
+        }
+
         public static SqlParameter NS(string name, string value)
             => new SqlParameter(name, string.IsNullOrWhiteSpace(value) ? DBNull.Value : value.Trim());
         internal static readonly SqlParameter[] NoParams = new SqlParameter[] { };
@@ -29,4 +34,3 @@ namespace nuell
         };
     }
 }
-
