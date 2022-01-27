@@ -5,13 +5,13 @@ namespace nuell
 {
     public static partial class Data
     {
-        internal static SaveParams SaveQuery(object obj, string table)
+        internal static SaveParams SaveQuery(object obj, string table, string idProp)
         {
             var propInfo = obj.GetType().GetProperties();
             var props = new (string Name, object Value)[propInfo.Length];
             for (int i = 0; i < propInfo.Length; i++)
                 props[i] = (propInfo[i].Name, propInfo[i].GetValue(obj));
-            int idIndex = Array.FindIndex<(string Name, object Value)>(props, prop => string.Compare(prop.Name, "Id", true) == 0);
+            int idIndex = Array.FindIndex<(string Name, object Value)>(props, prop => prop.Name == idProp);
             int id = (int)props[idIndex].Value;
             var sqlParams = new List<SqlParameter>();
             SqlParameter param;
@@ -98,8 +98,8 @@ namespace nuell.Sync
 {
     public static partial class Db
     {
-        public static int Save(object obj, string table)
-            => Save(Data.SaveQuery(obj, table));
+        public static int Save(object obj, string table, string idProp = "Id")
+            => Save(Data.SaveQuery(obj, table, idProp));
     }
 }
 
@@ -107,7 +107,7 @@ namespace nuell.Async
 {
     public static partial class Db
     {
-        private static Task<int> Save(object obj, string table)
-            => Save(Data.SaveQuery(obj, table));
+        private static Task<int> Save(object obj, string table, string idProp = "Id")
+            => Save(Data.SaveQuery(obj, table, idProp));
     }
 }
