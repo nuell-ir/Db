@@ -323,6 +323,24 @@ var employee = new { Id = 0, FullName = "Shelley Askem", Age = 34, Balance = 152
 int id = await Save(employee, "Employees");
 ```
 
+## `Insert` ##
+
+Inserts `JsonElement`, `JsonObject`, or `JsonNode` data into the specified table. All the properties *must* match the table fields.
+
+```c#
+var employee = JsonNode.Parse("{\"FullName\":\"Shelley Askem\",\"Age\":34, \"Balance\":1520}");
+await Insert(employee, "Employees");
+```
+
+## `Update` ##
+
+Updates a row in the spcified table with `JsonElement`, `JsonObject`, or `JsonNode` data. The primary key field must be passed. All the properties *must* match the table fields.
+
+```c#
+var employee = JsonNode.Parse("{\"Id\":3,\"FullName\":\"Shelley Askem\",\"Age\":34, \"Balance\":1520}");
+await Update(employee, "Employees", "Id");
+```
+
 ## `NewItem`
 
 Returns a JSON value containing a new record from the specified table. 
