@@ -308,19 +308,22 @@ int[] rows = await Db.Transaction(query1 + query2);
 
 ## `Save`
 
-Saves a `JsonElement`, `JsonObject`, `JsonNode`, or `object` to the specified table and returns the identity of the saved record.
+Saves a `JsonElement`, `JsonObject`, `JsonNode`, or an object of type `<T>` to the specified table and returns the identity of the saved record.
 
-The `JsonElement`, `JsonObject`, `JsonNode`, or `object` data must include an identity property specified in the case-sensitive `idProp` parameter (default is `"Id"`), and the target table must contain an identity primary key with the same name.
+The `JsonElement`, `JsonObject`, `JsonNode`, or `<T>` object data must include an identity property specified in the case-sensitive `idProp` parameter (default is `"Id"`), and the target table must contain an identity primary key with the same name.
 
 If the value of the identity property is zero, it will be ignored and the rest of the properties will be *inserted* into the table. Then the newly created identity will be returned. Otherwise, the record with the specified identity will be *updated*. 
 
 All the properties *must* match the table fields.
 
 ```c#
-var employee = JsonDocument.Parse("{ \"Id\": 0, \"FullName\": \"Shelley Askem\", \"Age\": 34, \"Balance\": 1520 }").RootElement;
 var employee = JsonNode.Parse("{ \"Id\": 0, \"FullName\": \"Shelley Askem\", \"Age\": 34, \"Balance\": 1520 }");
-var employee = new { Id = 0, FullName = "Shelley Askem", Age = 34, Balance = 1520 }
 int id = await Save(employee, "Employees");
+```
+
+```c#
+var employee = new Employee { Id = 0, FullName = "Shelley Askem", Age = 34, Balance = 1520 };
+int id = await Save<Employee>(employee, "Employees");
 ```
 
 ## `Insert` ##

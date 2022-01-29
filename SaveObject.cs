@@ -5,7 +5,7 @@ namespace nuell
 {
     public static partial class Data
     {
-        internal static SaveParams SaveQuery(object obj, string table, string idProp)
+        internal static SaveParams SaveQuery<T>(T obj, string table, string idProp)
         {
             var propInfo = obj.GetType().GetProperties();
             var props = new (string Name, object Value)[propInfo.Length];
@@ -98,7 +98,7 @@ namespace nuell.Sync
 {
     public static partial class Db
     {
-        public static int Save(object obj, string table, string idProp = "Id")
+        public static int Save<T>(T obj, string table, string idProp = "Id")
             => Save(Data.SaveQuery(obj, table, idProp));
     }
 }
@@ -107,7 +107,7 @@ namespace nuell.Async
 {
     public static partial class Db
     {
-        private static Task<int> Save(object obj, string table, string idProp = "Id")
-            => Save(Data.SaveQuery(obj, table, idProp));
+        private static Task<int> Save<T>(T obj, string table, string idProp = "Id")
+            => Save(Data.SaveQuery<T>(obj, table, idProp));
     }
 }
