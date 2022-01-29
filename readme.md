@@ -156,15 +156,15 @@ The returned array has two elements containing Employees and Customers CSV value
 Converts the query result to JSON.
 
 ```c#
-string json = await Db.Json($"select Id, Age from Customers");
-//[{"Id":1,"Age":24},{"Id":2,"Age":36},{"Id":3,"Age":31}]
+string json = await Db.Json($"select * from Customers where Id={id}");
+//{"Id":1,"FullName":"Loraine Bickerdicke","BirthDate":"1994-08-22","IsMarried":true}
 ```
 
-Using an optional parameter, you may require a JSON object result.
+The default result is a JSON object. However, using an optional parameter you may require a JSON array result.
 
 ```c#
-string json = await Db.Json($"select * from Customers where Id={id}", Data.Result.Object);
-//{"Id":1,"FullName":"Loraine Bickerdicke","BirthDate":"1994-08-22","IsMarried":true}
+string json = await Db.Json($"select Id, Age from Customers", Data.Result.Array);
+//[{"Id":1,"Age":24},{"Id":2,"Age":36},{"Id":3,"Age":31}]
 ```
 
 ## `JsonObject`

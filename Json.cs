@@ -66,14 +66,17 @@ namespace nuell.Sync
     public static partial class Db
     {
         public static string Json(string query, params (string name, object value)[] parameters)
-        => Json(query, Data.Result.Array, false, Data.SqlParams(parameters));
+        => Json(query, Data.Result.Object, false, Data.SqlParams(parameters));
         public static string Json(string query, Data.Result result, params (string name, object value)[] parameters)
         => Json(query, result, false, Data.SqlParams(parameters));
 
         public static string Json(string query, bool isStoredProc, params (string name, object value)[] parameters)
-            => Json(query, Data.Result.Array, isStoredProc, Data.SqlParams(parameters));
+            => Json(query, Data.Result.Object, isStoredProc, Data.SqlParams(parameters));
 
-        public static string Json(string query, Data.Result result = Data.Result.Array, bool isStoredProc = false)
+        public static string Json(string query, Data.Result result, bool isStoredProc, params (string name, object value)[] parameters)
+            => Json(query, result, isStoredProc, Data.SqlParams(parameters));
+
+        public static string Json(string query, Data.Result result = Data.Result.Object, bool isStoredProc = false)
             => Json(query, result, isStoredProc, Data.NoParams);
 
         public static string Json(string query, Data.Result result, bool isStoredProc, params SqlParameter[] parameters)
@@ -136,15 +139,18 @@ namespace nuell.Async
     public static partial class Db
     {
         public static Task<string> Json(string query, params (string name, object value)[] parameters)
-            => Json(query, Data.Result.Array, false, Data.SqlParams(parameters));
+            => Json(query, Data.Result.Object, false, Data.SqlParams(parameters));
 
         public static Task<string> Json(string query, Data.Result result, params (string name, object value)[] parameters)
         => Json(query, result, false, Data.SqlParams(parameters));
 
         public static Task<string> Json(string query, bool isStoredProc, params (string name, object value)[] parameters)
-            => Json(query, Data.Result.Array, isStoredProc, Data.SqlParams(parameters));
+        => Json(query, Data.Result.Object, isStoredProc, Data.SqlParams(parameters));
 
-        public static Task<string> Json(string query, Data.Result result = Data.Result.Array, bool isStoredProc = false)
+        public static Task<string> Json(string query, Data.Result result, bool isStoredProc, params (string name, object value)[] parameters)
+        => Json(query, result, isStoredProc, Data.SqlParams(parameters));
+
+        public static Task<string> Json(string query, Data.Result result = Data.Result.Object, bool isStoredProc = false)
             => Json(query, result, isStoredProc, Data.NoParams);
 
         public async static Task<string> Json(string query, Data.Result result, bool isStoredProc, params SqlParameter[] parameters)
