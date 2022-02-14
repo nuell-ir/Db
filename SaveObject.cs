@@ -107,7 +107,7 @@ namespace nuell.Async
 {
     public static partial class Db
     {
-        private static Task<int> Save<T>(T obj, string table, string idProp = "Id")
+        public static Task<int> Save<T>(T obj, string table, string idProp = "Id")
             => Save(Data.SaveQuery<T>(obj, table, idProp));
     }
 }
