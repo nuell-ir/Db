@@ -1,7 +1,6 @@
 ﻿using System.Data;
 using System.Text.Encodings.Web;
 using System.Text.Json;
-using System.Text.Unicode;
 using Microsoft.Data.SqlClient;
 
 namespace nuell
@@ -20,7 +19,7 @@ namespace nuell
         internal static readonly SqlParameter[] NoParams = new SqlParameter[] { };
 
         internal static SqlParameter[] SqlParams((string name, object value)[] parameters)
-            => parameters.Select(p => new SqlParameter(p.name, p.value)).ToArray();
+            => parameters.Select(p => new SqlParameter(p.name, p.value ?? DBNull.Value)).ToArray();
 
         internal static readonly JsonSerializerOptions JsonOptions = new()
         {
