@@ -18,7 +18,6 @@ namespace nuell.Sync
 
         public static string ComplexJson(string query, (string Name, Data.Result ResultType)[] props, bool isStoredProc, params SqlParameter[] parameters)
         {
-            int index = 0;
             using var cnnct = new SqlConnection(Data.ConnectionString);
             using var cmnd = new SqlCommand(query, cnnct);
             if (isStoredProc)
@@ -29,21 +28,21 @@ namespace nuell.Sync
             using var stream = new MemoryStream();
             using var writer = new Utf8JsonWriter(stream, Data.JsonWriterOptions);
             writer.WriteStartObject();
-            ReadResult();
-            while (reader.NextResult())
-                ReadResult();
+            for (int i = 0; i < props.Length; i++){
+                ReadResult(i);
+                reader.NextResult();
+            }
             writer.WriteEndObject();
             writer.Flush();
             return Encoding.UTF8.GetString(stream.ToArray());
 
-            void ReadResult()
+            void ReadResult(int i)
             {
-                writer.WritePropertyName(props[index].Name);
+                writer.WritePropertyName(props[i].Name);
                 if (!reader.HasRows)
                     writer.WriteNullValue();
                 else
-                {
-                    switch (props[index].ResultType)
+                    switch (props[i].ResultType)
                     {
                         case Data.Result.Value:
                             reader.Read();
@@ -59,8 +58,6 @@ namespace nuell.Sync
                             writer.WriteStringValue(reader.ReadCsv());
                             break;
                     }
-                    index++;
-                }
             }
         }
     }
@@ -81,7 +78,6 @@ namespace nuell.Async
 
         public static async Task<string> ComplexJson(string query, (string Name, Data.Result ResultType)[] props, bool isStoredProc = false, params SqlParameter[] parameters)
         {
-            int index = 0;
             using var cnnct = new SqlConnection(Data.ConnectionString);
             using var cmnd = new SqlCommand(query, cnnct);
             if (isStoredProc)
@@ -92,21 +88,21 @@ namespace nuell.Async
             using var stream = new MemoryStream();
             using var writer = new Utf8JsonWriter(stream, Data.JsonWriterOptions);
             writer.WriteStartObject();
-            await ReadResult();
-            while (await reader.NextResultAsync())
-                await ReadResult();
+            for (int i = 0; i < props.Length; i++){
+                await ReadResult(i);
+                await reader.NextResultAsync();
+            }
             writer.WriteEndObject();
             await writer.FlushAsync();
             return Encoding.UTF8.GetString(stream.ToArray());
 
-            async Task ReadResult()
+            async Task ReadResult(int i)
             {
-                writer.WritePropertyName(props[index].Name);
+                writer.WritePropertyName(props[i].Name);
                 if (!reader.HasRows)
                     writer.WriteNullValue();
                 else
-                {
-                    switch (props[index].ResultType)
+                    switch (props[i].ResultType)
                     {
                         case Data.Result.Value:
                             await reader.ReadAsync();
@@ -122,8 +118,6 @@ namespace nuell.Async
                             writer.WriteStringValue(await reader.ReadCsv());
                             break;
                     }
-                    index++;
-                }
             }
         }
     }
