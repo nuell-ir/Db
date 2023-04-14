@@ -55,7 +55,7 @@ namespace nuell.Async
                 cmnd.CommandType = CommandType.StoredProcedure;
             cmnd.Parameters.AddRange(parameters);
             await cnnct.OpenAsync();
-            using var reader = cmnd.ExecuteReader();
+            using var reader = await cmnd.ExecuteReaderAsync();
             if (!reader.HasRows)
                 return null;
             var list = new List<string>();

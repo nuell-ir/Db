@@ -163,7 +163,7 @@ string json = await Db.Json($"select * from Customers where Id={id}");
 The default result is a JSON object. However, using an optional parameter you may require a JSON array result.
 
 ```c#
-string json = await Db.Json($"select Id, Age from Customers", Data.Result.Array);
+string json = await Db.Json($"select Id, Age from Customers", JsonValueType.Array);
 //[{"Id":1,"Age":24},{"Id":2,"Age":36},{"Id":3,"Age":31}]
 ```
 
@@ -224,7 +224,7 @@ The names and types of the class properties must match the query fields. Query f
 Converts a two-field query to a `System.Collections.Generic.Dictionary<K, V>`. For example:
 
 ```c#
-var cities = await Db.Dictionary<int>("select ZipCode, City from Addresses");
+Dictionary<int, string> cities = await Db.Dictionary<int, string>("select ZipCode, City from Addresses");
 ```
 
 ## `Str`
@@ -268,14 +268,14 @@ string query = "select count(1) from Employees;"
     + "select * from Customers";
 
 var resultTypes = new [] {
-    ("EmployeeCount", Data.Result.Value),
-    ("OneEmployee", Data.Result.Object),
-    ("EmployeeCsv", Data.Result.Csv),
-    ("CustomersArray", Data.Result.Array),
+    ("employeeCount", JsonValueType.Value),
+    ("oneEmployee", JsonValueType.Object),
+    ("employeeCsv", JsonValueType.Csv),
+    ("customersArray", JsonValueType.Array),
 };
 
 string json = await ComplexJson(query, resultTypes);
-//{"EmployeeCount":1200,"OneEmployee":{...},"EmployeeCsv":"...","CustomersArray":[...]}
+//{"employeeCount":1200,"oneEmployee":{...},"employeeCsv":"...","customersArray":[...]}
 ```
 
 The returned JSON object in the above example includes 4 properties with the names corresponding to those specified in the tuple.
@@ -323,7 +323,7 @@ int id = await Save(employee, "Employees");
 
 ```c#
 var employee = new Employee { Id = 0, FullName = "Shelley Askem", Age = 34, Balance = 1520 };
-int id = await Save<Employee>(employee, "Employees");
+int id = await Save(employee, "Employees");
 ```
 
 ## `Insert` ##

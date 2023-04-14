@@ -3,9 +3,9 @@ using Microsoft.Data.SqlClient;
 
 namespace nuell
 {
-    public static partial class Data
+    internal static partial class SaveQuery
     {
-        internal static SaveParams SaveQuery<T>(T obj, string table, string idProp)
+        internal static SaveParams Create<T>(T obj, string table, string idProp)
         {
             var propInfo = obj.GetType().GetProperties();
             var props = new (string Name, object Value)[propInfo.Length];
@@ -99,7 +99,7 @@ namespace nuell.Sync
     public static partial class Db
     {
         public static int Save<T>(T obj, string table, string idProp = "Id")
-            => Save(Data.SaveQuery(obj, table, idProp));
+            => Save(SaveQuery.Create(obj, table, idProp));
     }
 }
 
@@ -108,6 +108,6 @@ namespace nuell.Async
     public static partial class Db
     {
         public static Task<int> Save<T>(T obj, string table, string idProp = "Id")
-            => Save(Data.SaveQuery<T>(obj, table, idProp));
+            => Save(SaveQuery.Create(obj, table, idProp));
     }
 }

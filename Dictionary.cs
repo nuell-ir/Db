@@ -27,7 +27,7 @@ namespace nuell.Sync
                 return null;
             var dictionary = new Dictionary<K, V>();
             while (reader.Read())
-                dictionary.Add((K)Convert.ChangeType(reader[0], typeof(K)), (V)Convert.ChangeType(reader[1], typeof(V)));
+                dictionary.Add(reader.GetFieldValue<K>(0), reader.GetFieldValue<V>(1));
             return dictionary;
         }
     }
@@ -54,12 +54,12 @@ namespace nuell.Async
                 cmnd.CommandType = CommandType.StoredProcedure;
             cmnd.Parameters.AddRange(parameters);
             await cnnct.OpenAsync();
-            using var reader = cmnd.ExecuteReader();
+            using var reader = await cmnd.ExecuteReaderAsync();
             if (!reader.HasRows)
                 return null;
             var dictionary = new Dictionary<K, V>();
             while (await reader.ReadAsync())
-                dictionary.Add((K)Convert.ChangeType(reader[0], typeof(K)), (V)Convert.ChangeType(reader[1], typeof(V)));
+                dictionary.Add(reader.GetFieldValue<K>(0), reader.GetFieldValue<V>(1));
             return dictionary;
         }
     }
