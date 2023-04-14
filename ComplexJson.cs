@@ -117,7 +117,7 @@ namespace nuell.Async
 						await reader.ReadJson(props[i].ResultType, stream, writer);
 						break;
 					case JsonValueType.Csv:
-						writer.WriteStringValue("sd");
+						writer.WriteStringValue(await reader.ReadCsv());
 						break;
 				}
 			}
