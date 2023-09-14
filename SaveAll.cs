@@ -25,25 +25,43 @@ namespace nuell
 				str.Append(");");
 			}
 
-			var first = json[0];
 			var props = new List<string>();
 			var insertItems = new List<JsonElement>();
-			var updateItems = new List<(int Id, JsonElement Object)>();
-			foreach (var p in first.EnumerateObject())
-				if (p.Name != idProp)
-					props.Add(p.Name);
 
 			int id;
+			bool first = true;
 			foreach (var itm in json.EnumerateArray())
 			{
+				if (first)
+				{
+					foreach (var p in itm.EnumerateObject())
+						if (p.Name != idProp)
+							props.Add(p.Name);
+					first = false;
+				}
 				id = itm.GetProperty(idProp).GetInt32();
 				if (id == 0)
-					insertItems.Add(itm);
-				else
 				{
-					updateItems.Add((id, itm));
+					insertItems.Add(itm);
 					continue;
 				}
+				str.Append("UPDATE ");
+				str.Append(table);
+				str.Append(" SET ");
+				foreach (string prop in props)
+				{
+					str.Append('[');
+					str.Append(prop);
+					str.Append("]=");
+					AppendValue(itm.GetProperty(prop));
+					str.Append(',');
+				}
+				str.Remove(str.Length - 1, 1);
+				str.Append(" WHERE [");
+				str.Append(idProp);
+				str.Append("]=");
+				str.Append(id);
+				str.Append(';');
 			}
 
 			if (insertItems.Count > 0)
@@ -71,27 +89,6 @@ namespace nuell
 					str.Append("),");
 				}
 				str.Remove(str.Length - 1, 1);
-				str.Append(';');
-			}
-
-			foreach (var itm in updateItems)
-			{
-				str.Append("UPDATE ");
-				str.Append(table);
-				str.Append(" SET ");
-				foreach (string prop in props)
-				{
-					str.Append('[');
-					str.Append(prop);
-					str.Append("]=");
-					AppendValue(itm.Object.GetProperty(prop));
-					str.Append(',');
-				}
-				str.Remove(str.Length - 1, 1);
-				str.Append(" WHERE [");
-				str.Append(idProp);
-				str.Append("]=");
-				str.Append(itm.Id);
 				str.Append(';');
 			}
 
