@@ -96,7 +96,7 @@ namespace nuell
 
 				// Because setting JsonObject.index[] does not automatically convert POCO values to JsonElement,
 				// if a value is assigned in the code, it should be manually converted to JsonElement first.
-				// But to check whether a value is JsonElement or an assigned PCOO value, 
+				// But to check whether a value is JsonElement or an assigned POCO value, 
 				// 'is JsonElement' can't be applied to JsonValue, 
 				// so this is to check the value type:
 				if (!val.AsValue().TryGetValue(out JsonElement _))

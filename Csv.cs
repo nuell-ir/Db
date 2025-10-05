@@ -47,29 +47,15 @@ namespace nuell
 		}
 
 		private static char GetCsvTypeFlag(TypeCode colType)
-		{			
-			switch (colType)
+		{
+			return colType switch
 			{
-				case TypeCode.Byte:
-				case TypeCode.Int16:
-				case TypeCode.Int32:
-				case TypeCode.Int64:
-					return '!';
-
-				case TypeCode.Decimal:
-				case TypeCode.Double:
-				case TypeCode.Single:
-					return '%';
-
-				case TypeCode.DateTime:
-					return '#';
-
-				case TypeCode.Boolean:
-					return '^';
-
-				default:
-					return '$';
-			}
+				TypeCode.Byte or TypeCode.Int16 or TypeCode.Int32 or TypeCode.Int64 => '!',
+				TypeCode.Decimal or TypeCode.Double or TypeCode.Single => '%',
+				TypeCode.DateTime => '#',
+				TypeCode.Boolean => '^',
+				_ => '$',
+			};
 		}
 
 		internal static void WriteCsvRow(this StringBuilder str, SqlDataReader reader, TypeCode[] fieldTypes)
@@ -185,7 +171,7 @@ namespace nuell.Sync
 			};
 			while (reader.NextResult())
 				results.Add(reader.ReadCsv());
-			return results.ToArray();
+			return [.. results];
 		}
 
 		private static string ReadCsv(this SqlDataReader reader)
@@ -209,36 +195,39 @@ namespace nuell.Sync
 				return null;
 
 			var props = objects[0].GetType().GetProperties();
+			var propGetters = props.Select(p => (Func<object, object>)(o => p.GetValue(o))).ToArray();
 			var str = new StringBuilder();
 			var typeCodes = str.WriteCsvHeader(props);
+			int objectCount = objects.Length;
+			int propCount = props.Length;
 
 			object val;
-			for (int i = 0; i < objects.Length; i++)
+			for (int i = 0; i < objectCount; i++)
 			{
 				for (int p = 0; p < props.Length; p++)
 				{
-					val = props[p].GetValue(objects[i]);
+					val = propGetters[p](objects[i]);
 					if (val is null)
 						str.Append('Ø');
 					else
 						switch (typeCodes[p])
 						{
 							case TypeCode.DateTime:
-								str.Append(new DateTimeOffset((DateTime)val).ToUnixTimeSeconds());
+								str.Append((long)((DateTime)val).ToUniversalTime().Subtract(DateTime.UnixEpoch).TotalSeconds);
 								break;
 							case TypeCode.Boolean:
-								str.Append((bool)val ? 1 : 0);
+								str.Append((bool)val ? '1' : '0');
 								break;
 							default:
 								str.Append(val);
 								break;
 						}
-					str.Append(CsvWriter.sep);
+					if (p < propCount - 1)
+						str.Append(CsvWriter.sep);
 				}
-				str.Remove(str.Length - 1, 1);
-				str.Append(CsvWriter.line);
+				if (i < objectCount - 1)
+					str.Append(CsvWriter.line);
 			}
-			str.Remove(str.Length - 1, 1);
 
 			return str.ToString();
 		}
