@@ -22,10 +22,9 @@ namespace nuell
 				fieldTypes[i] = type;
 				str.Append(GetCsvTypeFlag(type));
 				str.Append(reader.GetName(i));
-				str.Append(sep);
+				if (i < columns - 1)
+					str.Append(sep);
 			}
-			str.Remove(str.Length - 1, 1);
-			str.Append(line);
 			return fieldTypes;
 		}
 
@@ -39,10 +38,9 @@ namespace nuell
 				fieldTypes[i] = type;
 				str.Append(GetCsvTypeFlag(type));
 				str.Append(props[i].Name);
-				str.Append(sep);
+				if (i < props.Length - 1)
+					str.Append(sep);
 			}
-			str.Remove(str.Length - 1, 1);
-			str.Append(line);
 			return fieldTypes;
 		}
 
@@ -60,6 +58,7 @@ namespace nuell
 
 		internal static void WriteCsvRow(this StringBuilder str, SqlDataReader reader, TypeCode[] fieldTypes)
 		{
+			str.Append(line);
 			for (int i = 0; i < fieldTypes.Length; i++)
 			{
 				if (reader.IsDBNull(i))
@@ -99,10 +98,9 @@ namespace nuell
 							str.Append(reader.GetString(i));
 							break;
 					}
-				str.Append(sep);
+				if (i < fieldTypes.Length - 1)
+					str.Append(sep);
 			}
-			str.Remove(str.Length - 1, 1);
-			str.Append(line);
 		}
 	}
 }
@@ -118,12 +116,12 @@ namespace nuell.Sync
 		/// <summary>Converts the query result to CSV string.</summary>
 		/// <param name="isStoredProc">is the query a stored procedure</param>
 		public static string Csv(string query, bool isStoredProc, params (string name, object value)[] parameters)
-			 => Csv(query, isStoredProc, Data.SqlParams(parameters));
+		=> Csv(query, isStoredProc, Data.SqlParams(parameters));
 
 		/// <summary>Converts the query result to CSV string.</summary>
 		/// <param name="isStoredProc">is the query a stored procedure</param>
 		public static string Csv(string query, bool isStoredProc = false)
-			 => Csv(query, isStoredProc, Data.NoParams);
+		=> Csv(query, isStoredProc, Data.NoParams);
 
 
 		/// <summary>Converts the query result to CSV string.</summary>
@@ -142,17 +140,17 @@ namespace nuell.Sync
 
 		/// <summary>Converts the multiple results of a query to an array of CSV strings.</summary>
 		public static string[] MultiCsv(string query, params (string name, object value)[] parameters)
-			 => MultiCsv(query, false, Data.SqlParams(parameters));
+		=> MultiCsv(query, false, Data.SqlParams(parameters));
 
 		/// <summary>Converts the multiple results of a query to an array of CSV strings.</summary>
 		/// <param name="isStoredProc">is the query a stored procedure</param>
 		public static string[] MultiCsv(string query, bool isStoredProc, params (string name, object value)[] parameters)
-			 => MultiCsv(query, isStoredProc, Data.SqlParams(parameters));
+		=> MultiCsv(query, isStoredProc, Data.SqlParams(parameters));
 
 		/// <summary>Converts the multiple results of a query to an array of CSV strings.</summary>
 		/// <param name="isStoredProc">is the query a stored procedure</param>
 		public static string[] MultiCsv(string query, bool isStoredProc = false)
-			 => MultiCsv(query, isStoredProc, Data.NoParams);
+		=> MultiCsv(query, isStoredProc, Data.NoParams);
 
 		/// <summary>Converts the multiple results of a query to an array of CSV strings.</summary>
 		/// <param name="isStoredProc">is the query a stored procedure</param>
@@ -274,12 +272,12 @@ namespace nuell.Async
 		/// <summary>Converts the multiple results of a query to an array of CSV strings.</summary>
 		/// <param name="isStoredProc">is the query a stored procedure</param>
 		public static Task<string[]> MultiCsv(string query, bool isStoredProc, params (string name, object value)[] parameters)
-			 => MultiCsv(query, isStoredProc, Data.SqlParams(parameters));
+		=> MultiCsv(query, isStoredProc, Data.SqlParams(parameters));
 
 		/// <summary>Converts the multiple results of a query to an array of CSV strings.</summary>
 		/// <param name="isStoredProc">is the query a stored procedure</param>
 		public static Task<string[]> MultiCsv(string query, bool isStoredProc = false)
-			 => MultiCsv(query, isStoredProc, Data.NoParams);
+		=> MultiCsv(query, isStoredProc, Data.NoParams);
 
 		/// <summary>Converts the multiple results of a query to an array of CSV strings.</summary>
 		/// <param name="isStoredProc">is the query a stored procedure</param>
