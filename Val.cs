@@ -30,7 +30,7 @@ namespace nuell.Sync
 			cmd.Parameters.AddRange(parameters);
 			connection.Open();
 			var val = cmd.ExecuteScalar();
-			return val is null || val is DBNull ? default : (T)Convert.ChangeType(val, typeof(T));
+			return val is null || val is DBNull ? default : val is T t ? t : (T)Convert.ChangeType(val, typeof(T));
 		}
 	}
 }
@@ -64,7 +64,7 @@ namespace nuell.Async
 			cmd.Parameters.AddRange(parameters);
 			await connection.OpenAsync();
 			var val = await cmd.ExecuteScalarAsync();
-			return val is null || val is DBNull ? default : (T)Convert.ChangeType(val, typeof(T));
+			return val is null || val is DBNull ? default : val is T t ? t : (T)Convert.ChangeType(val, typeof(T));
 		}
 	}
 }

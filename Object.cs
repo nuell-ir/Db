@@ -1,18 +1,44 @@
 using System.Data;
+using System.Data.Common;
 using Microsoft.Data.SqlClient;
+
+using System.Reflection;
 
 namespace nuell
 {
 	internal static class ObjectReflector
 	{
-		internal static T GetObject<T>(this SqlDataReader reader) where T : new()
+		internal static T GetObject<T>(this DbDataReader reader, Dictionary<string, PropertyInfo> props) where T : new()
 		{
 			int fieldCount = reader.FieldCount;
-			var props = typeof(T).GetProperties().ToDictionary(p => p.Name, p => p);
 			var obj = new T();
 			for (int i = 0; i < fieldCount; i++)
-				props[reader.GetName(i)].SetValue(obj, reader.GetValue(i));
+			{
+				if (props.TryGetValue(reader.GetName(i), out var prop) && prop.CanWrite)
+				{
+					if (reader.IsDBNull(i))
+					{
+						if (!prop.PropertyType.IsValueType || Nullable.GetUnderlyingType(prop.PropertyType) != null)
+							prop.SetValue(obj, null);
+					}
+					else
+					{
+						var val = reader.GetValue(i);
+						var targetType = Nullable.GetUnderlyingType(prop.PropertyType) ?? prop.PropertyType;
+						if (val.GetType() == targetType)
+							prop.SetValue(obj, val);
+						else
+							prop.SetValue(obj, Convert.ChangeType(val, targetType));
+					}
+				}
+			}
 			return obj;
+		}
+
+		internal static T GetObject<T>(this DbDataReader reader) where T : new()
+		{
+			var props = typeof(T).GetProperties().ToDictionary(p => p.Name, p => p);
+			return reader.GetObject<T>(props);
 		}
 	}
 }

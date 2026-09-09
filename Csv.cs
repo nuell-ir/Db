@@ -1,4 +1,5 @@
 using System.Data;
+using System.Data.Common;
 using System.Globalization;
 using System.Reflection;
 using System.Text;
@@ -11,14 +12,14 @@ namespace nuell
 		internal const char sep = '~';
 		internal const char line = '|';
 
-		internal static TypeCode[] WriteCsvHeader(this StringBuilder str, SqlDataReader reader)
+		internal static Type[] WriteCsvHeader(this StringBuilder str, DbDataReader reader)
 		{
 			int columns = reader.FieldCount;
-			var fieldTypes = new TypeCode[columns];
-			TypeCode type;
+			var fieldTypes = new Type[columns];
+			Type type;
 			for (int i = 0; i < columns; i++)
 			{
-				type = Type.GetTypeCode(reader.GetFieldType(i));
+				type = reader.GetFieldType(i);
 				fieldTypes[i] = type;
 				str.Append(GetCsvTypeFlag(type));
 				str.Append(reader.GetName(i));
@@ -28,13 +29,13 @@ namespace nuell
 			return fieldTypes;
 		}
 
-		internal static TypeCode[] WriteCsvHeader(this StringBuilder str, PropertyInfo[] props)
+		internal static Type[] WriteCsvHeader(this StringBuilder str, PropertyInfo[] props)
 		{
-			var fieldTypes = new TypeCode[props.Length];
-			TypeCode type;
+			var fieldTypes = new Type[props.Length];
+			Type type;
 			for (int i = 0; i < props.Length; i++)
 			{
-				type = Type.GetTypeCode(props[i].PropertyType);
+				type = props[i].PropertyType;
 				fieldTypes[i] = type;
 				str.Append(GetCsvTypeFlag(type));
 				str.Append(props[i].Name);
@@ -44,19 +45,25 @@ namespace nuell
 			return fieldTypes;
 		}
 
-		internal static char GetCsvTypeFlag(TypeCode colType)
+		internal static char GetCsvTypeFlag(Type colType)
 		{
-			return colType switch
+			colType = Nullable.GetUnderlyingType(colType) ?? colType;
+
+			var typeCode = Type.GetTypeCode(colType);
+			return typeCode switch
 			{
 				TypeCode.Byte or TypeCode.Int16 or TypeCode.Int32 or TypeCode.Int64 => '!',
 				TypeCode.Decimal or TypeCode.Double or TypeCode.Single => '%',
 				TypeCode.DateTime => '#',
 				TypeCode.Boolean => '^',
-				_ => '$',
+				TypeCode.Char or TypeCode.String => '$',
+				_ when colType == typeof(DateTimeOffset) => '#',
+				_ when colType == typeof(Guid) || colType == typeof(TimeSpan) || colType == typeof(byte[]) => '$',
+				_ => throw new NotSupportedException($"Type '{colType.FullName}' is not supported.")
 			};
 		}
 
-		internal static void WriteCsvRow(this StringBuilder str, SqlDataReader reader, TypeCode[] fieldTypes)
+		internal static void WriteCsvRow(this StringBuilder str, DbDataReader reader, Type[] fieldTypes)
 		{
 			str.Append(line);
 			for (int i = 0; i < fieldTypes.Length; i++)
@@ -64,7 +71,9 @@ namespace nuell
 				if (reader.IsDBNull(i))
 					str.Append('Ø');
 				else
-					switch (fieldTypes[i])
+				{
+					var type = fieldTypes[i];
+					switch (Type.GetTypeCode(type))
 					{
 						case TypeCode.Int32:
 							str.Append(reader.GetInt32(i));
@@ -97,7 +106,20 @@ namespace nuell
 						case TypeCode.String:
 							str.Append(reader.GetString(i));
 							break;
+						default:
+							if (type == typeof(Guid))
+								str.Append(reader.GetGuid(i));
+							else if (type == typeof(DateTimeOffset))
+								str.Append((reader is SqlDataReader sdr ? sdr.GetDateTimeOffset(i) : reader.GetFieldValue<DateTimeOffset>(i)).ToUnixTimeSeconds());
+							else if (type == typeof(TimeSpan))
+								str.Append(reader is SqlDataReader sdr ? sdr.GetTimeSpan(i) : reader.GetFieldValue<TimeSpan>(i));
+							else if (type == typeof(byte[]))
+								str.Append(Convert.ToBase64String((byte[])reader.GetValue(i)));
+							else
+								throw new NotSupportedException($"Type '{type.FullName}' is not supported.");
+							break;
 					}
+				}
 				if (i < fieldTypes.Length - 1)
 					str.Append(sep);
 			}
@@ -194,7 +216,7 @@ namespace nuell.Sync
 			var props = objects[0].GetType().GetProperties();
 			var propGetters = props.Select(p => (Func<object, object>)(o => p.GetValue(o))).ToArray();
 			var str = new StringBuilder();
-			var typeCodes = str.WriteCsvHeader(props);
+			var fieldTypes = str.WriteCsvHeader(props);
 			int objectCount = objects.Length;
 			int propCount = props.Length;
 
@@ -208,18 +230,29 @@ namespace nuell.Sync
 					if (val is null)
 						str.Append('Ø');
 					else
-						switch (typeCodes[p])
-						{
-							case TypeCode.DateTime:
-								str.Append((long)((DateTime)val).ToUniversalTime().Subtract(DateTime.UnixEpoch).TotalSeconds);
-								break;
-							case TypeCode.Boolean:
-								str.Append((bool)val ? '1' : '0');
-								break;
-							default:
-								str.Append(val);
-								break;
-						}
+					{
+						var type = fieldTypes[p];
+						var underlying = Nullable.GetUnderlyingType(type) ?? type;
+
+						if (val is DateTime dt)
+							str.Append(new DateTimeOffset(dt).ToUnixTimeSeconds());
+						else if (val is DateTimeOffset dto)
+							str.Append(dto.ToUnixTimeSeconds());
+						else if (val is bool b)
+							str.Append(b ? '1' : '0');
+						else if (val is byte[] bytes)
+							str.Append(Convert.ToBase64String(bytes));
+						else if (val is float f)
+							str.Append(f.ToString(CultureInfo.InvariantCulture));
+						else if (val is double d)
+							str.Append(d.ToString(CultureInfo.InvariantCulture));
+						else if (val is decimal dec)
+							str.Append(dec.ToString(CultureInfo.InvariantCulture));
+						else if (underlying == typeof(Guid) || underlying == typeof(TimeSpan) || Type.GetTypeCode(underlying) != TypeCode.Object)
+							str.Append(val);
+						else
+							throw new NotSupportedException($"Type '{type.FullName}' is not supported.");
+					}
 					if (p < propCount - 1)
 						str.Append(CsvWriter.sep);
 				}

@@ -8,25 +8,47 @@ namespace nuell
 {
 	public static partial class Data
 	{
-		internal static JsonObject GetJsonObject(this SqlDataReader reader, ReadOnlyCollection<DbColumn> columns)
+		internal static JsonNode GetJsonNode(this DbDataReader reader, Type dataType, int i)
+		{
+			if (reader.IsDBNull(i))
+				return null;
+
+			var typeCode = Type.GetTypeCode(dataType);
+			switch (typeCode)
+			{
+				case TypeCode.Int32: return reader.GetInt32(i);
+				case TypeCode.Int64: return reader.GetInt64(i);
+				case TypeCode.Int16: return reader.GetInt16(i);
+				case TypeCode.Byte: return reader.GetByte(i);
+				case TypeCode.Single: return reader.GetFloat(i);
+				case TypeCode.Double: return reader.GetDouble(i);
+				case TypeCode.Decimal: return reader.GetDecimal(i);
+				case TypeCode.DateTime: return reader.GetDateTime(i);
+				case TypeCode.Boolean: return reader.GetBoolean(i);
+				case TypeCode.Char: return reader.GetChar(i);
+				case TypeCode.String: return reader.GetString(i);
+			}
+
+			if (dataType == typeof(Guid))
+				return JsonValue.Create(reader.GetGuid(i).ToString());
+			if (dataType == typeof(DateTimeOffset))
+				return JsonValue.Create((reader is SqlDataReader sdr ? sdr.GetDateTimeOffset(i) : reader.GetFieldValue<DateTimeOffset>(i)).ToString("o"));
+			if (dataType == typeof(TimeSpan))
+				return JsonValue.Create((reader is SqlDataReader sdr ? sdr.GetTimeSpan(i) : reader.GetFieldValue<TimeSpan>(i)).ToString());
+			if (dataType == typeof(byte[]))
+				return JsonValue.Create(Convert.ToBase64String((byte[])reader.GetValue(i)));
+
+			throw new NotSupportedException($"Type '{dataType.FullName}' is not supported.");
+		}
+
+		internal static JsonObject GetJsonObject(this DbDataReader reader, ReadOnlyCollection<DbColumn> columns)
 		{
 			var obj = new System.Text.Json.Nodes.JsonObject();
 			for (int i = 0; i < columns.Count; i++)
-				obj[reader.GetName(i)] = reader.IsDBNull(i) ? null :
-				Type.GetTypeCode(columns[i].DataType) switch
-				{
-					TypeCode.Int32 => reader.GetInt32(i),
-					TypeCode.Int64 => reader.GetInt64(i),
-					TypeCode.Int16 => reader.GetInt16(i),
-					TypeCode.Byte => reader.GetByte(i),
-					TypeCode.Single => reader.GetFloat(i),
-					TypeCode.Double => reader.GetDouble(i),
-					TypeCode.Decimal => reader.GetDecimal(i),
-					TypeCode.DateTime => reader.GetDateTime(i),
-					TypeCode.Boolean => reader.GetBoolean(i),
-					TypeCode.Char => reader.GetChar(i),
-					TypeCode.String => reader.GetString(i),
-				};
+			{
+				var dataType = columns[i].DataType ?? reader.GetFieldType(i);
+				obj[reader.GetName(i)] = reader.GetJsonNode(dataType, i);
+			}
 			return obj;
 		}
 	}

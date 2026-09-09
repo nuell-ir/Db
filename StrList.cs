@@ -28,7 +28,7 @@ namespace nuell.Sync
 
             var list = new List<string>();
             while (reader.Read())
-                list.Add(reader.GetString(0));
+                list.Add(reader.IsDBNull(0) ? null : reader.GetString(0));
             return list;
         }
     }
@@ -60,7 +60,7 @@ namespace nuell.Async
                 return null;
             var list = new List<string>();
             while (await reader.ReadAsync())
-                list.Add(reader.GetString(0));
+                list.Add(reader.IsDBNull(0) ? null : reader.GetString(0));
             return list;
         }
     }

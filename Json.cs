@@ -1,4 +1,5 @@
 using System.Data;
+using System.Data.Common;
 using System.Globalization;
 using System.Text;
 using System.Text.Json;
@@ -8,55 +9,84 @@ namespace nuell
 {
 	public static partial class Data
 	{
-		internal static (int, string[], TypeCode[]) GetSchema(this SqlDataReader reader)
+		internal static (int, string[], Type[]) GetSchema(this DbDataReader reader)
 		{
 			int count = reader.FieldCount;
-			var fieldTypes = new TypeCode[count];
+			var fieldTypes = new Type[count];
 			var fieldNames = new string[count];
 			for (int i = 0; i < count; i++)
 			{
-				fieldTypes[i] = Type.GetTypeCode(reader.GetFieldType(i));
+				fieldTypes[i] = reader.GetFieldType(i);
 				fieldNames[i] = reader.GetName(i);
 			}
 			return (count, fieldNames, fieldTypes);
 		}
 
-		internal static void WriteDbValue(this Utf8JsonWriter writer, SqlDataReader reader, TypeCode typeCode, int columnIndex)
+		internal static void WriteDbValue(this Utf8JsonWriter writer, DbDataReader reader, Type type, int columnIndex)
 		{
-			switch (typeCode)
+			if (reader.IsDBNull(columnIndex))
+			{
+				writer.WriteNullValue();
+				return;
+			}
+
+			switch (Type.GetTypeCode(type))
 			{
 				case TypeCode.Int32:
 					writer.WriteNumberValue(reader.GetInt32(columnIndex));
-					break;
+					return;
 				case TypeCode.Int16:
 					writer.WriteNumberValue(reader.GetInt16(columnIndex));
-					break;
+					return;
 				case TypeCode.Byte:
 					writer.WriteNumberValue(reader.GetByte(columnIndex));
-					break;
+					return;
 				case TypeCode.Int64:
 					writer.WriteNumberValue(reader.GetInt64(columnIndex));
-					break;
+					return;
 				case TypeCode.Single:
 					writer.WriteNumberValue(reader.GetFloat(columnIndex));
-					break;
+					return;
 				case TypeCode.Double:
 					writer.WriteNumberValue(reader.GetDouble(columnIndex));
-					break;
+					return;
 				case TypeCode.Decimal:
 					writer.WriteNumberValue(reader.GetDecimal(columnIndex));
-					break;
+					return;
 				case TypeCode.DateTime:
 					writer.WriteStringValue(reader.GetDateTime(columnIndex));
-					break;
+					return;
 				case TypeCode.Boolean:
 					writer.WriteBooleanValue(reader.GetBoolean(columnIndex));
-					break;
+					return;
 				case TypeCode.Char:
 				case TypeCode.String:
 					writer.WriteStringValue(reader.GetString(columnIndex));
-					break;
+					return;
 			}
+
+			if (type == typeof(Guid))
+			{
+				writer.WriteStringValue(reader.GetGuid(columnIndex));
+				return;
+			}
+			if (type == typeof(DateTimeOffset))
+			{
+				writer.WriteStringValue(reader is SqlDataReader sdr ? sdr.GetDateTimeOffset(columnIndex) : reader.GetFieldValue<DateTimeOffset>(columnIndex));
+				return;
+			}
+			if (type == typeof(TimeSpan))
+			{
+				writer.WriteStringValue((reader is SqlDataReader sdr ? sdr.GetTimeSpan(columnIndex) : reader.GetFieldValue<TimeSpan>(columnIndex)).ToString());
+				return;
+			}
+			if (type == typeof(byte[]))
+			{
+				writer.WriteBase64StringValue((byte[])reader.GetValue(columnIndex));
+				return;
+			}
+
+			throw new NotSupportedException($"Type '{type.FullName}' is not supported.");
 		}
 	}
 }
@@ -113,7 +143,7 @@ namespace nuell.Sync
 		internal static void ReadJson(this SqlDataReader reader, JsonValueType result, MemoryStream stream, Utf8JsonWriter writer)
 		{
 			string[] fieldNames;
-			TypeCode[] fieldTypes;
+			Type[] fieldTypes;
 			int count;
 
 			switch (result)
@@ -211,7 +241,7 @@ namespace nuell.Async
 		internal async static Task ReadJson(this SqlDataReader reader, JsonValueType result, MemoryStream stream, Utf8JsonWriter writer)
 		{
 			string[] fieldNames;
-			TypeCode[] fieldTypes;
+			Type[] fieldTypes;
 			int count;
 
 			switch (result)

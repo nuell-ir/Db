@@ -48,8 +48,15 @@ namespace nuell.Sync
 				switch (props[i].ResultType)
 				{
 					case JsonValueType.Value:
-						reader.Read();
-						writer.WriteDbValue(reader, Type.GetTypeCode(reader.GetFieldType(0)), 0);
+						if (reader.Read())
+						{
+							if (reader.IsDBNull(0))
+								writer.WriteNullValue();
+							else
+								writer.WriteDbValue(reader, reader.GetFieldType(0), 0);
+						}
+						else
+							writer.WriteNullValue();
 						break;
 					case JsonValueType.Array:
 					case JsonValueType.Object:
@@ -109,8 +116,15 @@ namespace nuell.Async
 				switch (props[i].ResultType)
 				{
 					case JsonValueType.Value:
-						await reader.ReadAsync();
-						writer.WriteDbValue(reader, Type.GetTypeCode(reader.GetFieldType(0)), 0);
+						if (await reader.ReadAsync())
+						{
+							if (reader.IsDBNull(0))
+								writer.WriteNullValue();
+							else
+								writer.WriteDbValue(reader, reader.GetFieldType(0), 0);
+						}
+						else
+							writer.WriteNullValue();
 						break;
 					case JsonValueType.Array:
 					case JsonValueType.Object:

@@ -28,15 +28,8 @@ namespace nuell.Sync
 
             var list = new List<T>();
             var props = typeof(T).GetProperties().ToDictionary(p => p.Name, p => p);
-            T obj;
-            int fieldCount = reader.FieldCount;
             while (reader.Read())
-            {
-                obj = new T();
-                for (int i = 0; i < fieldCount; i++)
-                    props[reader.GetName(i)].SetValue(obj, reader.GetValue(i));
-                list.Add(obj);
-            }
+                list.Add(reader.GetObject<T>(props));
             return list;
         }
     }
@@ -69,15 +62,8 @@ namespace nuell.Async
 
             var list = new List<T>();
             var props = typeof(T).GetProperties().ToDictionary(p => p.Name, p => p);
-            T obj;
-            int fieldCount = reader.FieldCount;
             while (await reader.ReadAsync())
-            {
-                obj = new T();
-                for (int i = 0; i < fieldCount; i++)
-                    props[reader.GetName(i)].SetValue(obj, reader.GetValue(i));
-                list.Add(obj);
-            }
+                list.Add(reader.GetObject<T>(props));
             return list;
         }
     }
