@@ -182,7 +182,6 @@ namespace nuell.Sync
 			str.WriteCsvRow(reader, fieldTypes);
 			while (reader.Read())
 				str.WriteCsvRow(reader, fieldTypes);
-			str.Remove(str.Length - 1, 1);
 			return str.ToString();
 		}
 
@@ -202,6 +201,7 @@ namespace nuell.Sync
 			object val;
 			for (int i = 0; i < objectCount; i++)
 			{
+				str.Append(CsvWriter.line);
 				for (int p = 0; p < props.Length; p++)
 				{
 					val = propGetters[p](objects[i]);
@@ -223,8 +223,6 @@ namespace nuell.Sync
 					if (p < propCount - 1)
 						str.Append(CsvWriter.sep);
 				}
-				if (i < objectCount - 1)
-					str.Append(CsvWriter.line);
 			}
 
 			return str.ToString();
@@ -309,7 +307,6 @@ namespace nuell.Async
 			str.WriteCsvRow(reader, fieldTypes);
 			while (await reader.ReadAsync())
 				str.WriteCsvRow(reader, fieldTypes);
-			str.Remove(str.Length - 1, 1);
 			return str.ToString();
 		}
 	}
