@@ -41,7 +41,7 @@ namespace nuell
 						str.Append(',');
 					}
 				str.Remove(str.Length - 1, 1);
-				str.Append(')');
+				str.Append("); SELECT CAST(SCOPE_IDENTITY() AS int);");
 			}
 			else
 			{
@@ -121,7 +121,7 @@ namespace nuell
 						str.Append(',');
 					}
 				str.Remove(str.Length - 1, 1);
-				str.Append(')');
+				str.Append("); SELECT CAST(SCOPE_IDENTITY() AS int);");
 			}
 			else
 			{
@@ -199,7 +199,8 @@ namespace nuell.Sync
 	{
 		/// <summary>Saves the JsonNode via an insert or update operation.</summary>
 		/// <remarks>If the value of the identity field is 0, the values will be inserted as a record; otherwise, a record with the specified identity will be updated.</remarks>
-		/// <returns>The identity of the inserted/updated record</returns>
+		/// <returns>The identity of the inserted/updated record, or 0 if no record was updated.</returns>
+		/// <param name="json">The JsonNode to save</param>
 		/// <param name="table">Table name</param>   
 		/// <param name="idProp">The name of the identity field, the value of which decides whether to insert or update the record</param>   
 		public static int Save(JsonNode json, string table, string idProp = "Id")
@@ -207,7 +208,8 @@ namespace nuell.Sync
 
 		/// <summary>Saves the JsonObject via an insert or update operation.</summary>
 		/// <remarks>If the value of the identity field is 0, the values will be inserted as a record; otherwise, a record with the specified identity will be updated.</remarks>
-		/// <returns>The identity of the inserted/updated record</returns>
+		/// <returns>The identity of the inserted/updated record, or 0 if no record was updated.</returns>
+		/// <param name="json">The JsonObject to save</param>
 		/// <param name="table">Table name</param>   
 		/// <param name="idProp">The name of the identity field, the value of which decides whether to insert or update the record</param>   
 		public static int Save(JsonObject json, string table, string idProp = "Id")
@@ -215,7 +217,8 @@ namespace nuell.Sync
 
 		/// <summary>Saves the JsonElement via an insert or update operation.</summary>
 		/// <remarks>If the value of the identity field is 0, the values will be inserted as a record; otherwise, a record with the specified identity will be updated.</remarks>
-		/// <returns>The identity of the inserted/updated record</returns>
+		/// <returns>The identity of the inserted/updated record, or 0 if no record was updated.</returns>
+		/// <param name="json">The JsonElement to save</param>
 		/// <param name="table">Table name</param>   
 		/// <param name="idProp">The name of the identity field, the value of which decides whether to insert or update the record</param>   
 		public static int Save(JsonElement json, string table, string idProp = "Id")
@@ -228,13 +231,10 @@ namespace nuell.Sync
 			if (param.SqlParams.Length > 0)
 				cmd.Parameters.AddRange(param.SqlParams);
 			connection.Open();
-			cmd.ExecuteNonQuery();
 			if (param.Id == 0)
-			{
-				cmd.CommandText = "select @@identity";
-				param.Id = Convert.ToInt32(cmd.ExecuteScalar());
-			}
-			return param.Id;
+				return Convert.ToInt32(cmd.ExecuteScalar());
+
+			return cmd.ExecuteNonQuery() > 0 ? param.Id : 0;
 		}
 	}
 }
@@ -245,7 +245,8 @@ namespace nuell.Async
 	{
 		/// <summary>Saves the JsonNode via an insert or update operation.</summary>
 		/// <remarks>If the value of the identity field is 0, the values will be inserted as a record; otherwise, a record with the specified identity will be updated.</remarks>
-		/// <returns>The identity of the inserted/updated record</returns>
+		/// <returns>The identity of the inserted/updated record, or 0 if no record was updated.</returns>
+		/// <param name="json">The JsonNode to save</param>
 		/// <param name="table">Table name</param>   
 		/// <param name="idProp">The name of the identity field, the value of which decides whether to insert or update the record</param>   
 		public static Task<int> Save(JsonNode json, string table, string idProp = "Id")
@@ -253,7 +254,8 @@ namespace nuell.Async
 
 		/// <summary>Saves the JsonObject via an insert or update operation.</summary>
 		/// <remarks>If the value of the identity field is 0, the values will be inserted as a record; otherwise, a record with the specified identity will be updated.</remarks>
-		/// <returns>The identity of the inserted/updated record</returns>
+		/// <returns>The identity of the inserted/updated record, or 0 if no record was updated.</returns>
+		/// <param name="json">The JsonObject to save</param>
 		/// <param name="table">Table name</param>   
 		/// <param name="idProp">The name of the identity field, the value of which decides whether to insert or update the record</param>   
 		public static Task<int> Save(JsonObject json, string table, string idProp = "Id")
@@ -261,7 +263,8 @@ namespace nuell.Async
 
 		/// <summary>Saves the JsonElement via an insert or update operation.</summary>
 		/// <remarks>If the value of the identity field is 0, the values will be inserted as a record; otherwise, a record with the specified identity will be updated.</remarks>
-		/// <returns>The identity of the inserted/updated record</returns>
+		/// <returns>The identity of the inserted/updated record, or 0 if no record was updated.</returns>
+		/// <param name="json">The JsonElement to save</param>
 		/// <param name="table">Table name</param>   
 		/// <param name="idProp">The name of the identity field, the value of which decides whether to insert or update the record</param>   
 		public static Task<int> Save(JsonElement json, string table, string idProp = "Id")
@@ -274,13 +277,10 @@ namespace nuell.Async
 			if (param.SqlParams.Length > 0)
 				cmd.Parameters.AddRange(param.SqlParams);
 			await connection.OpenAsync();
-			await cmd.ExecuteNonQueryAsync();
 			if (param.Id == 0)
-			{
-				cmd.CommandText = "select @@identity";
-				param.Id = Convert.ToInt32(await cmd.ExecuteScalarAsync());
-			}
-			return param.Id;
+				return Convert.ToInt32(await cmd.ExecuteScalarAsync());
+
+			return await cmd.ExecuteNonQueryAsync() > 0 ? param.Id : 0;
 		}
 	}
 }

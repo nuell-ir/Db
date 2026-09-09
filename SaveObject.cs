@@ -37,7 +37,7 @@ namespace nuell
                         str.Append(',');
                     }
                 str.Remove(str.Length - 1, 1);
-                str.Append(')');
+                str.Append("); SELECT CAST(SCOPE_IDENTITY() AS int);");
             }
             else
             {
@@ -100,6 +100,12 @@ namespace nuell.Sync
 {
     public static partial class Db
     {
+        /// <summary>Saves an object of type T via an insert or update operation.</summary>
+        /// <remarks>If the value of the identity field is 0, the values will be inserted as a record; otherwise, a record with the specified identity will be updated.</remarks>
+        /// <returns>The identity of the inserted/updated record, or 0 if no record was updated.</returns>
+        /// <param name="obj">The object to save</param>
+        /// <param name="table">Table name</param>   
+        /// <param name="idProp">The name of the identity field, the value of which decides whether to insert or update the record</param>
         public static int Save<T>(T obj, string table, string idProp = "Id")
             => Save(SaveQuery.Create(obj, table, idProp));
     }
@@ -109,6 +115,12 @@ namespace nuell.Async
 {
     public static partial class Db
     {
+        /// <summary>Saves an object of type T via an insert or update operation.</summary>
+        /// <remarks>If the value of the identity field is 0, the values will be inserted as a record; otherwise, a record with the specified identity will be updated.</remarks>
+        /// <returns>The identity of the inserted/updated record, or 0 if no record was updated.</returns>
+        /// <param name="obj">The object to save</param>
+        /// <param name="table">Table name</param>   
+        /// <param name="idProp">The name of the identity field, the value of which decides whether to insert or update the record</param>
         public static Task<int> Save<T>(T obj, string table, string idProp = "Id")
             => Save(SaveQuery.Create(obj, table, idProp));
     }

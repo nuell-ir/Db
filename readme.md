@@ -312,7 +312,7 @@ Saves a `JsonElement`, `JsonObject`, `JsonNode`, or an object of type `<T>` to t
 
 The `JsonElement`, `JsonObject`, `JsonNode`, or `<T>` object data must include an identity property specified in the case-sensitive `idProp` parameter (default is `"Id"`), and the target table must contain an identity primary key with the same name.
 
-If the value of the identity property is zero, it will be ignored and the rest of the properties will be *inserted* into the table. Then the newly created identity will be returned. Otherwise, the record with the specified identity will be *updated*. 
+If the value of the identity property is zero, it will be ignored and the rest of the properties will be *inserted* into the table, returning the newly created identity. Otherwise, the record with the specified identity will be *updated*, returning the record's identity if a matching record was updated, or `0` if no matching record was found. 
 
 All the properties *must* match the table fields.
 
