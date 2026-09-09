@@ -3,7 +3,7 @@ using System.Text.Json;
 using System.Text.RegularExpressions;
 using Microsoft.Data.SqlClient;
 
-namespace nuell
+namespace nuel
 {
 	internal static partial class SaveAllQuery
 	{
@@ -128,7 +128,7 @@ namespace nuell
 	}
 }
 
-namespace nuell.Sync
+namespace nuel.Sync
 {
 	public static partial class Db
 	{
@@ -142,7 +142,7 @@ namespace nuell.Sync
 	}
 }
 
-namespace nuell.Async
+namespace nuel.Async
 {
 	public static partial class Db
 	{

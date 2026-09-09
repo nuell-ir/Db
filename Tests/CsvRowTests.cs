@@ -1,7 +1,7 @@
 using System.Data;
 using System.Text;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
-using nuell;
+using nuel;
 
 namespace Db.Tests;
 

@@ -2,7 +2,7 @@ using System.Data;
 using System.Text;
 using System.Text.Json;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
-using nuell;
+using nuel;
 
 namespace Db.Tests;
 

@@ -1,7 +1,7 @@
 using System.Globalization;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
-using nuell;
-using nuell.Sync;
+using nuel;
+using nuel.Sync;
 
 namespace Db.Tests;
 
@@ -99,7 +99,7 @@ public class CsvTests
             }
         };
 
-        var csv = nuell.Sync.Db.Csv(items);
+        var csv = nuel.Sync.Db.Csv(items);
         Assert.IsNotNull(csv);
 
         // Header should contain expected flags
@@ -135,6 +135,6 @@ public class CsvTests
             new UnsupportedTypeModel { Id = 1, BadField = new object() }
         };
 
-        Assert.ThrowsExactly<NotSupportedException>(() => nuell.Sync.Db.Csv(items));
+        Assert.ThrowsExactly<NotSupportedException>(() => nuel.Sync.Db.Csv(items));
     }
 }

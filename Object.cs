@@ -4,7 +4,7 @@ using Microsoft.Data.SqlClient;
 
 using System.Reflection;
 
-namespace nuell
+namespace nuel
 {
 	internal static class ObjectReflector
 	{
@@ -43,7 +43,7 @@ namespace nuell
 	}
 }
 
-namespace nuell.Sync
+namespace nuel.Sync
 {
 	public static partial class Db
 	{
@@ -76,7 +76,7 @@ namespace nuell.Sync
 	}
 }
 
-namespace nuell.Async
+namespace nuel.Async
 {
 	public static partial class Db
 	{

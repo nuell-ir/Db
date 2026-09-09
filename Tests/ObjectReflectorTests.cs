@@ -1,6 +1,6 @@
 using System.Data;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
-using nuell;
+using nuel;
 
 namespace Db.Tests;
 

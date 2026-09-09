@@ -1,7 +1,7 @@
 using System.Data;
 using Microsoft.Data.SqlClient;
 
-namespace nuell.Sync
+namespace nuel.Sync
 {
 	public static partial class Db
 	{
@@ -35,7 +35,7 @@ namespace nuell.Sync
 	}
 }
 
-namespace nuell.Async
+namespace nuel.Async
 {
 	public static partial class Db
 	{

@@ -1,7 +1,7 @@
 using System.Text;
 using Microsoft.Data.SqlClient;
 
-namespace nuell
+namespace nuel
 {
     internal static partial class SaveQuery
     {
@@ -96,7 +96,7 @@ namespace nuell
     }
 }
 
-namespace nuell.Sync
+namespace nuel.Sync
 {
     public static partial class Db
     {
@@ -111,7 +111,7 @@ namespace nuell.Sync
     }
 }
 
-namespace nuell.Async
+namespace nuel.Async
 {
     public static partial class Db
     {

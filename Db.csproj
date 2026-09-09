@@ -2,9 +2,9 @@
 	<PropertyGroup>
 		<TargetFramework>net10.0</TargetFramework>
 		<ImplicitUsings>enable</ImplicitUsings>
-		<RootNamespace>nuell</RootNamespace>
+		<RootNamespace>nuel</RootNamespace>
 		<Version>4.8.0</Version>
-		<Company>nuell</Company>
+		<Company>nuel</Company>
 		<Product>Db</Product>
 		<Authors>Ako Mahmoodi</Authors>
 		<PackageId>nuell_Db</PackageId>

@@ -3,7 +3,7 @@ using System.Text.Encodings.Web;
 using System.Text.Json;
 using Microsoft.Data.SqlClient;
 
-namespace nuell
+namespace nuel
 {
 	internal enum JsonValueType
 	{
@@ -29,7 +29,7 @@ namespace nuell
 	}
 }
 
-namespace nuell.Sync
+namespace nuel.Sync
 {
 	public static partial class Db
 	{
@@ -45,11 +45,11 @@ namespace nuell.Sync
 
 	public enum JsonValueType
 	{
-		Array = nuell.JsonValueType.Array, Object = nuell.JsonValueType.Object, Value = nuell.JsonValueType.Value, Csv = nuell.JsonValueType.Csv
+		Array = nuel.JsonValueType.Array, Object = nuel.JsonValueType.Object, Value = nuel.JsonValueType.Value, Csv = nuel.JsonValueType.Csv
 	}
 }
 
-namespace nuell.Async
+namespace nuel.Async
 {
 	public static partial class Db
 	{
@@ -65,6 +65,6 @@ namespace nuell.Async
 
 	public enum JsonValueType
 	{
-		Array = nuell.JsonValueType.Array, Object = nuell.JsonValueType.Object, Value = nuell.JsonValueType.Value, Csv = nuell.JsonValueType.Csv
+		Array = nuel.JsonValueType.Array, Object = nuel.JsonValueType.Object, Value = nuel.JsonValueType.Value, Csv = nuel.JsonValueType.Csv
 	}
 }

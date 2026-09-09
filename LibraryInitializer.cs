@@ -1,6 +1,6 @@
 using System.Globalization;
 
-namespace nuell;
+namespace nuel;
 
 public static class LibraryInitializer
 {

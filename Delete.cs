@@ -1,4 +1,4 @@
-﻿namespace nuell.Sync
+﻿namespace nuel.Sync
 {
 	public static partial class Db
 	{
@@ -21,7 +21,7 @@
 	}
 }
 
-namespace nuell.Async
+namespace nuel.Async
 {
 	public static partial class Db
 	{
