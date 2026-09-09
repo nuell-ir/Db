@@ -127,13 +127,59 @@ namespace nuel.Sync
 		public static string Json(string query, JsonValueType result, bool isStoredProc, params (string name, object value)[] parameters)
 			 => Json(query, result, isStoredProc, Data.SqlParams(parameters));
 
-		/// <summary>Converts the query results to a JSON string.</summary>
+		/// <summary>Converts the query results to a JSON string or writes UTF-8 JSON directly to a stream.</summary>
 		/// <param name="query">The SQL query or stored procedure name to execute.</param>
 		/// <param name="result">The JSON structure to return (<see cref="JsonValueType.Object"/> for the first row, or <see cref="JsonValueType.Array"/> for all rows).</param>
 		/// <param name="isStoredProc">Whether the query is a stored procedure.</param>
-		/// <returns>A JSON string representing the query results.</returns>
-		public static string Json(string query, JsonValueType result = JsonValueType.Object, bool isStoredProc = false)
-			 => Json(query, result, isStoredProc, Data.NoParams);
+		/// <param name="stream">The optional stream to write UTF-8 JSON directly to. If null, a JSON string is returned.</param>
+		/// <returns>A JSON string representing the query results, or null if a stream is provided.</returns>
+		public static string Json(string query, JsonValueType result = JsonValueType.Object, bool isStoredProc = false, Stream stream = null)
+			 => Json(query, stream, result, isStoredProc, Data.NoParams);
+
+		/// <summary>Converts the query results to UTF-8 JSON directly written to the specified stream.</summary>
+		/// <param name="query">The SQL query or stored procedure name to execute.</param>
+		/// <param name="stream">The stream to write UTF-8 JSON directly to.</param>
+		/// <param name="result">The JSON structure to return (<see cref="JsonValueType.Object"/> for the first row, or <see cref="JsonValueType.Array"/> for all rows).</param>
+		/// <param name="isStoredProc">Whether the query is a stored procedure.</param>
+		/// <returns>null after writing UTF-8 JSON directly to the stream.</returns>
+		public static string Json(string query, Stream stream, JsonValueType result = JsonValueType.Object, bool isStoredProc = false)
+			 => Json(query, stream, result, isStoredProc, Data.NoParams);
+
+		/// <summary>Converts the first row of the query result to UTF-8 JSON directly written to the specified stream.</summary>
+		/// <param name="query">The SQL query or stored procedure name to execute.</param>
+		/// <param name="stream">The stream to write UTF-8 JSON directly to.</param>
+		/// <param name="parameters">The parameters for the SQL query.</param>
+		/// <returns>null after writing UTF-8 JSON directly to the stream.</returns>
+		public static string Json(string query, Stream stream, params (string name, object value)[] parameters)
+			=> Json(query, stream, JsonValueType.Object, false, Data.SqlParams(parameters));
+
+		/// <summary>Converts the query results to UTF-8 JSON directly written to the specified stream.</summary>
+		/// <param name="query">The SQL query or stored procedure name to execute.</param>
+		/// <param name="stream">The stream to write UTF-8 JSON directly to.</param>
+		/// <param name="result">The JSON structure to return (<see cref="JsonValueType.Object"/> for the first row, or <see cref="JsonValueType.Array"/> for all rows).</param>
+		/// <param name="parameters">The parameters for the SQL query.</param>
+		/// <returns>null after writing UTF-8 JSON directly to the stream.</returns>
+		public static string Json(string query, Stream stream, JsonValueType result, params (string name, object value)[] parameters)
+			=> Json(query, stream, result, false, Data.SqlParams(parameters));
+
+		/// <summary>Converts the first row of the query result to UTF-8 JSON directly written to the specified stream.</summary>
+		/// <param name="query">The SQL query or stored procedure name to execute.</param>
+		/// <param name="stream">The stream to write UTF-8 JSON directly to.</param>
+		/// <param name="isStoredProc">Whether the query is a stored procedure.</param>
+		/// <param name="parameters">The parameters for the SQL query.</param>
+		/// <returns>null after writing UTF-8 JSON directly to the stream.</returns>
+		public static string Json(string query, Stream stream, bool isStoredProc, params (string name, object value)[] parameters)
+			=> Json(query, stream, JsonValueType.Object, isStoredProc, Data.SqlParams(parameters));
+
+		/// <summary>Converts the query results to UTF-8 JSON directly written to the specified stream.</summary>
+		/// <param name="query">The SQL query or stored procedure name to execute.</param>
+		/// <param name="stream">The stream to write UTF-8 JSON directly to.</param>
+		/// <param name="result">The JSON structure to return (<see cref="JsonValueType.Object"/> for the first row, or <see cref="JsonValueType.Array"/> for all rows).</param>
+		/// <param name="isStoredProc">Whether the query is a stored procedure.</param>
+		/// <param name="parameters">The parameters for the SQL query.</param>
+		/// <returns>null after writing UTF-8 JSON directly to the stream.</returns>
+		public static string Json(string query, Stream stream, JsonValueType result, bool isStoredProc, params (string name, object value)[] parameters)
+			=> Json(query, stream, result, isStoredProc, Data.SqlParams(parameters));
 
 		/// <summary>Converts the query results to a JSON string.</summary>
 		/// <param name="query">The SQL query or stored procedure name to execute.</param>
@@ -142,6 +188,16 @@ namespace nuel.Sync
 		/// <param name="parameters">The SQL parameters to apply to the command.</param>
 		/// <returns>A JSON string representing the query results.</returns>
 		public static string Json(string query, JsonValueType result, bool isStoredProc, params SqlParameter[] parameters)
+			=> Json(query, null, result, isStoredProc, parameters);
+
+		/// <summary>Converts the query results to a JSON string or writes UTF-8 JSON directly to a stream.</summary>
+		/// <param name="query">The SQL query or stored procedure name to execute.</param>
+		/// <param name="stream">The stream to write UTF-8 JSON directly to, or null to return a JSON string.</param>
+		/// <param name="result">The JSON structure to return (<see cref="JsonValueType.Object"/> for the first row, or <see cref="JsonValueType.Array"/> for all rows).</param>
+		/// <param name="isStoredProc">Whether the query is a stored procedure.</param>
+		/// <param name="parameters">The SQL parameters to apply to the command.</param>
+		/// <returns>A JSON string representing the query results, or null if a stream is provided.</returns>
+		public static string Json(string query, Stream stream, JsonValueType result, bool isStoredProc, params SqlParameter[] parameters)
 		{
 			using var connection = new SqlConnection(Data.ConnectionString);
 			using var cmd = new SqlCommand(query, connection);
@@ -150,14 +206,24 @@ namespace nuel.Sync
 			cmd.Parameters.AddRange(parameters);
 			connection.Open();
 			using var reader = cmd.ExecuteReader();
-			using var stream = new MemoryStream();
-			using var writer = new Utf8JsonWriter(stream, Data.JsonWriterOptions);
-			reader.ReadJson(result, stream, writer);
-			writer.Flush();
-			return Encoding.UTF8.GetString(stream.GetBuffer(), 0, (int)stream.Length);
+			if (stream != null)
+			{
+				using var writer = new Utf8JsonWriter(stream, Data.JsonWriterOptions);
+				reader.ReadJson(result, writer);
+				writer.Flush();
+				return null;
+			}
+			else
+			{
+				using var memoryStream = new MemoryStream();
+				using var writer = new Utf8JsonWriter(memoryStream, Data.JsonWriterOptions);
+				reader.ReadJson(result, writer);
+				writer.Flush();
+				return Encoding.UTF8.GetString(memoryStream.GetBuffer(), 0, (int)memoryStream.Length);
+			}
 		}
 
-		internal static void ReadJson(this SqlDataReader reader, JsonValueType result, MemoryStream stream, Utf8JsonWriter writer)
+		internal static void ReadJson(this DbDataReader reader, JsonValueType result, Utf8JsonWriter writer)
 		{
 			string[] fieldNames;
 			Type[] fieldTypes;
@@ -242,13 +308,59 @@ namespace nuel.Async
 		public static Task<string> Json(string query, JsonValueType result, bool isStoredProc, params (string name, object value)[] parameters)
 		=> Json(query, result, isStoredProc, Data.SqlParams(parameters));
 
-		/// <summary>Asynchronously converts the query results to a JSON string.</summary>
+		/// <summary>Asynchronously converts the query results to a JSON string or writes UTF-8 JSON directly to a stream.</summary>
 		/// <param name="query">The SQL query or stored procedure name to execute.</param>
 		/// <param name="result">The JSON structure to return (<see cref="JsonValueType.Object"/> for the first row, or <see cref="JsonValueType.Array"/> for all rows).</param>
 		/// <param name="isStoredProc">Whether the query is a stored procedure.</param>
-		/// <returns>A task representing the asynchronous operation, returning a JSON string representing the query results.</returns>
-		public static Task<string> Json(string query, JsonValueType result = JsonValueType.Object, bool isStoredProc = false)
-			 => Json(query, result, isStoredProc, Data.NoParams);
+		/// <param name="stream">The optional stream to write UTF-8 JSON directly to. If null, a JSON string is returned.</param>
+		/// <returns>A task representing the asynchronous operation, returning a JSON string representing the query results, or null if a stream is provided.</returns>
+		public static Task<string> Json(string query, JsonValueType result = JsonValueType.Object, bool isStoredProc = false, Stream stream = null)
+			 => Json(query, stream, result, isStoredProc, Data.NoParams);
+
+		/// <summary>Asynchronously converts the query results to UTF-8 JSON directly written to the specified stream.</summary>
+		/// <param name="query">The SQL query or stored procedure name to execute.</param>
+		/// <param name="stream">The stream to write UTF-8 JSON directly to.</param>
+		/// <param name="result">The JSON structure to return (<see cref="JsonValueType.Object"/> for the first row, or <see cref="JsonValueType.Array"/> for all rows).</param>
+		/// <param name="isStoredProc">Whether the query is a stored procedure.</param>
+		/// <returns>A task representing the asynchronous operation, returning null after writing UTF-8 JSON directly to the stream.</returns>
+		public static Task<string> Json(string query, Stream stream, JsonValueType result = JsonValueType.Object, bool isStoredProc = false)
+			 => Json(query, stream, result, isStoredProc, Data.NoParams);
+
+		/// <summary>Asynchronously converts the first row of the query result to UTF-8 JSON directly written to the specified stream.</summary>
+		/// <param name="query">The SQL query or stored procedure name to execute.</param>
+		/// <param name="stream">The stream to write UTF-8 JSON directly to.</param>
+		/// <param name="parameters">The parameters for the SQL query.</param>
+		/// <returns>A task representing the asynchronous operation, returning null after writing UTF-8 JSON directly to the stream.</returns>
+		public static Task<string> Json(string query, Stream stream, params (string name, object value)[] parameters)
+			=> Json(query, stream, JsonValueType.Object, false, Data.SqlParams(parameters));
+
+		/// <summary>Asynchronously converts the query results to UTF-8 JSON directly written to the specified stream.</summary>
+		/// <param name="query">The SQL query or stored procedure name to execute.</param>
+		/// <param name="stream">The stream to write UTF-8 JSON directly to.</param>
+		/// <param name="result">The JSON structure to return (<see cref="JsonValueType.Object"/> for the first row, or <see cref="JsonValueType.Array"/> for all rows).</param>
+		/// <param name="parameters">The parameters for the SQL query.</param>
+		/// <returns>A task representing the asynchronous operation, returning null after writing UTF-8 JSON directly to the stream.</returns>
+		public static Task<string> Json(string query, Stream stream, JsonValueType result, params (string name, object value)[] parameters)
+			=> Json(query, stream, result, false, Data.SqlParams(parameters));
+
+		/// <summary>Asynchronously converts the first row of the query result to UTF-8 JSON directly written to the specified stream.</summary>
+		/// <param name="query">The SQL query or stored procedure name to execute.</param>
+		/// <param name="stream">The stream to write UTF-8 JSON directly to.</param>
+		/// <param name="isStoredProc">Whether the query is a stored procedure.</param>
+		/// <param name="parameters">The parameters for the SQL query.</param>
+		/// <returns>A task representing the asynchronous operation, returning null after writing UTF-8 JSON directly to the stream.</returns>
+		public static Task<string> Json(string query, Stream stream, bool isStoredProc, params (string name, object value)[] parameters)
+			=> Json(query, stream, JsonValueType.Object, isStoredProc, Data.SqlParams(parameters));
+
+		/// <summary>Asynchronously converts the query results to UTF-8 JSON directly written to the specified stream.</summary>
+		/// <param name="query">The SQL query or stored procedure name to execute.</param>
+		/// <param name="stream">The stream to write UTF-8 JSON directly to.</param>
+		/// <param name="result">The JSON structure to return (<see cref="JsonValueType.Object"/> for the first row, or <see cref="JsonValueType.Array"/> for all rows).</param>
+		/// <param name="isStoredProc">Whether the query is a stored procedure.</param>
+		/// <param name="parameters">The parameters for the SQL query.</param>
+		/// <returns>A task representing the asynchronous operation, returning null after writing UTF-8 JSON directly to the stream.</returns>
+		public static Task<string> Json(string query, Stream stream, JsonValueType result, bool isStoredProc, params (string name, object value)[] parameters)
+			=> Json(query, stream, result, isStoredProc, Data.SqlParams(parameters));
 
 		/// <summary>Asynchronously converts the query results to a JSON string.</summary>
 		/// <param name="query">The SQL query or stored procedure name to execute.</param>
@@ -256,7 +368,17 @@ namespace nuel.Async
 		/// <param name="isStoredProc">Whether the query is a stored procedure.</param>
 		/// <param name="parameters">The SQL parameters to apply to the command.</param>
 		/// <returns>A task representing the asynchronous operation, returning a JSON string representing the query results.</returns>
-		public async static Task<string> Json(string query, JsonValueType result, bool isStoredProc, params SqlParameter[] parameters)
+		public static Task<string> Json(string query, JsonValueType result, bool isStoredProc, params SqlParameter[] parameters)
+			=> Json(query, null, result, isStoredProc, parameters);
+
+		/// <summary>Asynchronously converts the query results to a JSON string or writes UTF-8 JSON directly to a stream.</summary>
+		/// <param name="query">The SQL query or stored procedure name to execute.</param>
+		/// <param name="stream">The stream to write UTF-8 JSON directly to, or null to return a JSON string.</param>
+		/// <param name="result">The JSON structure to return (<see cref="JsonValueType.Object"/> for the first row, or <see cref="JsonValueType.Array"/> for all rows).</param>
+		/// <param name="isStoredProc">Whether the query is a stored procedure.</param>
+		/// <param name="parameters">The SQL parameters to apply to the command.</param>
+		/// <returns>A task representing the asynchronous operation, returning a JSON string representing the query results, or null if a stream is provided.</returns>
+		public async static Task<string> Json(string query, Stream stream, JsonValueType result, bool isStoredProc, params SqlParameter[] parameters)
 		{
 			using var connection = new SqlConnection(Data.ConnectionString);
 			using var cmd = new SqlCommand(query, connection);
@@ -265,14 +387,24 @@ namespace nuel.Async
 			cmd.Parameters.AddRange(parameters);
 			await connection.OpenAsync();
 			using var reader = await cmd.ExecuteReaderAsync();
-			using var stream = new MemoryStream();
-			using var writer = new Utf8JsonWriter(stream, Data.JsonWriterOptions);
-			await reader.ReadJson(result, stream, writer);
-			writer.Flush();
-			return Encoding.UTF8.GetString(stream.GetBuffer(), 0, (int)stream.Length);
+			if (stream != null)
+			{
+				using var writer = new Utf8JsonWriter(stream, Data.JsonWriterOptions);
+				await reader.ReadJson(result, writer);
+				await writer.FlushAsync();
+				return null;
+			}
+			else
+			{
+				using var memoryStream = new MemoryStream();
+				using var writer = new Utf8JsonWriter(memoryStream, Data.JsonWriterOptions);
+				await reader.ReadJson(result, writer);
+				await writer.FlushAsync();
+				return Encoding.UTF8.GetString(memoryStream.GetBuffer(), 0, (int)memoryStream.Length);
+			}
 		}
 
-		internal async static Task ReadJson(this SqlDataReader reader, JsonValueType result, MemoryStream stream, Utf8JsonWriter writer)
+		internal async static Task ReadJson(this DbDataReader reader, JsonValueType result, Utf8JsonWriter writer)
 		{
 			string[] fieldNames;
 			Type[] fieldTypes;

@@ -1,8 +1,11 @@
 using System.Data;
+using System.Reflection;
 using System.Text;
 using System.Text.Json;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using nuel;
+using nuel.Sync;
+using JsonValueType = nuel.Sync.JsonValueType;
 
 namespace Db.Tests;
 
@@ -85,5 +88,147 @@ public class JsonWriterTests
         Assert.ThrowsExactly<NotSupportedException>(() =>
             writer.WriteDbValue(reader, typeof(object), 0)
         );
+    }
+    [TestMethod]
+    public void ReadJson_ObjectResult_DirectUtf8OutputToStream()
+    {
+        var dt = new DataTable();
+        dt.Columns.Add("Id", typeof(int));
+        dt.Columns.Add("Name", typeof(string));
+        dt.Columns.Add("Score", typeof(double));
+        dt.Rows.Add(1, "Alice", 99.5);
+
+        using var reader = dt.CreateDataReader();
+        using var stream = new MemoryStream();
+        using (var writer = new Utf8JsonWriter(stream))
+        {
+            reader.ReadJson(JsonValueType.Object, writer);
+            writer.Flush();
+        }
+
+        stream.Position = 0;
+        using var doc = JsonDocument.Parse(stream);
+        var root = doc.RootElement;
+        Assert.AreEqual(JsonValueKind.Object, root.ValueKind);
+        Assert.AreEqual(1, root.GetProperty("Id").GetInt32());
+        Assert.AreEqual("Alice", root.GetProperty("Name").GetString());
+        Assert.AreEqual(99.5, root.GetProperty("Score").GetDouble());
+    }
+
+    [TestMethod]
+    public void ReadJson_ArrayResult_DirectUtf8OutputToStream()
+    {
+        var dt = new DataTable();
+        dt.Columns.Add("Id", typeof(int));
+        dt.Columns.Add("Title", typeof(string));
+        dt.Rows.Add(1, "Item A");
+        dt.Rows.Add(2, "Item B");
+
+        using var reader = dt.CreateDataReader();
+        using var stream = new MemoryStream();
+        using (var writer = new Utf8JsonWriter(stream))
+        {
+            reader.ReadJson(JsonValueType.Array, writer);
+            writer.Flush();
+        }
+
+        stream.Position = 0;
+        using var doc = JsonDocument.Parse(stream);
+        var root = doc.RootElement;
+        Assert.AreEqual(JsonValueKind.Array, root.ValueKind);
+        Assert.AreEqual(2, root.GetArrayLength());
+        Assert.AreEqual(1, root[0].GetProperty("Id").GetInt32());
+        Assert.AreEqual("Item A", root[0].GetProperty("Title").GetString());
+        Assert.AreEqual(2, root[1].GetProperty("Id").GetInt32());
+        Assert.AreEqual("Item B", root[1].GetProperty("Title").GetString());
+    }
+
+    [TestMethod]
+    public void ReadJson_EmptyReader_WritesExpectedNullOrEmptyArray()
+    {
+        var dt = new DataTable();
+        dt.Columns.Add("Id", typeof(int));
+
+        // Object on empty reader -> null
+        using (var reader = dt.CreateDataReader())
+        using (var stream = new MemoryStream())
+        using (var writer = new Utf8JsonWriter(stream))
+        {
+            reader.ReadJson(JsonValueType.Object, writer);
+            writer.Flush();
+            stream.Position = 0;
+            using var doc = JsonDocument.Parse(stream);
+            Assert.AreEqual(JsonValueKind.Null, doc.RootElement.ValueKind);
+        }
+
+        // Array on empty reader -> []
+        using (var reader = dt.CreateDataReader())
+        using (var stream = new MemoryStream())
+        using (var writer = new Utf8JsonWriter(stream))
+        {
+            reader.ReadJson(JsonValueType.Array, writer);
+            writer.Flush();
+            stream.Position = 0;
+            using var doc = JsonDocument.Parse(stream);
+            Assert.AreEqual(JsonValueKind.Array, doc.RootElement.ValueKind);
+            Assert.AreEqual(0, doc.RootElement.GetArrayLength());
+        }
+    }
+
+    [TestMethod]
+    public async Task ReadJsonAsync_ArrayResult_DirectUtf8OutputToStream()
+    {
+        var dt = new DataTable();
+        dt.Columns.Add("Code", typeof(string));
+        dt.Rows.Add("XYZ");
+        dt.Rows.Add("ABC");
+
+        using var reader = dt.CreateDataReader();
+        using var stream = new MemoryStream();
+        using (var writer = new Utf8JsonWriter(stream))
+        {
+            await nuel.Async.Db.ReadJson(reader, nuel.Async.JsonValueType.Array, writer);
+        }
+
+        stream.Position = 0;
+        using var doc = JsonDocument.Parse(stream);
+        Assert.AreEqual(JsonValueKind.Array, doc.RootElement.ValueKind);
+        Assert.AreEqual(2, doc.RootElement.GetArrayLength());
+        Assert.AreEqual("XYZ", doc.RootElement[0].GetProperty("Code").GetString());
+        Assert.AreEqual("ABC", doc.RootElement[1].GetProperty("Code").GetString());
+    }
+
+    [TestMethod]
+    public void DbJson_StreamOverloads_ExistInSyncAndAsync()
+    {
+        var syncMethods = typeof(nuel.Sync.Db).GetMethods(BindingFlags.Public | BindingFlags.Static)
+            .Where(m => m.Name == "Json" && m.GetParameters().Any(p => p.ParameterType == typeof(Stream)))
+            .ToList();
+        Assert.IsTrue(syncMethods.Count >= 6, $"Expected at least 6 sync Json stream overloads, found {syncMethods.Count}.");
+
+        var asyncMethods = typeof(nuel.Async.Db).GetMethods(BindingFlags.Public | BindingFlags.Static)
+            .Where(m => m.Name == "Json" && m.GetParameters().Any(p => p.ParameterType == typeof(Stream)))
+            .ToList();
+        Assert.IsTrue(asyncMethods.Count >= 6, $"Expected at least 6 async Json stream overloads, found {asyncMethods.Count}.");
+
+        // Verify optional stream parameter on main Json overload
+        var syncOptionalStreamMethod = typeof(nuel.Sync.Db).GetMethods(BindingFlags.Public | BindingFlags.Static)
+            .FirstOrDefault(m => m.Name == "Json" && m.GetParameters().Length == 4 && m.GetParameters()[3].Name == "stream" && m.GetParameters()[3].IsOptional);
+        Assert.IsNotNull(syncOptionalStreamMethod, "Expected sync Json method with optional stream parameter.");
+
+        var asyncOptionalStreamMethod = typeof(nuel.Async.Db).GetMethods(BindingFlags.Public | BindingFlags.Static)
+            .FirstOrDefault(m => m.Name == "Json" && m.GetParameters().Length == 4 && m.GetParameters()[3].Name == "stream" && m.GetParameters()[3].IsOptional);
+        Assert.IsNotNull(asyncOptionalStreamMethod, "Expected async Json method with optional stream parameter.");
+
+        // Verify ComplexJson stream overloads
+        var syncComplexMethods = typeof(nuel.Sync.Db).GetMethods(BindingFlags.Public | BindingFlags.Static)
+            .Where(m => m.Name == "ComplexJson" && m.GetParameters().Any(p => p.ParameterType == typeof(Stream)))
+            .ToList();
+        Assert.IsTrue(syncComplexMethods.Count >= 4, $"Expected at least 4 sync ComplexJson stream overloads, found {syncComplexMethods.Count}.");
+
+        var asyncComplexMethods = typeof(nuel.Async.Db).GetMethods(BindingFlags.Public | BindingFlags.Static)
+            .Where(m => m.Name == "ComplexJson" && m.GetParameters().Any(p => p.ParameterType == typeof(Stream)))
+            .ToList();
+        Assert.IsTrue(asyncComplexMethods.Count >= 4, $"Expected at least 4 async ComplexJson stream overloads, found {asyncComplexMethods.Count}.");
     }
 }

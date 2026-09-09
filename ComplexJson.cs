@@ -25,13 +25,42 @@ namespace nuel.Sync
 		public static string ComplexJson(string query, (string Name, JsonValueType ResultType)[] props, bool isStoredProc, params (string name, object value)[] parameters)
 			 => ComplexJson(query, props, isStoredProc, Data.SqlParams(parameters));
 
-		/// <summary>Executes a query with multiple result sets and formats the results into a single JSON string.</summary>
+		/// <summary>Executes a query with multiple result sets and formats the results into a single JSON string or writes UTF-8 JSON directly to a stream.</summary>
 		/// <param name="query">The SQL query or stored procedure name to execute.</param>
 		/// <param name="props">An array of tuples defining property names and their corresponding result types.</param>
 		/// <param name="isStoredProc">Whether the query is a stored procedure.</param>
-		/// <returns>A JSON string representing the combined results.</returns>
-		public static string ComplexJson(string query, (string Name, JsonValueType ResultType)[] props, bool isStoredProc = false)
-			 => ComplexJson(query, props, isStoredProc, Data.NoParams);
+		/// <param name="stream">The optional stream to write UTF-8 JSON directly to. If null, a JSON string is returned.</param>
+		/// <returns>A JSON string representing the combined results, or null if a stream is provided.</returns>
+		public static string ComplexJson(string query, (string Name, JsonValueType ResultType)[] props, bool isStoredProc = false, Stream stream = null)
+			 => ComplexJson(query, stream, props, isStoredProc, Data.NoParams);
+
+		/// <summary>Executes a query with multiple result sets and writes the results as UTF-8 JSON directly to the specified stream.</summary>
+		/// <param name="query">The SQL query or stored procedure name to execute.</param>
+		/// <param name="stream">The stream to write UTF-8 JSON directly to.</param>
+		/// <param name="props">An array of tuples defining property names and their corresponding result types.</param>
+		/// <param name="isStoredProc">Whether the query is a stored procedure.</param>
+		/// <returns>null after writing UTF-8 JSON directly to the stream.</returns>
+		public static string ComplexJson(string query, Stream stream, (string Name, JsonValueType ResultType)[] props, bool isStoredProc = false)
+			 => ComplexJson(query, stream, props, isStoredProc, Data.NoParams);
+
+		/// <summary>Executes a query with multiple result sets and writes the results as UTF-8 JSON directly to the specified stream.</summary>
+		/// <param name="query">The SQL query or stored procedure name to execute.</param>
+		/// <param name="stream">The stream to write UTF-8 JSON directly to.</param>
+		/// <param name="props">An array of tuples defining property names and their corresponding result types.</param>
+		/// <param name="parameters">The parameters for the SQL query.</param>
+		/// <returns>null after writing UTF-8 JSON directly to the stream.</returns>
+		public static string ComplexJson(string query, Stream stream, (string Name, JsonValueType ResultType)[] props, params (string name, object value)[] parameters)
+			 => ComplexJson(query, stream, props, false, Data.SqlParams(parameters));
+
+		/// <summary>Executes a query with multiple result sets and writes the results as UTF-8 JSON directly to the specified stream.</summary>
+		/// <param name="query">The SQL query or stored procedure name to execute.</param>
+		/// <param name="stream">The stream to write UTF-8 JSON directly to.</param>
+		/// <param name="props">An array of tuples defining property names and their corresponding result types.</param>
+		/// <param name="isStoredProc">Whether the query is a stored procedure.</param>
+		/// <param name="parameters">The parameters for the SQL query.</param>
+		/// <returns>null after writing UTF-8 JSON directly to the stream.</returns>
+		public static string ComplexJson(string query, Stream stream, (string Name, JsonValueType ResultType)[] props, bool isStoredProc, params (string name, object value)[] parameters)
+			 => ComplexJson(query, stream, props, isStoredProc, Data.SqlParams(parameters));
 
 		/// <summary>Executes a query with multiple result sets and formats the results into a single JSON string.</summary>
 		/// <param name="query">The SQL query or stored procedure name to execute.</param>
@@ -40,6 +69,16 @@ namespace nuel.Sync
 		/// <param name="parameters">The SQL parameters to apply to the command.</param>
 		/// <returns>A JSON string representing the combined results.</returns>
 		public static string ComplexJson(string query, (string Name, JsonValueType ResultType)[] props, bool isStoredProc, params SqlParameter[] parameters)
+			=> ComplexJson(query, null, props, isStoredProc, parameters);
+
+		/// <summary>Executes a query with multiple result sets and formats the results into a single JSON string or writes UTF-8 JSON directly to a stream.</summary>
+		/// <param name="query">The SQL query or stored procedure name to execute.</param>
+		/// <param name="stream">The stream to write UTF-8 JSON directly to, or null to return a JSON string.</param>
+		/// <param name="props">An array of tuples defining property names and their corresponding result types.</param>
+		/// <param name="isStoredProc">Whether the query is a stored procedure.</param>
+		/// <param name="parameters">The SQL parameters to apply to the command.</param>
+		/// <returns>A JSON string representing the combined results, or null if a stream is provided.</returns>
+		public static string ComplexJson(string query, Stream stream, (string Name, JsonValueType ResultType)[] props, bool isStoredProc, params SqlParameter[] parameters)
 		{
 			using var connection = new SqlConnection(Data.ConnectionString);
 			using var cmd = new SqlCommand(query, connection);
@@ -48,46 +87,61 @@ namespace nuel.Sync
 			cmd.Parameters.AddRange(parameters);
 			connection.Open();
 			using var reader = cmd.ExecuteReader();
-			using var stream = new MemoryStream();
-			using var writer = new Utf8JsonWriter(stream, Data.JsonWriterOptions);
-			writer.WriteStartObject();
-			for (int i = 0; i < props.Length; i++)
+			if (stream != null)
 			{
-				ReadResult(i);
-				reader.NextResult();
+				using var writer = new Utf8JsonWriter(stream, Data.JsonWriterOptions);
+				WriteComplexJson(reader, writer, props);
+				writer.Flush();
+				return null;
 			}
-			writer.WriteEndObject();
-			writer.Flush();
-			return Encoding.UTF8.GetString(stream.GetBuffer(), 0, (int)stream.Length);
-
-			void ReadResult(int i)
+			else
 			{
-				writer.WritePropertyName(props[i].Name);
-				if (!reader.HasRows)
+				using var memoryStream = new MemoryStream();
+				using var writer = new Utf8JsonWriter(memoryStream, Data.JsonWriterOptions);
+				WriteComplexJson(reader, writer, props);
+				writer.Flush();
+				return Encoding.UTF8.GetString(memoryStream.GetBuffer(), 0, (int)memoryStream.Length);
+			}
+
+			static void WriteComplexJson(SqlDataReader reader, Utf8JsonWriter writer, (string Name, JsonValueType ResultType)[] props)
+			{
+				writer.WriteStartObject();
+				for (int i = 0; i < props.Length; i++)
 				{
-					writer.WriteNullValue();
-					return;
+					ReadResult(i);
+					reader.NextResult();
 				}
-				switch (props[i].ResultType)
+				writer.WriteEndObject();
+
+				void ReadResult(int i)
 				{
-					case JsonValueType.Value:
-						if (reader.Read())
-						{
-							if (reader.IsDBNull(0))
-								writer.WriteNullValue();
+					writer.WritePropertyName(props[i].Name);
+					if (!reader.HasRows)
+					{
+						writer.WriteNullValue();
+						return;
+					}
+					switch (props[i].ResultType)
+					{
+						case JsonValueType.Value:
+							if (reader.Read())
+							{
+								if (reader.IsDBNull(0))
+									writer.WriteNullValue();
+								else
+									writer.WriteDbValue(reader, reader.GetFieldType(0), 0);
+							}
 							else
-								writer.WriteDbValue(reader, reader.GetFieldType(0), 0);
-						}
-						else
-							writer.WriteNullValue();
-						break;
-					case JsonValueType.Array:
-					case JsonValueType.Object:
-						reader.ReadJson(props[i].ResultType, stream, writer);
-						break;
-					case JsonValueType.Csv:
-						writer.WriteStringValue(reader.ReadCsv());
-						break;
+								writer.WriteNullValue();
+							break;
+						case JsonValueType.Array:
+						case JsonValueType.Object:
+							reader.ReadJson(props[i].ResultType, writer);
+							break;
+						case JsonValueType.Csv:
+							writer.WriteStringValue(reader.ReadCsv());
+							break;
+					}
 				}
 			}
 		}
@@ -116,13 +170,42 @@ namespace nuel.Async
 		public static Task<string> ComplexJson(string query, (string Name, JsonValueType ResultType)[] props, bool isStoredProc, params (string name, object value)[] parameters)
 			 => ComplexJson(query, props, isStoredProc, Data.SqlParams(parameters));
 
-		/// <summary>Asynchronously executes a query with multiple result sets and formats the results into a single JSON string.</summary>
+		/// <summary>Asynchronously executes a query with multiple result sets and formats the results into a single JSON string or writes UTF-8 JSON directly to a stream.</summary>
 		/// <param name="query">The SQL query or stored procedure name to execute.</param>
 		/// <param name="props">An array of tuples defining property names and their corresponding result types.</param>
 		/// <param name="isStoredProc">Whether the query is a stored procedure.</param>
-		/// <returns>A task representing the asynchronous operation, returning a JSON string of the combined results.</returns>
-		public static Task<string> ComplexJson(string query, (string Name, JsonValueType ResultType)[] props, bool isStoredProc = false)
-			 => ComplexJson(query, props, isStoredProc, Data.NoParams);
+		/// <param name="stream">The optional stream to write UTF-8 JSON directly to. If null, a JSON string is returned.</param>
+		/// <returns>A task representing the asynchronous operation, returning a JSON string of the combined results, or null if a stream is provided.</returns>
+		public static Task<string> ComplexJson(string query, (string Name, JsonValueType ResultType)[] props, bool isStoredProc = false, Stream stream = null)
+			 => ComplexJson(query, stream, props, isStoredProc, Data.NoParams);
+
+		/// <summary>Asynchronously executes a query with multiple result sets and writes the results as UTF-8 JSON directly to the specified stream.</summary>
+		/// <param name="query">The SQL query or stored procedure name to execute.</param>
+		/// <param name="stream">The stream to write UTF-8 JSON directly to.</param>
+		/// <param name="props">An array of tuples defining property names and their corresponding result types.</param>
+		/// <param name="isStoredProc">Whether the query is a stored procedure.</param>
+		/// <returns>A task representing the asynchronous operation, returning null after writing UTF-8 JSON directly to the stream.</returns>
+		public static Task<string> ComplexJson(string query, Stream stream, (string Name, JsonValueType ResultType)[] props, bool isStoredProc = false)
+			 => ComplexJson(query, stream, props, isStoredProc, Data.NoParams);
+
+		/// <summary>Asynchronously executes a query with multiple result sets and writes the results as UTF-8 JSON directly to the specified stream.</summary>
+		/// <param name="query">The SQL query or stored procedure name to execute.</param>
+		/// <param name="stream">The stream to write UTF-8 JSON directly to.</param>
+		/// <param name="props">An array of tuples defining property names and their corresponding result types.</param>
+		/// <param name="parameters">The parameters for the SQL query.</param>
+		/// <returns>A task representing the asynchronous operation, returning null after writing UTF-8 JSON directly to the stream.</returns>
+		public static Task<string> ComplexJson(string query, Stream stream, (string Name, JsonValueType ResultType)[] props, params (string name, object value)[] parameters)
+			 => ComplexJson(query, stream, props, false, Data.SqlParams(parameters));
+
+		/// <summary>Asynchronously executes a query with multiple result sets and writes the results as UTF-8 JSON directly to the specified stream.</summary>
+		/// <param name="query">The SQL query or stored procedure name to execute.</param>
+		/// <param name="stream">The stream to write UTF-8 JSON directly to.</param>
+		/// <param name="props">An array of tuples defining property names and their corresponding result types.</param>
+		/// <param name="isStoredProc">Whether the query is a stored procedure.</param>
+		/// <param name="parameters">The parameters for the SQL query.</param>
+		/// <returns>A task representing the asynchronous operation, returning null after writing UTF-8 JSON directly to the stream.</returns>
+		public static Task<string> ComplexJson(string query, Stream stream, (string Name, JsonValueType ResultType)[] props, bool isStoredProc, params (string name, object value)[] parameters)
+			 => ComplexJson(query, stream, props, isStoredProc, Data.SqlParams(parameters));
 
 		/// <summary>Asynchronously executes a query with multiple result sets and formats the results into a single JSON string.</summary>
 		/// <param name="query">The SQL query or stored procedure name to execute.</param>
@@ -130,7 +213,17 @@ namespace nuel.Async
 		/// <param name="isStoredProc">Whether the query is a stored procedure.</param>
 		/// <param name="parameters">The SQL parameters to apply to the command.</param>
 		/// <returns>A task representing the asynchronous operation, returning a JSON string of the combined results.</returns>
-		public static async Task<string> ComplexJson(string query, (string Name, JsonValueType ResultType)[] props, bool isStoredProc = false, params SqlParameter[] parameters)
+		public static Task<string> ComplexJson(string query, (string Name, JsonValueType ResultType)[] props, bool isStoredProc, params SqlParameter[] parameters)
+			=> ComplexJson(query, null, props, isStoredProc, parameters);
+
+		/// <summary>Asynchronously executes a query with multiple result sets and formats the results into a single JSON string or writes UTF-8 JSON directly to a stream.</summary>
+		/// <param name="query">The SQL query or stored procedure name to execute.</param>
+		/// <param name="stream">The stream to write UTF-8 JSON directly to, or null to return a JSON string.</param>
+		/// <param name="props">An array of tuples defining property names and their corresponding result types.</param>
+		/// <param name="isStoredProc">Whether the query is a stored procedure.</param>
+		/// <param name="parameters">The SQL parameters to apply to the command.</param>
+		/// <returns>A task representing the asynchronous operation, returning a JSON string of the combined results, or null if a stream is provided.</returns>
+		public static async Task<string> ComplexJson(string query, Stream stream, (string Name, JsonValueType ResultType)[] props, bool isStoredProc = false, params SqlParameter[] parameters)
 		{
 			using var connection = new SqlConnection(Data.ConnectionString);
 			using var cmd = new SqlCommand(query, connection);
@@ -139,46 +232,61 @@ namespace nuel.Async
 			cmd.Parameters.AddRange(parameters);
 			await connection.OpenAsync();
 			using var reader = await cmd.ExecuteReaderAsync();
-			using var stream = new MemoryStream();
-			using var writer = new Utf8JsonWriter(stream, Data.JsonWriterOptions);
-			writer.WriteStartObject();
-			for (int i = 0; i < props.Length; i++)
+			if (stream != null)
 			{
-				await ReadResult(i);
-				await reader.NextResultAsync();
+				using var writer = new Utf8JsonWriter(stream, Data.JsonWriterOptions);
+				await WriteComplexJsonAsync(reader, writer, props);
+				await writer.FlushAsync();
+				return null;
 			}
-			writer.WriteEndObject();
-			await writer.FlushAsync();
-			return Encoding.UTF8.GetString(stream.GetBuffer(), 0, (int)stream.Length);
-
-			async Task ReadResult(int i)
+			else
 			{
-				writer.WritePropertyName(props[i].Name);
-				if (!reader.HasRows)
+				using var memoryStream = new MemoryStream();
+				using var writer = new Utf8JsonWriter(memoryStream, Data.JsonWriterOptions);
+				await WriteComplexJsonAsync(reader, writer, props);
+				await writer.FlushAsync();
+				return Encoding.UTF8.GetString(memoryStream.GetBuffer(), 0, (int)memoryStream.Length);
+			}
+
+			static async Task WriteComplexJsonAsync(SqlDataReader reader, Utf8JsonWriter writer, (string Name, JsonValueType ResultType)[] props)
+			{
+				writer.WriteStartObject();
+				for (int i = 0; i < props.Length; i++)
 				{
-					writer.WriteNullValue();
-					return;
+					await ReadResultAsync(i);
+					await reader.NextResultAsync();
 				}
-				switch (props[i].ResultType)
+				writer.WriteEndObject();
+
+				async Task ReadResultAsync(int i)
 				{
-					case JsonValueType.Value:
-						if (await reader.ReadAsync())
-						{
-							if (reader.IsDBNull(0))
-								writer.WriteNullValue();
+					writer.WritePropertyName(props[i].Name);
+					if (!reader.HasRows)
+					{
+						writer.WriteNullValue();
+						return;
+					}
+					switch (props[i].ResultType)
+					{
+						case JsonValueType.Value:
+							if (await reader.ReadAsync())
+							{
+								if (reader.IsDBNull(0))
+									writer.WriteNullValue();
+								else
+									writer.WriteDbValue(reader, reader.GetFieldType(0), 0);
+							}
 							else
-								writer.WriteDbValue(reader, reader.GetFieldType(0), 0);
-						}
-						else
-							writer.WriteNullValue();
-						break;
-					case JsonValueType.Array:
-					case JsonValueType.Object:
-						await reader.ReadJson(props[i].ResultType, stream, writer);
-						break;
-					case JsonValueType.Csv:
-						writer.WriteStringValue(await reader.ReadCsv());
-						break;
+								writer.WriteNullValue();
+							break;
+						case JsonValueType.Array:
+						case JsonValueType.Object:
+							await reader.ReadJson(props[i].ResultType, writer);
+							break;
+						case JsonValueType.Csv:
+							writer.WriteStringValue(await reader.ReadCsv());
+							break;
+					}
 				}
 			}
 		}

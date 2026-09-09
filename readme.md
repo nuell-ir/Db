@@ -167,6 +167,12 @@ string json = await Db.Json($"select Id, Age from Customers", JsonValueType.Arra
 //[{"Id":1,"Age":24},{"Id":2,"Age":36},{"Id":3,"Age":31}]
 ```
 
+An optional `stream` parameter writes UTF-8 JSON directly to a stream (e.g. an HTTP `response.Body` or `FileStream`), reducing allocations by bypassing intermediate UTF-16 string conversion:
+
+```c#
+await Db.Json($"select Id, Age from Customers", response.Body, JsonValueType.Array);
+```
+
 ## `JsonObject`
 
 Converts one data row to `System.Text.Json.Nodes.JsonObject`.
@@ -279,6 +285,11 @@ string json = await ComplexJson(query, resultTypes);
 ```
 
 The returned JSON object in the above example includes 4 properties with the names corresponding to those specified in the tuple.
+An optional `stream` parameter can also be supplied to write UTF-8 JSON directly to a stream:
+
+```c#
+await Db.ComplexJson(query, response.Body, resultTypes);
+```
 
 ## `Execute`
 
