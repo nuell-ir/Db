@@ -138,7 +138,9 @@ namespace nuell
 						str.Append(',');
 					}
 				str.Remove(str.Length - 1, 1);
-				str.Append(" WHERE Id=");
+				str.Append(" WHERE ");
+				str.Append(idProp);
+				str.Append('=');
 				str.Append(id);
 			}
 			return new SaveParams
