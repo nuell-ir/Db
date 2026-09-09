@@ -5,24 +5,24 @@ namespace nuell.Sync
     public static partial class Db
     {
         public static int[] Transaction(string queries)
-            => Transaction(queries.Split(new string[] { "GO", ";" }, StringSplitOptions.RemoveEmptyEntries));
+            => Transaction(queries.Split(["GO", ";"], StringSplitOptions.RemoveEmptyEntries));
 
         public static int[] Transaction(IEnumerable<string> queries)
         {
             if (queries == null)
                 return null;
             var result = new int[queries.Count()];
-            using (var cnnct = new SqlConnection(Data.ConnectionString))
+            using (var connection = new SqlConnection(Data.ConnectionString))
             {
-                using var cmnd = cnnct.CreateCommand();
-                cnnct.Open();
-                using var transaction = cnnct.BeginTransaction();
-                cmnd.Transaction = transaction;
+                using var cmd = connection.CreateCommand();
+                connection.Open();
+                using var transaction = connection.BeginTransaction();
+                cmd.Transaction = transaction;
                 int i = 0;
                 foreach (string query in queries)
                 {
-                    cmnd.CommandText = query;
-                    result[i++] = cmnd.ExecuteNonQuery();
+                    cmd.CommandText = query;
+                    result[i++] = cmd.ExecuteNonQuery();
                 }
                 transaction.Commit();
             }
@@ -36,24 +36,24 @@ namespace nuell.Async
     public static partial class Db
     {
         public static Task<int[]> Transaction(string queries)
-            => Transaction(queries.Split(new string[] { "GO", ";" }, StringSplitOptions.RemoveEmptyEntries));
+            => Transaction(queries.Split(["GO", ";"], StringSplitOptions.RemoveEmptyEntries));
 
         public static async Task<int[]> Transaction(IEnumerable<string> queries)
         {
             if (queries == null)
                 return null;
             var result = new int[queries.Count()];
-            using (var cnnct = new SqlConnection(Data.ConnectionString))
+            using (var connection = new SqlConnection(Data.ConnectionString))
             {
-                using var cmnd = cnnct.CreateCommand();
-                await cnnct.OpenAsync();
-                using var transaction = cnnct.BeginTransaction();
-                cmnd.Transaction = transaction;
+                using var cmd = connection.CreateCommand();
+                await connection.OpenAsync();
+                using var transaction = connection.BeginTransaction();
+                cmd.Transaction = transaction;
                 int i = 0;
                 foreach (string query in queries)
                 {
-                    cmnd.CommandText = query;
-                    result[i++] = await cmnd.ExecuteNonQueryAsync();
+                    cmd.CommandText = query;
+                    result[i++] = await cmd.ExecuteNonQueryAsync();
                 }
                 await transaction.CommitAsync();
             }

@@ -27,13 +27,13 @@ namespace nuell.Sync
         /// <param name="isStoredProc">is the query a stored procedure</param>   
         public static int Execute(string query, bool isStoredProc, params SqlParameter[] parameters)
         {
-            using var cnnct = new SqlConnection(Data.ConnectionString);
-            using var cmnd = new SqlCommand(query, cnnct);
+            using var connection = new SqlConnection(Data.ConnectionString);
+            using var cmd = new SqlCommand(query, connection);
             if (isStoredProc)
-                cmnd.CommandType = CommandType.StoredProcedure;
-            cmnd.Parameters.AddRange(parameters);
-            cnnct.Open();
-            return cmnd.ExecuteNonQuery();
+                cmd.CommandType = CommandType.StoredProcedure;
+            cmd.Parameters.AddRange(parameters);
+            connection.Open();
+            return cmd.ExecuteNonQuery();
         }
     }
 }
@@ -64,13 +64,13 @@ namespace nuell.Async
         /// <param name="isStoredProc">is the query a stored procedure</param>   
         public async static Task<int> Execute(string query, bool isStoredProc, params SqlParameter[] parameters)
         {
-            using var cnnct = new SqlConnection(Data.ConnectionString);
-            using var cmnd = new SqlCommand(query, cnnct);
+            using var connection = new SqlConnection(Data.ConnectionString);
+            using var cmd = new SqlCommand(query, connection);
             if (isStoredProc)
-                cmnd.CommandType = CommandType.StoredProcedure;
-            cmnd.Parameters.AddRange(parameters);
-            await cnnct.OpenAsync();
-            return await cmnd.ExecuteNonQueryAsync();
+                cmd.CommandType = CommandType.StoredProcedure;
+            cmd.Parameters.AddRange(parameters);
+            await connection.OpenAsync();
+            return await cmd.ExecuteNonQueryAsync();
         }
     }
 }

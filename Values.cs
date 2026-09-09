@@ -16,18 +16,18 @@ namespace nuell.Sync
 
         public static object[] Values(string query, bool isStoredProc, params SqlParameter[] parameters)
         {
-            using var cnnct = new SqlConnection(Data.ConnectionString);
-            using var cmnd = new SqlCommand(query, cnnct);
+            using var connection = new SqlConnection(Data.ConnectionString);
+            using var cmd = new SqlCommand(query, connection);
             if (isStoredProc)
-                cmnd.CommandType = CommandType.StoredProcedure;
-            cmnd.Parameters.AddRange(parameters);
-            cnnct.Open();
-            using var reader = cmnd.ExecuteReader();
+                cmd.CommandType = CommandType.StoredProcedure;
+            cmd.Parameters.AddRange(parameters);
+            connection.Open();
+            using var reader = cmd.ExecuteReader();
             var results = new List<object>();
             AddValues();
             while (reader.NextResult())
                 AddValues();
-            return results.ToArray();
+            return [.. results];
 
             void AddValues()
             {
@@ -55,18 +55,18 @@ namespace nuell.Async
 
         public static async Task<object[]> Values(string query, bool isStoredProc, params SqlParameter[] parameters)
         {
-            using var cnnct = new SqlConnection(Data.ConnectionString);
-            using var cmnd = new SqlCommand(query, cnnct);
+            using var connection = new SqlConnection(Data.ConnectionString);
+            using var cmd = new SqlCommand(query, connection);
             if (isStoredProc)
-                cmnd.CommandType = CommandType.StoredProcedure;
-            cmnd.Parameters.AddRange(parameters);
-            await cnnct.OpenAsync();
-            using var reader = await cmnd.ExecuteReaderAsync();
+                cmd.CommandType = CommandType.StoredProcedure;
+            cmd.Parameters.AddRange(parameters);
+            await connection.OpenAsync();
+            using var reader = await cmd.ExecuteReaderAsync();
             var results = new List<object>();
             await AddValues();
             while (await reader.NextResultAsync())
                 await AddValues();
-            return results.ToArray();
+            return [.. results];
 
             async Task AddValues()
             {

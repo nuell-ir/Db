@@ -67,7 +67,7 @@ namespace nuell
 			{
 				Id = id,
 				Query = str.ToString(),
-				SqlParams = sqlParams.ToArray()
+				SqlParams = [.. sqlParams]
 			};
 
 			void AppendValue(JsonProperty prop)
@@ -221,16 +221,16 @@ namespace nuell.Sync
 
 		private static int Save(SaveParams param)
 		{
-			using var cnnct = new SqlConnection(Data.ConnectionString);
-			using var cmnd = new SqlCommand(param.Query, cnnct);
+			using var connection = new SqlConnection(Data.ConnectionString);
+			using var cmd = new SqlCommand(param.Query, connection);
 			if (param.SqlParams.Length > 0)
-				cmnd.Parameters.AddRange(param.SqlParams);
-			cnnct.Open();
-			cmnd.ExecuteNonQuery();
+				cmd.Parameters.AddRange(param.SqlParams);
+			connection.Open();
+			cmd.ExecuteNonQuery();
 			if (param.Id == 0)
 			{
-				cmnd.CommandText = "select @@identity";
-				param.Id = Convert.ToInt32(cmnd.ExecuteScalar());
+				cmd.CommandText = "select @@identity";
+				param.Id = Convert.ToInt32(cmd.ExecuteScalar());
 			}
 			return param.Id;
 		}
@@ -267,16 +267,16 @@ namespace nuell.Async
 
 		private static async Task<int> Save(SaveParams param)
 		{
-			using var cnnct = new SqlConnection(Data.ConnectionString);
-			using var cmnd = new SqlCommand(param.Query, cnnct);
+			using var connection = new SqlConnection(Data.ConnectionString);
+			using var cmd = new SqlCommand(param.Query, connection);
 			if (param.SqlParams.Length > 0)
-				cmnd.Parameters.AddRange(param.SqlParams);
-			await cnnct.OpenAsync();
-			await cmnd.ExecuteNonQueryAsync();
+				cmd.Parameters.AddRange(param.SqlParams);
+			await connection.OpenAsync();
+			await cmd.ExecuteNonQueryAsync();
 			if (param.Id == 0)
 			{
-				cmnd.CommandText = "select @@identity";
-				param.Id = Convert.ToInt32(await cmnd.ExecuteScalarAsync());
+				cmd.CommandText = "select @@identity";
+				param.Id = Convert.ToInt32(await cmd.ExecuteScalarAsync());
 			}
 			return param.Id;
 		}

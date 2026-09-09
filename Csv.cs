@@ -44,7 +44,7 @@ namespace nuell
 			return fieldTypes;
 		}
 
-		private static char GetCsvTypeFlag(TypeCode colType)
+		internal static char GetCsvTypeFlag(TypeCode colType)
 		{
 			return colType switch
 			{

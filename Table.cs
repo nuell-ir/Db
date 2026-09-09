@@ -17,8 +17,8 @@ namespace nuell.Sync
 		public static DataTable Table(string query, bool isStoredProc, params SqlParameter[] parameters)
 		{
 			var dt = new DataTable();
-			using var cnnct = new SqlConnection(Data.ConnectionString);
-			using var adapter = new SqlDataAdapter(query, cnnct);
+			using var connection = new SqlConnection(Data.ConnectionString);
+			using var adapter = new SqlDataAdapter(query, connection);
 			if (isStoredProc)
 				adapter.SelectCommand.CommandType = CommandType.StoredProcedure;
 			adapter.SelectCommand.Parameters.AddRange(parameters);
@@ -43,14 +43,14 @@ namespace nuell.Async
 
 		public static async Task<DataTable> Table(string query, bool isStoredProc, params SqlParameter[] parameters)
 		{
-			using var cnnct = new SqlConnection(Data.ConnectionString);
-			using var bulkCopy = new SqlBulkCopy(cnnct);
-			using var cmnd = new SqlCommand(query, cnnct);
+			using var connection = new SqlConnection(Data.ConnectionString);
+			using var bulkCopy = new SqlBulkCopy(connection);
+			using var cmd = new SqlCommand(query, connection);
 			if (isStoredProc)
-				cmnd.CommandType = CommandType.StoredProcedure;
-			cmnd.Parameters.AddRange(parameters);
-			await cnnct.OpenAsync();
-			using var reader = await cmnd.ExecuteReaderAsync();
+				cmd.CommandType = CommandType.StoredProcedure;
+			cmd.Parameters.AddRange(parameters);
+			await connection.OpenAsync();
+			using var reader = await cmd.ExecuteReaderAsync();
 			if (!reader.HasRows)
 				return null;
 			var dt = new DataTable();

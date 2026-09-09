@@ -31,7 +31,7 @@ namespace nuell
 			str.Append(" WHERE [");
 			str.Append(primaryKey);
 			str.Append("]=");
-			if (primaryKeyProp.Value.ValueKind != System.Text.Json.JsonValueKind.Undefined && primaryKeyProp.Name == primaryKey)
+			if (primaryKeyProp.Value.ValueKind != JsonValueKind.Undefined && primaryKeyProp.Name == primaryKey)
 				AppendValue(primaryKeyProp);
 			else
 				throw new ArgumentException($"{primaryKey} property was not provided");
@@ -42,19 +42,19 @@ namespace nuell
 			{
 				switch (prop.Value.ValueKind)
 				{
-					case System.Text.Json.JsonValueKind.Number:
+					case JsonValueKind.Number:
 						str.Append(prop.Value);
 						break;
-					case System.Text.Json.JsonValueKind.True:
+					case JsonValueKind.True:
 						str.Append(1);
 						break;
-					case System.Text.Json.JsonValueKind.False:
+					case JsonValueKind.False:
 						str.Append(0);
 						break;
-					case System.Text.Json.JsonValueKind.Null:
+					case JsonValueKind.Null:
 						str.Append("NULL");
 						break;
-					case System.Text.Json.JsonValueKind.String:
+					case JsonValueKind.String:
 						string paramName = $"@{prop.Name}";
 						str.Append(paramName);
 						sqlParams.Add(new SqlParameter(paramName, prop.Value.GetString()));
@@ -152,12 +152,12 @@ namespace nuell.Sync
 
 		private static int Update((string Query, SqlParameter[] SqlParams) param)
 		{
-			using var cnnct = new SqlConnection(Data.ConnectionString);
-			using var cmnd = new SqlCommand(param.Query, cnnct);
+			using var connection = new SqlConnection(Data.ConnectionString);
+			using var cmd = new SqlCommand(param.Query, connection);
 			if (param.SqlParams.Length > 0)
-				cmnd.Parameters.AddRange(param.SqlParams);
-			cnnct.Open();
-			return cmnd.ExecuteNonQuery();
+				cmd.Parameters.AddRange(param.SqlParams);
+			connection.Open();
+			return cmd.ExecuteNonQuery();
 		}
 	}
 }
@@ -177,12 +177,12 @@ namespace nuell.Async
 
 		private static async Task<int> Update((string Query, SqlParameter[] SqlParams) param)
 		{
-			using var cnnct = new SqlConnection(Data.ConnectionString);
-			using var cmnd = new SqlCommand(param.Query, cnnct);
+			using var connection = new SqlConnection(Data.ConnectionString);
+			using var cmd = new SqlCommand(param.Query, connection);
 			if (param.SqlParams.Length > 0)
-				cmnd.Parameters.AddRange(param.SqlParams);
-			await cnnct.OpenAsync();
-			return await cmnd.ExecuteNonQueryAsync();
+				cmd.Parameters.AddRange(param.SqlParams);
+			await connection.OpenAsync();
+			return await cmd.ExecuteNonQueryAsync();
 		}
 	}
 }

@@ -130,10 +130,10 @@ namespace nuell.Sync
 	{
 		public static int SaveAll(JsonElement json, string deleteIds, string table, string idProp = "Id")
 		{
-			using var cnnct = new SqlConnection(Data.ConnectionString);
-			using var cmnd = new SqlCommand(SaveAllQuery.Create(json, deleteIds, table, idProp), cnnct);
-			cnnct.Open();
-			return cmnd.ExecuteNonQuery();
+			using var connection = new SqlConnection(Data.ConnectionString);
+			using var cmd = new SqlCommand(SaveAllQuery.Create(json, deleteIds, table, idProp), connection);
+			connection.Open();
+			return cmd.ExecuteNonQuery();
 		}
 	}
 }
@@ -144,10 +144,10 @@ namespace nuell.Async
 	{
 		public static async Task<int> SaveAll(JsonElement json, string deleteIds, string table, string idProp = "Id")
 		{
-			using var cnnct = new SqlConnection(Data.ConnectionString);
-			using var cmnd = new SqlCommand(SaveAllQuery.Create(json, deleteIds, table, idProp), cnnct);
-			await cnnct.OpenAsync();
-			return await cmnd.ExecuteNonQueryAsync();
+			using var connection = new SqlConnection(Data.ConnectionString);
+			using var cmd = new SqlCommand(SaveAllQuery.Create(json, deleteIds, table, idProp), connection);
+			await connection.OpenAsync();
+			return await cmd.ExecuteNonQueryAsync();
 		}
 	}
 }

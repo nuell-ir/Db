@@ -17,10 +17,10 @@ namespace nuell
 		internal static SqlParameter NullableStringParam(string name, string value)
 		=> new SqlParameter(name, string.IsNullOrWhiteSpace(value) ? DBNull.Value : value.Trim());
 
-		internal static readonly SqlParameter[] NoParams = new SqlParameter[] { };
+		internal static readonly SqlParameter[] NoParams = [];
 
 		internal static SqlParameter[] SqlParams((string name, object value)[] parameters)
-		=> parameters.Select(p => new SqlParameter(p.name, p.value ?? DBNull.Value)).ToArray();
+		=> [.. parameters.Select(p => new SqlParameter(p.name, p.value ?? DBNull.Value))];
 
 		internal static readonly JsonWriterOptions JsonWriterOptions = new()
 		{
@@ -35,8 +35,8 @@ namespace nuell.Sync
 	{
 		public static string ConnectionString
 		{
-			get => nuell.Data.ConnectionString;
-			set => nuell.Data.ConnectionString = value;
+			get => Data.ConnectionString;
+			set => Data.ConnectionString = value;
 		}
 
 		public static SqlParameter NS(string name, string value)
@@ -55,8 +55,8 @@ namespace nuell.Async
 	{
 		public static string ConnectionString
 		{
-			get => nuell.Data.ConnectionString;
-			set => nuell.Data.ConnectionString = value;
+			get => Data.ConnectionString;
+			set => Data.ConnectionString = value;
 		}
 
 		public static SqlParameter NS(string name, string value)

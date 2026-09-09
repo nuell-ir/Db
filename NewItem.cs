@@ -37,7 +37,7 @@ namespace nuell.Sync
 	public static partial class Db
 	{
 		public static string NewItem(string table)
-			=> Str(nuell.Data.NewItem, false, new SqlParameter("@table", table));
+			=> Str(Data.NewItem, false, new SqlParameter("@table", table));
 	}
 }
 
@@ -46,6 +46,6 @@ namespace nuell.Async
 	public static partial class Db
 	{
 		public static Task<string> NewItem(string table)
-			=> Str(nuell.Data.NewItem, false, new SqlParameter("@table", table));
+			=> Str(Data.NewItem, false, new SqlParameter("@table", table));
 	}
 }

@@ -47,13 +47,13 @@ namespace nuell.Sync
 
 		public static JsonObject JsonObject(string query, bool isStoredProc, params SqlParameter[] parameters)
 		{
-			using var cnnct = new SqlConnection(Data.ConnectionString);
-			using var cmnd = new SqlCommand(query, cnnct);
+			using var connection = new SqlConnection(Data.ConnectionString);
+			using var cmd = new SqlCommand(query, connection);
 			if (isStoredProc)
-				cmnd.CommandType = CommandType.StoredProcedure;
-			cmnd.Parameters.AddRange(parameters);
-			cnnct.Open();
-			using var reader = cmnd.ExecuteReader();
+				cmd.CommandType = CommandType.StoredProcedure;
+			cmd.Parameters.AddRange(parameters);
+			connection.Open();
+			using var reader = cmd.ExecuteReader();
 			if (reader.HasRows)
 			{
 				reader.Read();
@@ -80,20 +80,20 @@ namespace nuell.Async
 
 		public static async Task<JsonObject> JsonObject(string query, bool isStoredProc, params SqlParameter[] parameters)
 		{
-			using var cnnct = new SqlConnection(Data.ConnectionString);
-			using var cmnd = new SqlCommand(query, cnnct);
+			using var connection = new SqlConnection(Data.ConnectionString);
+			using var cmd = new SqlCommand(query, connection);
 			if (isStoredProc)
-				cmnd.CommandType = CommandType.StoredProcedure;
-			cmnd.Parameters.AddRange(parameters);
-			await cnnct.OpenAsync();
-			using var reader = await cmnd.ExecuteReaderAsync();
+				cmd.CommandType = CommandType.StoredProcedure;
+			cmd.Parameters.AddRange(parameters);
+			await connection.OpenAsync();
+			using var reader = await cmd.ExecuteReaderAsync();
 			if (reader.HasRows)
 			{
 				await reader.ReadAsync();
 				return reader.GetJsonObject(await reader.GetColumnSchemaAsync());
 			}
 			else
-				return default(JsonObject);
+				return default;
 		}
 	}
 }

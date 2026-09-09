@@ -16,13 +16,13 @@ namespace nuell.Sync
 
         public static string Str(string query, bool isStoredProc, params SqlParameter[] parameters)
         {
-            using var cnnct = new SqlConnection(Data.ConnectionString);
-            using var cmnd = new SqlCommand(query, cnnct);
-            cnnct.Open();
+            using var connection = new SqlConnection(Data.ConnectionString);
+            using var cmd = new SqlCommand(query, connection);
+            connection.Open();
             if (isStoredProc)
-                cmnd.CommandType = CommandType.StoredProcedure;
-            cmnd.Parameters.AddRange(parameters);
-            var val = cmnd.ExecuteScalar();
+                cmd.CommandType = CommandType.StoredProcedure;
+            cmd.Parameters.AddRange(parameters);
+            var val = cmd.ExecuteScalar();
             return val is DBNull ? null : val?.ToString();
         }
     }
@@ -43,13 +43,13 @@ namespace nuell.Async
 
         public static async Task<string> Str(string query, bool isStoredProc, params SqlParameter[] parameters)
         {
-            using var cnnct = new SqlConnection(Data.ConnectionString);
-            using var cmnd = new SqlCommand(query, cnnct);
-            await cnnct.OpenAsync();
+            using var connection = new SqlConnection(Data.ConnectionString);
+            using var cmd = new SqlCommand(query, connection);
+            await connection.OpenAsync();
             if (isStoredProc)
-                cmnd.CommandType = CommandType.StoredProcedure;
-            cmnd.Parameters.AddRange(parameters);
-            var val = await cmnd.ExecuteScalarAsync();
+                cmd.CommandType = CommandType.StoredProcedure;
+            cmd.Parameters.AddRange(parameters);
+            var val = await cmd.ExecuteScalarAsync();
             return val is DBNull ? null : val?.ToString();
         }
     }

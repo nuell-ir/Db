@@ -11,7 +11,7 @@ namespace nuell
             var props = new (string Name, object Value)[propInfo.Length];
             for (int i = 0; i < propInfo.Length; i++)
                 props[i] = (propInfo[i].Name, propInfo[i].GetValue(obj));
-            int idIndex = Array.FindIndex<(string Name, object Value)>(props, prop => prop.Name == idProp);
+            int idIndex = Array.FindIndex(props, prop => prop.Name == idProp);
             int id = Convert.ToInt32(props[idIndex].Value);
             var sqlParams = new List<SqlParameter>();
             SqlParameter param;

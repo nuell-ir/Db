@@ -96,13 +96,13 @@ namespace nuell.Sync
 		/// <param name="isStoredProc">is the query a stored procedure</param>        
 		public static string Json(string query, JsonValueType result, bool isStoredProc, params SqlParameter[] parameters)
 		{
-			using var cnnct = new SqlConnection(Data.ConnectionString);
-			using var cmnd = new SqlCommand(query, cnnct);
+			using var connection = new SqlConnection(Data.ConnectionString);
+			using var cmd = new SqlCommand(query, connection);
 			if (isStoredProc)
-				cmnd.CommandType = CommandType.StoredProcedure;
-			cmnd.Parameters.AddRange(parameters);
-			cnnct.Open();
-			using var reader = cmnd.ExecuteReader();
+				cmd.CommandType = CommandType.StoredProcedure;
+			cmd.Parameters.AddRange(parameters);
+			connection.Open();
+			using var reader = cmd.ExecuteReader();
 			using var stream = new MemoryStream();
 			using var writer = new Utf8JsonWriter(stream, Data.JsonWriterOptions);
 			reader.ReadJson(result, stream, writer);
@@ -194,13 +194,13 @@ namespace nuell.Async
 		/// <param name="isStoredProc">is the query a stored procedure</param>   
 		public async static Task<string> Json(string query, JsonValueType result, bool isStoredProc, params SqlParameter[] parameters)
 		{
-			using var cnnct = new SqlConnection(Data.ConnectionString);
-			using var cmnd = new SqlCommand(query, cnnct);
+			using var connection = new SqlConnection(Data.ConnectionString);
+			using var cmd = new SqlCommand(query, connection);
 			if (isStoredProc)
-				cmnd.CommandType = CommandType.StoredProcedure;
-			cmnd.Parameters.AddRange(parameters);
-			await cnnct.OpenAsync();
-			using var reader = await cmnd.ExecuteReaderAsync();
+				cmd.CommandType = CommandType.StoredProcedure;
+			cmd.Parameters.AddRange(parameters);
+			await connection.OpenAsync();
+			using var reader = await cmd.ExecuteReaderAsync();
 			using var stream = new MemoryStream();
 			using var writer = new Utf8JsonWriter(stream, Data.JsonWriterOptions);
 			await reader.ReadJson(result, stream, writer);

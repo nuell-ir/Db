@@ -142,12 +142,12 @@ namespace nuell.Sync
 
 		private static int Insert((string Query, SqlParameter[] SqlParams) param)
 		{
-			using var cnnct = new SqlConnection(Data.ConnectionString);
-			using var cmnd = new SqlCommand(param.Query, cnnct);
+			using var connection = new SqlConnection(Data.ConnectionString);
+			using var cmd = new SqlCommand(param.Query, connection);
 			if (param.SqlParams.Length > 0)
-				cmnd.Parameters.AddRange(param.SqlParams);
-			cnnct.Open();
-			return cmnd.ExecuteNonQuery();
+				cmd.Parameters.AddRange(param.SqlParams);
+			connection.Open();
+			return cmd.ExecuteNonQuery();
 		}
 	}
 }
@@ -167,12 +167,12 @@ namespace nuell.Async
 
 		private static async Task<int> Insert((string Query, SqlParameter[] SqlParams) param)
 		{
-			using var cnnct = new SqlConnection(Data.ConnectionString);
-			using var cmnd = new SqlCommand(param.Query, cnnct);
+			using var connection = new SqlConnection(Data.ConnectionString);
+			using var cmd = new SqlCommand(param.Query, connection);
 			if (param.SqlParams.Length > 0)
-				cmnd.Parameters.AddRange(param.SqlParams);
-			await cnnct.OpenAsync();
-			return await cmnd.ExecuteNonQueryAsync();
+				cmd.Parameters.AddRange(param.SqlParams);
+			await connection.OpenAsync();
+			return await cmd.ExecuteNonQueryAsync();
 		}
 	}
 }

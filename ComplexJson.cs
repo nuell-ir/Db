@@ -18,13 +18,13 @@ namespace nuell.Sync
 
 		public static string ComplexJson(string query, (string Name, JsonValueType ResultType)[] props, bool isStoredProc, params SqlParameter[] parameters)
 		{
-			using var cnnct = new SqlConnection(Data.ConnectionString);
-			using var cmnd = new SqlCommand(query, cnnct);
+			using var connection = new SqlConnection(Data.ConnectionString);
+			using var cmd = new SqlCommand(query, connection);
 			if (isStoredProc)
-				cmnd.CommandType = CommandType.StoredProcedure;
-			cmnd.Parameters.AddRange(parameters);
-			cnnct.Open();
-			using var reader = cmnd.ExecuteReader();
+				cmd.CommandType = CommandType.StoredProcedure;
+			cmd.Parameters.AddRange(parameters);
+			connection.Open();
+			using var reader = cmd.ExecuteReader();
 			using var stream = new MemoryStream();
 			using var writer = new Utf8JsonWriter(stream, Data.JsonWriterOptions);
 			writer.WriteStartObject();
@@ -79,13 +79,13 @@ namespace nuell.Async
 
 		public static async Task<string> ComplexJson(string query, (string Name, JsonValueType ResultType)[] props, bool isStoredProc = false, params SqlParameter[] parameters)
 		{
-			using var cnnct = new SqlConnection(Data.ConnectionString);
-			using var cmnd = new SqlCommand(query, cnnct);
+			using var connection = new SqlConnection(Data.ConnectionString);
+			using var cmd = new SqlCommand(query, connection);
 			if (isStoredProc)
-				cmnd.CommandType = CommandType.StoredProcedure;
-			cmnd.Parameters.AddRange(parameters);
-			await cnnct.OpenAsync();
-			using var reader = await cmnd.ExecuteReaderAsync();
+				cmd.CommandType = CommandType.StoredProcedure;
+			cmd.Parameters.AddRange(parameters);
+			await connection.OpenAsync();
+			using var reader = await cmd.ExecuteReaderAsync();
 			using var stream = new MemoryStream();
 			using var writer = new Utf8JsonWriter(stream, Data.JsonWriterOptions);
 			writer.WriteStartObject();
