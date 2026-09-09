@@ -3,9 +3,9 @@ using System.Text.Json;
 using System.Text.RegularExpressions;
 using Microsoft.Data.SqlClient;
 
-namespace nuel
-{
-	internal static partial class SaveAllQuery
+namespace nuel;
+
+internal static partial class SaveAllQuery
 	{
 		internal static string Create(JsonElement json, string deleteIds, string table, string idProp)
 		{
@@ -126,32 +126,9 @@ namespace nuel
 		[GeneratedRegex("^(\\d+,)*\\d+$")]
 		private static partial Regex CommaSeparatedIntegers();
 	}
-}
 
-namespace nuel.Sync
+public static partial class Db
 {
-	public static partial class Db
-	{
-		/// <summary>Executes a batch save operation that deletes records with matching IDs and inserts or updates records from a JSON array in a transaction.</summary>
-		/// <param name="json">The JSON array containing records to insert (if ID is 0) or update (if ID > 0).</param>
-		/// <param name="deleteIds">A comma-separated string of record IDs to delete, or null/empty if none to delete.</param>
-		/// <param name="table">The name of the database table.</param>
-		/// <param name="idProp">The name of the identity/primary key property. Defaults to "Id".</param>
-		/// <returns>The total number of rows affected by the delete, update, and insert operations.</returns>
-		public static int SaveAll(JsonElement json, string deleteIds, string table, string idProp = "Id")
-		{
-			using var connection = new SqlConnection(Data.ConnectionString);
-			using var cmd = new SqlCommand(SaveAllQuery.Create(json, deleteIds, table, idProp), connection);
-			connection.Open();
-			return cmd.ExecuteNonQuery();
-		}
-	}
-}
-
-namespace nuel.Async
-{
-	public static partial class Db
-	{
 		/// <summary>Asynchronously executes a batch save operation that deletes records with matching IDs and inserts or updates records from a JSON array in a transaction.</summary>
 		/// <param name="json">The JSON array containing records to insert (if ID is 0) or update (if ID > 0).</param>
 		/// <param name="deleteIds">A comma-separated string of record IDs to delete, or null/empty if none to delete.</param>
@@ -166,4 +143,3 @@ namespace nuel.Async
 			return await cmd.ExecuteNonQueryAsync();
 		}
 	}
-}

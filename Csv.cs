@@ -5,9 +5,9 @@ using System.Reflection;
 using System.Text;
 using Microsoft.Data.SqlClient;
 
-namespace nuel
-{
-	public static class CsvWriter
+namespace nuel;
+
+public static class CsvWriter
 	{
 		internal const char sep = '~';
 		internal const char line = '|';
@@ -125,171 +125,64 @@ namespace nuel
 			}
 		}
 	}
-}
 
-namespace nuel.Sync
+public static partial class Db
 {
-	public static partial class Db
+	/// <summary>Converts an array of objects to a CSV string.</summary>
+	/// <param name="objects">The array of objects to convert.</param>
+	/// <returns>A CSV formatted string representing the objects, or null if the array is null or empty.</returns>
+	public static string Csv(object[] objects)
 	{
-		/// <summary>Converts the query result to a CSV string.</summary>
-		/// <param name="query">The SQL query or stored procedure name to execute.</param>
-		/// <param name="parameters">The parameters for the SQL query.</param>
-		/// <returns>A CSV formatted string representing the query result, or null if no rows were returned.</returns>
-		public static string Csv(string query, params (string name, object value)[] parameters)
-		=> Csv(query, false, Data.SqlParams(parameters));
+		if (objects is null || objects.Length == 0)
+			return null;
 
-		/// <summary>Converts the query result to a CSV string.</summary>
-		/// <param name="query">The SQL query or stored procedure name to execute.</param>
-		/// <param name="isStoredProc">Whether the query is a stored procedure.</param>
-		/// <param name="parameters">The parameters for the SQL query.</param>
-		/// <returns>A CSV formatted string representing the query result, or null if no rows were returned.</returns>
-		public static string Csv(string query, bool isStoredProc, params (string name, object value)[] parameters)
-		=> Csv(query, isStoredProc, Data.SqlParams(parameters));
+		var props = objects[0].GetType().GetProperties();
+		var propGetters = props.Select(p => (Func<object, object>)(o => p.GetValue(o))).ToArray();
+		var str = new StringBuilder();
+		var fieldTypes = str.WriteCsvHeader(props);
+		int objectCount = objects.Length;
+		int propCount = props.Length;
 
-		/// <summary>Converts the query result to a CSV string.</summary>
-		/// <param name="query">The SQL query or stored procedure name to execute.</param>
-		/// <param name="isStoredProc">Whether the query is a stored procedure.</param>
-		/// <returns>A CSV formatted string representing the query result, or null if no rows were returned.</returns>
-		public static string Csv(string query, bool isStoredProc = false)
-		=> Csv(query, isStoredProc, Data.NoParams);
-
-		/// <summary>Converts the query result to a CSV string.</summary>
-		/// <param name="query">The SQL query or stored procedure name to execute.</param>
-		/// <param name="isStoredProc">Whether the query is a stored procedure.</param>
-		/// <param name="parameters">The SQL parameters to apply to the command.</param>
-		/// <returns>A CSV formatted string representing the query result, or null if no rows were returned.</returns>
-		public static string Csv(string query, bool isStoredProc, params SqlParameter[] parameters)
+		object val;
+		for (int i = 0; i < objectCount; i++)
 		{
-			using var connection = new SqlConnection(Data.ConnectionString);
-			using var cmd = new SqlCommand(query, connection);
-			if (isStoredProc)
-				cmd.CommandType = CommandType.StoredProcedure;
-			cmd.Parameters.AddRange(parameters);
-			connection.Open();
-			using var reader = cmd.ExecuteReader();
-			return reader.ReadCsv();
-		}
-
-		/// <summary>Converts multiple results of a query to an array of CSV strings.</summary>
-		/// <param name="query">The SQL query or stored procedure name to execute.</param>
-		/// <param name="parameters">The parameters for the SQL query.</param>
-		/// <returns>An array of CSV formatted strings, one for each result set.</returns>
-		public static string[] MultiCsv(string query, params (string name, object value)[] parameters)
-		=> MultiCsv(query, false, Data.SqlParams(parameters));
-
-		/// <summary>Converts multiple results of a query to an array of CSV strings.</summary>
-		/// <param name="query">The SQL query or stored procedure name to execute.</param>
-		/// <param name="isStoredProc">Whether the query is a stored procedure.</param>
-		/// <param name="parameters">The parameters for the SQL query.</param>
-		/// <returns>An array of CSV formatted strings, one for each result set.</returns>
-		public static string[] MultiCsv(string query, bool isStoredProc, params (string name, object value)[] parameters)
-		=> MultiCsv(query, isStoredProc, Data.SqlParams(parameters));
-
-		/// <summary>Converts multiple results of a query to an array of CSV strings.</summary>
-		/// <param name="query">The SQL query or stored procedure name to execute.</param>
-		/// <param name="isStoredProc">Whether the query is a stored procedure.</param>
-		/// <returns>An array of CSV formatted strings, one for each result set.</returns>
-		public static string[] MultiCsv(string query, bool isStoredProc = false)
-		=> MultiCsv(query, isStoredProc, Data.NoParams);
-
-		/// <summary>Converts multiple results of a query to an array of CSV strings.</summary>
-		/// <param name="query">The SQL query or stored procedure name to execute.</param>
-		/// <param name="isStoredProc">Whether the query is a stored procedure.</param>
-		/// <param name="parameters">The SQL parameters to apply to the command.</param>
-		/// <returns>An array of CSV formatted strings, one for each result set.</returns>
-		public static string[] MultiCsv(string query, bool isStoredProc, params SqlParameter[] parameters)
-		{
-			using var connection = new SqlConnection(Data.ConnectionString);
-			using var cmd = new SqlCommand(query, connection);
-			if (isStoredProc)
-				cmd.CommandType = CommandType.StoredProcedure;
-			cmd.Parameters.AddRange(parameters);
-			connection.Open();
-			using var reader = cmd.ExecuteReader();
-			var results = new List<string>
+			str.Append(CsvWriter.line);
+			for (int p = 0; p < props.Length; p++)
 			{
-				reader.ReadCsv()
-			};
-			while (reader.NextResult())
-				results.Add(reader.ReadCsv());
-			return [.. results];
-		}
-
-		private static string ReadCsv(this SqlDataReader reader)
-		{
-			if (!reader.HasRows)
-				return null;
-			var str = new StringBuilder();
-			reader.Read();
-			var fieldTypes = str.WriteCsvHeader(reader);
-			str.WriteCsvRow(reader, fieldTypes);
-			while (reader.Read())
-				str.WriteCsvRow(reader, fieldTypes);
-			return str.ToString();
-		}
-
-		/// <summary>Converts an array of objects to a CSV string.</summary>
-		/// <param name="objects">The array of objects to convert.</param>
-		/// <returns>A CSV formatted string representing the objects, or null if the array is null or empty.</returns>
-		public static string Csv(object[] objects)
-		{
-			if (objects is null || objects.Length == 0)
-				return null;
-
-			var props = objects[0].GetType().GetProperties();
-			var propGetters = props.Select(p => (Func<object, object>)(o => p.GetValue(o))).ToArray();
-			var str = new StringBuilder();
-			var fieldTypes = str.WriteCsvHeader(props);
-			int objectCount = objects.Length;
-			int propCount = props.Length;
-
-			object val;
-			for (int i = 0; i < objectCount; i++)
-			{
-				str.Append(CsvWriter.line);
-				for (int p = 0; p < props.Length; p++)
+				val = propGetters[p](objects[i]);
+				if (val is null)
+					str.Append('Ø');
+				else
 				{
-					val = propGetters[p](objects[i]);
-					if (val is null)
-						str.Append('Ø');
+					var type = fieldTypes[p];
+					var underlying = Nullable.GetUnderlyingType(type) ?? type;
+
+					if (val is DateTime dt)
+						str.Append(new DateTimeOffset(dt).ToUnixTimeSeconds());
+					else if (val is DateTimeOffset dto)
+						str.Append(dto.ToUnixTimeSeconds());
+					else if (val is bool b)
+						str.Append(b ? '1' : '0');
+					else if (val is byte[] bytes)
+						str.Append(Convert.ToBase64String(bytes));
+					else if (val is float f)
+						str.Append(f.ToString(CultureInfo.InvariantCulture));
+					else if (val is double d)
+						str.Append(d.ToString(CultureInfo.InvariantCulture));
+					else if (val is decimal dec)
+						str.Append(dec.ToString(CultureInfo.InvariantCulture));
+					else if (underlying == typeof(Guid) || underlying == typeof(TimeSpan) || Type.GetTypeCode(underlying) != TypeCode.Object)
+						str.Append(val);
 					else
-					{
-						var type = fieldTypes[p];
-						var underlying = Nullable.GetUnderlyingType(type) ?? type;
-
-						if (val is DateTime dt)
-							str.Append(new DateTimeOffset(dt).ToUnixTimeSeconds());
-						else if (val is DateTimeOffset dto)
-							str.Append(dto.ToUnixTimeSeconds());
-						else if (val is bool b)
-							str.Append(b ? '1' : '0');
-						else if (val is byte[] bytes)
-							str.Append(Convert.ToBase64String(bytes));
-						else if (val is float f)
-							str.Append(f.ToString(CultureInfo.InvariantCulture));
-						else if (val is double d)
-							str.Append(d.ToString(CultureInfo.InvariantCulture));
-						else if (val is decimal dec)
-							str.Append(dec.ToString(CultureInfo.InvariantCulture));
-						else if (underlying == typeof(Guid) || underlying == typeof(TimeSpan) || Type.GetTypeCode(underlying) != TypeCode.Object)
-							str.Append(val);
-						else
-							throw new NotSupportedException($"Type '{type.FullName}' is not supported.");
-					}
-					if (p < propCount - 1)
-						str.Append(CsvWriter.sep);
+						throw new NotSupportedException($"Type '{type.FullName}' is not supported.");
 				}
+				if (p < propCount - 1)
+					str.Append(CsvWriter.sep);
 			}
-
-			return str.ToString();
 		}
-	}
-}
 
-namespace nuel.Async
-{
-	public static partial class Db
-	{
+		return str.ToString();
+	}
 		/// <summary>Asynchronously converts the query result to a CSV string.</summary>
 		/// <param name="query">The SQL query or stored procedure name to execute.</param>
 		/// <param name="parameters">The parameters for the SQL query.</param>
@@ -374,7 +267,7 @@ namespace nuel.Async
 			return [.. results];
 		}
 
-		private static async Task<string> ReadCsv(this SqlDataReader reader)
+		internal static async Task<string> ReadCsv(this SqlDataReader reader)
 		{
 			if (!reader.HasRows)
 				return null;
@@ -387,4 +280,3 @@ namespace nuel.Async
 			return str.ToString();
 		}
 	}
-}

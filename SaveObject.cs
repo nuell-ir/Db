@@ -1,9 +1,9 @@
 using System.Text;
 using Microsoft.Data.SqlClient;
 
-namespace nuel
-{
-    internal static partial class SaveQuery
+namespace nuel;
+
+internal static partial class SaveQuery
     {
         internal static SaveParams Create<T>(T obj, string table, string idProp)
         {
@@ -94,28 +94,9 @@ namespace nuel
             }
         }
     }
-}
 
-namespace nuel.Sync
+public static partial class Db
 {
-    public static partial class Db
-    {
-        /// <summary>Saves an object of type T via an insert or update operation.</summary>
-        /// <remarks>If the value of the identity field is 0, the values will be inserted as a record; otherwise, a record with the specified identity will be updated.</remarks>
-        /// <typeparam name="T">The type of the object to save.</typeparam>
-        /// <param name="obj">The object to save.</param>
-        /// <param name="table">The name of the table.</param>   
-        /// <param name="idProp">The name of the identity field, the value of which decides whether to insert or update the record.</param>
-        /// <returns>The identity of the inserted/updated record, or 0 if no record was updated.</returns>
-        public static int Save<T>(T obj, string table, string idProp = "Id")
-            => Save(SaveQuery.Create(obj, table, idProp));
-    }
-}
-
-namespace nuel.Async
-{
-    public static partial class Db
-    {
         /// <summary>Asynchronously saves an object of type T via an insert or update operation.</summary>
         /// <remarks>If the value of the identity field is 0, the values will be inserted as a record; otherwise, a record with the specified identity will be updated.</remarks>
         /// <typeparam name="T">The type of the object to save.</typeparam>
@@ -126,4 +107,3 @@ namespace nuel.Async
         public static Task<int> Save<T>(T obj, string table, string idProp = "Id")
             => Save(SaveQuery.Create(obj, table, idProp));
     }
-}

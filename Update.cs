@@ -3,9 +3,9 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using Microsoft.Data.SqlClient;
 
-namespace nuel
-{
-	public static class UpdateQuery
+namespace nuel;
+
+public static class UpdateQuery
 	{
 		internal static (string Query, SqlParameter[] SqlParams) Create(JsonElement json, string table, string primaryKey)
 		{
@@ -135,84 +135,40 @@ namespace nuel
 			}
 		}
 	}
-}
 
-namespace nuel.Sync
+public static partial class Db
 {
-	public static partial class Db
+	/// <summary>Asynchronously updates a database record using the properties from a <see cref="JsonNode"/> matching the specified primary key.</summary>
+	/// <param name="json">The JSON node containing the column names and updated values, including the primary key property.</param>
+	/// <param name="table">The name of the database table.</param>
+	/// <param name="primaryKey">The name of the primary key column.</param>
+	/// <returns>A task representing the asynchronous operation, returning the number of rows affected.</returns>
+	public static Task<int> Update(JsonNode json, string table, string primaryKey)
+		=> Update(UpdateQuery.Create(json.AsObject(), table, primaryKey));
+
+	/// <summary>Asynchronously updates a database record using the properties from a <see cref="System.Text.Json.Nodes.JsonObject"/> matching the specified primary key.</summary>
+	/// <param name="json">The JSON object containing the column names and updated values, including the primary key property.</param>
+	/// <param name="table">The name of the database table.</param>
+	/// <param name="primaryKey">The name of the primary key column.</param>
+	/// <returns>A task representing the asynchronous operation, returning the number of rows affected.</returns>
+	public static Task<int> Update(JsonObject json, string table, string primaryKey)
+		=> Update(UpdateQuery.Create(json, table, primaryKey));
+
+	/// <summary>Asynchronously updates a database record using the properties from a <see cref="JsonElement"/> matching the specified primary key.</summary>
+	/// <param name="json">The JSON element containing the column names and updated values, including the primary key property.</param>
+	/// <param name="table">The name of the database table.</param>
+	/// <param name="primaryKey">The name of the primary key column.</param>
+	/// <returns>A task representing the asynchronous operation, returning the number of rows affected.</returns>
+	public static Task<int> Update(JsonElement json, string table, string primaryKey)
+		=> Update(UpdateQuery.Create(json, table, primaryKey));
+
+	private static async Task<int> Update((string Query, SqlParameter[] SqlParams) param)
 	{
-		/// <summary>Updates a database record using the properties from a <see cref="JsonNode"/> matching the specified primary key.</summary>
-		/// <param name="json">The JSON node containing the column names and updated values, including the primary key property.</param>
-		/// <param name="table">The name of the database table.</param>
-		/// <param name="primaryKey">The name of the primary key column.</param>
-		/// <returns>The number of rows affected.</returns>
-		public static int Update(JsonNode json, string table, string primaryKey)
-			=> Update(UpdateQuery.Create(json.AsObject(), table, primaryKey));
-
-		/// <summary>Updates a database record using the properties from a <see cref="System.Text.Json.Nodes.JsonObject"/> matching the specified primary key.</summary>
-		/// <param name="json">The JSON object containing the column names and updated values, including the primary key property.</param>
-		/// <param name="table">The name of the database table.</param>
-		/// <param name="primaryKey">The name of the primary key column.</param>
-		/// <returns>The number of rows affected.</returns>
-		public static int Update(JsonObject json, string table, string primaryKey)
-			=> Update(UpdateQuery.Create(json, table, primaryKey));
-
-		/// <summary>Updates a database record using the properties from a <see cref="JsonElement"/> matching the specified primary key.</summary>
-		/// <param name="json">The JSON element containing the column names and updated values, including the primary key property.</param>
-		/// <param name="table">The name of the database table.</param>
-		/// <param name="primaryKey">The name of the primary key column.</param>
-		/// <returns>The number of rows affected.</returns>
-		public static int Update(JsonElement json, string table, string primaryKey)
-			=> Update(UpdateQuery.Create(json, table, primaryKey));
-
-		private static int Update((string Query, SqlParameter[] SqlParams) param)
-		{
-			using var connection = new SqlConnection(Data.ConnectionString);
-			using var cmd = new SqlCommand(param.Query, connection);
-			if (param.SqlParams.Length > 0)
-				cmd.Parameters.AddRange(param.SqlParams);
-			connection.Open();
-			return cmd.ExecuteNonQuery();
-		}
-	}
-}
-
-namespace nuel.Async
-{
-	public static partial class Db
-	{
-		/// <summary>Asynchronously updates a database record using the properties from a <see cref="JsonNode"/> matching the specified primary key.</summary>
-		/// <param name="json">The JSON node containing the column names and updated values, including the primary key property.</param>
-		/// <param name="table">The name of the database table.</param>
-		/// <param name="primaryKey">The name of the primary key column.</param>
-		/// <returns>A task representing the asynchronous operation, returning the number of rows affected.</returns>
-		public static Task<int> Update(JsonNode json, string table, string primaryKey)
-			=> Update(UpdateQuery.Create(json.AsObject(), table, primaryKey));
-
-		/// <summary>Asynchronously updates a database record using the properties from a <see cref="System.Text.Json.Nodes.JsonObject"/> matching the specified primary key.</summary>
-		/// <param name="json">The JSON object containing the column names and updated values, including the primary key property.</param>
-		/// <param name="table">The name of the database table.</param>
-		/// <param name="primaryKey">The name of the primary key column.</param>
-		/// <returns>A task representing the asynchronous operation, returning the number of rows affected.</returns>
-		public static Task<int> Update(JsonObject json, string table, string primaryKey)
-			=> Update(UpdateQuery.Create(json, table, primaryKey));
-
-		/// <summary>Asynchronously updates a database record using the properties from a <see cref="JsonElement"/> matching the specified primary key.</summary>
-		/// <param name="json">The JSON element containing the column names and updated values, including the primary key property.</param>
-		/// <param name="table">The name of the database table.</param>
-		/// <param name="primaryKey">The name of the primary key column.</param>
-		/// <returns>A task representing the asynchronous operation, returning the number of rows affected.</returns>
-		public static Task<int> Update(JsonElement json, string table, string primaryKey)
-			=> Update(UpdateQuery.Create(json, table, primaryKey));
-
-		private static async Task<int> Update((string Query, SqlParameter[] SqlParams) param)
-		{
-			using var connection = new SqlConnection(Data.ConnectionString);
-			using var cmd = new SqlCommand(param.Query, connection);
-			if (param.SqlParams.Length > 0)
-				cmd.Parameters.AddRange(param.SqlParams);
-			await connection.OpenAsync();
-			return await cmd.ExecuteNonQueryAsync();
-		}
+		using var connection = new SqlConnection(Data.ConnectionString);
+		using var cmd = new SqlCommand(param.Query, connection);
+		if (param.SqlParams.Length > 0)
+			cmd.Parameters.AddRange(param.SqlParams);
+		await connection.OpenAsync();
+		return await cmd.ExecuteNonQueryAsync();
 	}
 }

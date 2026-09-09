@@ -8,29 +8,16 @@ namespace Db.Tests;
 public class TransactionTests
 {
     [TestMethod]
-    public void Transaction_Sync_NullInputs_ReturnNull()
+    public async Task Transaction_NullInputs_ReturnNull()
     {
-        Assert.IsNull(nuel.Sync.Db.Transaction((string)null!));
-        Assert.IsNull(nuel.Sync.Db.Transaction((string)null!, isStoredProc: false));
-        Assert.IsNull(nuel.Sync.Db.Transaction((string)null!, ("@p", 1)));
-        Assert.IsNull(nuel.Sync.Db.Transaction((string)null!, new SqlParameter("@p", 1)));
-        Assert.IsNull(nuel.Sync.Db.Transaction((IEnumerable<string>)null!));
-        Assert.IsNull(nuel.Sync.Db.Transaction((IEnumerable<(string, SqlParameter[])>)null!));
-        Assert.IsNull(nuel.Sync.Db.Transaction((IEnumerable<(string, (string, object)[])>)null!));
-        Assert.IsNull(nuel.Sync.Db.Transaction((IEnumerable<SqlCommand>)null!));
-    }
-
-    [TestMethod]
-    public async Task Transaction_Async_NullInputs_ReturnNull()
-    {
-        Assert.IsNull(await nuel.Async.Db.Transaction((string)null!));
-        Assert.IsNull(await nuel.Async.Db.Transaction((string)null!, isStoredProc: false));
-        Assert.IsNull(await nuel.Async.Db.Transaction((string)null!, ("@p", 1)));
-        Assert.IsNull(await nuel.Async.Db.Transaction((string)null!, new SqlParameter("@p", 1)));
-        Assert.IsNull(await nuel.Async.Db.Transaction((IEnumerable<string>)null!));
-        Assert.IsNull(await nuel.Async.Db.Transaction((IEnumerable<(string, SqlParameter[])>)null!));
-        Assert.IsNull(await nuel.Async.Db.Transaction((IEnumerable<(string, (string, object)[])>)null!));
-        Assert.IsNull(await nuel.Async.Db.Transaction((IEnumerable<SqlCommand>)null!));
+        Assert.IsNull(await nuel.Db.Transaction((string)null!));
+        Assert.IsNull(await nuel.Db.Transaction((string)null!, isStoredProc: false));
+        Assert.IsNull(await nuel.Db.Transaction((string)null!, ("@p", 1)));
+        Assert.IsNull(await nuel.Db.Transaction((string)null!, new SqlParameter("@p", 1)));
+        Assert.IsNull(await nuel.Db.Transaction((IEnumerable<string>)null!));
+        Assert.IsNull(await nuel.Db.Transaction((IEnumerable<(string, SqlParameter[])>)null!));
+        Assert.IsNull(await nuel.Db.Transaction((IEnumerable<(string, (string, object)[])>)null!));
+        Assert.IsNull(await nuel.Db.Transaction((IEnumerable<SqlCommand>)null!));
     }
 
     private class SingleEnumerationTracker<T> : IEnumerable<T>
@@ -53,35 +40,14 @@ public class TransactionTests
     }
 
     [TestMethod]
-    public void Transaction_IEnumerable_DoesNotPreEnumerateWithCount()
-    {
-        // In the previous implementation, queries.Count() enumerated the collection before connection.Open().
-        // In the new implementation, queries is not enumerated before connection opening.
-        var tracker = new SingleEnumerationTracker<string>(new[] { "SELECT 1" });
-
-        try
-        {
-            nuel.Sync.Db.ConnectionString = "Server=invalid_non_existent;Database=test;Trusted_Connection=True;";
-            nuel.Sync.Db.Transaction(tracker);
-        }
-        catch
-        {
-            // Expected failure opening connection
-        }
-
-        // Must be 0 because connection opening failed before the single-pass enumeration loop was reached
-        Assert.AreEqual(0, tracker.EnumerationCount, "IEnumerable was enumerated before connection open (e.g. via Count()).");
-    }
-
-    [TestMethod]
-    public async Task Transaction_Async_IEnumerable_DoesNotPreEnumerateWithCount()
+    public async Task Transaction_IEnumerable_DoesNotPreEnumerateWithCount()
     {
         var tracker = new SingleEnumerationTracker<string>(new[] { "SELECT 1" });
 
         try
         {
-            nuel.Async.Db.ConnectionString = "Server=invalid_non_existent;Database=test;Trusted_Connection=True;";
-            await nuel.Async.Db.Transaction(tracker);
+            nuel.Db.ConnectionString = "Server=invalid_non_existent;Database=test;Trusted_Connection=True;";
+            await nuel.Db.Transaction(tracker);
         }
         catch
         {

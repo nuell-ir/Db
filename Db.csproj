@@ -3,11 +3,11 @@
 		<TargetFramework>net10.0</TargetFramework>
 		<ImplicitUsings>enable</ImplicitUsings>
 		<RootNamespace>nuel</RootNamespace>
-		<Version>4.8.0</Version>
+		<Version>5.0.0</Version>
 		<Company>nuel</Company>
 		<Product>Db</Product>
 		<Authors>Ako Mahmoodi</Authors>
-		<PackageId>nuell_Db</PackageId>
+		<PackageId>nuel_Db</PackageId>
 		<RepositoryUrl>https://github.com/pellk/Db</RepositoryUrl>
 		<PackageLicenseFile>LICENSE</PackageLicenseFile>
 		<PackageTags>SQL Server, JSON, CSV</PackageTags>

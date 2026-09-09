@@ -1,55 +1,10 @@
 using System.Data;
 using Microsoft.Data.SqlClient;
 
-namespace nuel.Sync
+namespace nuel;
+
+public static partial class Db
 {
-	public static partial class Db
-	{
-		/// <summary>Executes the query and returns the results in a <see cref="DataTable"/>.</summary>
-		/// <param name="query">The SQL query or stored procedure name to execute.</param>
-		/// <param name="parameters">The parameters for the SQL query.</param>
-		/// <returns>A <see cref="DataTable"/> containing the query results.</returns>
-		public static DataTable Table(string query, params (string name, object value)[] parameters)
-			 => Table(query, false, Data.SqlParams(parameters));
-
-		/// <summary>Executes the query and returns the results in a <see cref="DataTable"/>.</summary>
-		/// <param name="query">The SQL query or stored procedure name to execute.</param>
-		/// <param name="isStoredProc">Whether the query is a stored procedure.</param>
-		/// <param name="parameters">The parameters for the SQL query.</param>
-		/// <returns>A <see cref="DataTable"/> containing the query results.</returns>
-		public static DataTable Table(string query, bool isStoredProc, params (string name, object value)[] parameters)
-			 => Table(query, isStoredProc, Data.SqlParams(parameters));
-
-		/// <summary>Executes the query and returns the results in a <see cref="DataTable"/>.</summary>
-		/// <param name="query">The SQL query or stored procedure name to execute.</param>
-		/// <param name="isStoredProc">Whether the query is a stored procedure.</param>
-		/// <returns>A <see cref="DataTable"/> containing the query results.</returns>
-		public static DataTable Table(string query, bool isStoredProc = false)
-			 => Table(query, isStoredProc, Data.NoParams);
-
-		/// <summary>Executes the query and returns the results in a <see cref="DataTable"/>.</summary>
-		/// <param name="query">The SQL query or stored procedure name to execute.</param>
-		/// <param name="isStoredProc">Whether the query is a stored procedure.</param>
-		/// <param name="parameters">The SQL parameters to apply to the command.</param>
-		/// <returns>A <see cref="DataTable"/> containing the query results.</returns>
-		public static DataTable Table(string query, bool isStoredProc, params SqlParameter[] parameters)
-		{
-			var dt = new DataTable();
-			using var connection = new SqlConnection(Data.ConnectionString);
-			using var adapter = new SqlDataAdapter(query, connection);
-			if (isStoredProc)
-				adapter.SelectCommand.CommandType = CommandType.StoredProcedure;
-			adapter.SelectCommand.Parameters.AddRange(parameters);
-			adapter.Fill(dt);
-			return dt;
-		}
-	}
-}
-
-namespace nuel.Async
-{
-	public static partial class Db
-	{
 		/// <summary>Asynchronously executes the query and returns the results in a <see cref="DataTable"/>.</summary>
 		/// <param name="query">The SQL query or stored procedure name to execute.</param>
 		/// <param name="parameters">The parameters for the SQL query.</param>
@@ -105,4 +60,3 @@ namespace nuel.Async
 			return dt;
 		}
 	}
-}

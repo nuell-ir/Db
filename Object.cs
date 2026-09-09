@@ -4,9 +4,9 @@ using Microsoft.Data.SqlClient;
 
 using System.Reflection;
 
-namespace nuel
-{
-	internal static class ObjectReflector
+namespace nuel;
+
+internal static class ObjectReflector
 	{
 		internal static T GetObject<T>(this DbDataReader reader, Dictionary<string, PropertyInfo> props) where T : new()
 		{
@@ -41,67 +41,9 @@ namespace nuel
 			return reader.GetObject<T>(props);
 		}
 	}
-}
 
-namespace nuel.Sync
+public static partial class Db
 {
-	public static partial class Db
-	{
-		/// <summary>Executes the query and maps the first row of the result set to a new instance of <typeparamref name="T"/>.</summary>
-		/// <typeparam name="T">The type of object to create and populate from the result set row.</typeparam>
-		/// <param name="query">The SQL query or stored procedure name to execute.</param>
-		/// <param name="parameters">The parameters for the SQL query.</param>
-		/// <returns>An instance of <typeparamref name="T"/> populated with data from the first row, or default if no rows were returned.</returns>
-		public static T Object<T>(string query, params (string name, object value)[] parameters) where T : new()
-			=> Object<T>(query, false, Data.SqlParams(parameters));
-
-		/// <summary>Executes the query and maps the first row of the result set to a new instance of <typeparamref name="T"/>.</summary>
-		/// <typeparam name="T">The type of object to create and populate from the result set row.</typeparam>
-		/// <param name="query">The SQL query or stored procedure name to execute.</param>
-		/// <param name="isStoredProc">Whether the query is a stored procedure.</param>
-		/// <param name="parameters">The parameters for the SQL query.</param>
-		/// <returns>An instance of <typeparamref name="T"/> populated with data from the first row, or default if no rows were returned.</returns>
-		public static T Object<T>(string query, bool isStoredProc, params (string name, object value)[] parameters) where T : new()
-			=> Object<T>(query, isStoredProc, Data.SqlParams(parameters));
-
-		/// <summary>Executes the query and maps the first row of the result set to a new instance of <typeparamref name="T"/>.</summary>
-		/// <typeparam name="T">The type of object to create and populate from the result set row.</typeparam>
-		/// <param name="query">The SQL query or stored procedure name to execute.</param>
-		/// <param name="isStoredProc">Whether the query is a stored procedure.</param>
-		/// <returns>An instance of <typeparamref name="T"/> populated with data from the first row, or default if no rows were returned.</returns>
-		public static T Object<T>(string query, bool isStoredProc = false) where T : new()
-			=> Object<T>(query, isStoredProc, Data.NoParams);
-
-		/// <summary>Executes the query and maps the first row of the result set to a new instance of <typeparamref name="T"/>.</summary>
-		/// <typeparam name="T">The type of object to create and populate from the result set row.</typeparam>
-		/// <param name="query">The SQL query or stored procedure name to execute.</param>
-		/// <param name="isStoredProc">Whether the query is a stored procedure.</param>
-		/// <param name="parameters">The SQL parameters to apply to the command.</param>
-		/// <returns>An instance of <typeparamref name="T"/> populated with data from the first row, or default if no rows were returned.</returns>
-		public static T Object<T>(string query, bool isStoredProc, params SqlParameter[] parameters) where T : new()
-		{
-			using var connection = new SqlConnection(Data.ConnectionString);
-			using var cmd = new SqlCommand(query, connection);
-			if (isStoredProc)
-				cmd.CommandType = CommandType.StoredProcedure;
-			cmd.Parameters.AddRange(parameters);
-			connection.Open();
-			using var reader = cmd.ExecuteReader();
-			if (reader.HasRows)
-			{
-				reader.Read();
-				return reader.GetObject<T>();
-			}
-			else
-				return default;
-		}
-	}
-}
-
-namespace nuel.Async
-{
-	public static partial class Db
-	{
 		/// <summary>Asynchronously executes the query and maps the first row of the result set to a new instance of <typeparamref name="T"/>.</summary>
 		/// <typeparam name="T">The type of object to create and populate from the result set row.</typeparam>
 		/// <param name="query">The SQL query or stored procedure name to execute.</param>
@@ -151,4 +93,3 @@ namespace nuel.Async
 				return default;
 		}
 	}
-}

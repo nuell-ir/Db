@@ -3,78 +3,52 @@ using System.Text.Encodings.Web;
 using System.Text.Json;
 using Microsoft.Data.SqlClient;
 
-namespace nuel
+namespace nuel;
+
+/// <summary>Represents the format or structure to use when outputting JSON data.</summary>
+public enum JsonValueType
 {
-	internal enum JsonValueType
-	{
-		Array, Object, Value, Csv
-	}
-
-	public static partial class Data
-	{
-		internal static string ConnectionString;
-
-		internal static SqlParameter NullableStringParam(string name, string value)
-		=> new SqlParameter(name, string.IsNullOrWhiteSpace(value) ? DBNull.Value : value.Trim());
-
-		internal static readonly SqlParameter[] NoParams = [];
-
-		internal static SqlParameter[] SqlParams((string name, object value)[] parameters)
-		=> [.. parameters.Select(p => new SqlParameter(p.name, p.value ?? DBNull.Value))];
-
-		internal static readonly JsonWriterOptions JsonWriterOptions = new()
-		{
-			Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping
-		};
-	}
+	/// <summary>JSON array format.</summary>
+	Array,
+	/// <summary>JSON object format.</summary>
+	Object,
+	/// <summary>Raw scalar value format.</summary>
+	Value,
+	/// <summary>CSV formatted string within JSON.</summary>
+	Csv
 }
 
-namespace nuel.Sync
+public static partial class Data
 {
-	public static partial class Db
-	{
-		/// <summary>Gets or sets the database connection string.</summary>
-		public static string ConnectionString
-		{
-			get => Data.ConnectionString;
-			set => Data.ConnectionString = value;
-		}
+	internal static string ConnectionString;
 
-		/// <summary>Creates a <see cref="SqlParameter"/> whose value is set to <see cref="DBNull.Value"/> if the specified string is null or whitespace.</summary>
-		/// <param name="name">The name of the parameter.</param>
-		/// <param name="value">The string value of the parameter.</param>
-		/// <returns>A <see cref="SqlParameter"/> instance with either the trimmed string or <see cref="DBNull.Value"/>.</returns>
-		public static SqlParameter NS(string name, string value)
-		=> Data.NullableStringParam(name, value);
-	}
+	internal static SqlParameter NullableStringParam(string name, string value)
+	=> new SqlParameter(name, string.IsNullOrWhiteSpace(value) ? DBNull.Value : value.Trim());
 
-	public enum JsonValueType
+	internal static readonly SqlParameter[] NoParams = [];
+
+	internal static SqlParameter[] SqlParams((string name, object value)[] parameters)
+	=> [.. parameters.Select(p => new SqlParameter(p.name, p.value ?? DBNull.Value))];
+
+	internal static readonly JsonWriterOptions JsonWriterOptions = new()
 	{
-		Array = nuel.JsonValueType.Array, Object = nuel.JsonValueType.Object, Value = nuel.JsonValueType.Value, Csv = nuel.JsonValueType.Csv
-	}
+		Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+	};
 }
 
-namespace nuel.Async
+public static partial class Db
 {
-	public static partial class Db
+	/// <summary>Gets or sets the database connection string.</summary>
+	public static string ConnectionString
 	{
-		/// <summary>Gets or sets the database connection string.</summary>
-		public static string ConnectionString
-		{
-			get => Data.ConnectionString;
-			set => Data.ConnectionString = value;
-		}
-
-		/// <summary>Creates a <see cref="SqlParameter"/> whose value is set to <see cref="DBNull.Value"/> if the specified string is null or whitespace.</summary>
-		/// <param name="name">The name of the parameter.</param>
-		/// <param name="value">The string value of the parameter.</param>
-		/// <returns>A <see cref="SqlParameter"/> instance with either the trimmed string or <see cref="DBNull.Value"/>.</returns>
-		public static SqlParameter NS(string name, string value)
-		=> Data.NullableStringParam(name, value);
+		get => Data.ConnectionString;
+		set => Data.ConnectionString = value;
 	}
 
-	public enum JsonValueType
-	{
-		Array = nuel.JsonValueType.Array, Object = nuel.JsonValueType.Object, Value = nuel.JsonValueType.Value, Csv = nuel.JsonValueType.Csv
-	}
+	/// <summary>Creates a <see cref="SqlParameter"/> whose value is set to <see cref="DBNull.Value"/> if the specified string is null or whitespace.</summary>
+	/// <param name="name">The name of the parameter.</param>
+	/// <param name="value">The string value of the parameter.</param>
+	/// <returns>A <see cref="SqlParameter"/> instance with either the trimmed string or <see cref="DBNull.Value"/>.</returns>
+	public static SqlParameter NS(string name, string value)
+	=> Data.NullableStringParam(name, value);
 }

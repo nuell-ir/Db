@@ -3,9 +3,9 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using Microsoft.Data.SqlClient;
 
-namespace nuel
-{
-	public static partial class Data
+namespace nuel;
+
+public static partial class Data
 	{
 		internal static (string Query, SqlParameter[] SqlParams) InsertQuery(JsonElement json, string table)
 		{
@@ -125,49 +125,9 @@ namespace nuel
 			}
 		}
 	}
-}
 
-namespace nuel.Sync
+public static partial class Db
 {
-	public static partial class Db
-	{
-		/// <summary>Inserts a record represented by a <see cref="JsonNode"/> into the specified database table.</summary>
-		/// <param name="json">The JSON node containing the column names and values to insert.</param>
-		/// <param name="table">The name of the database table.</param>
-		/// <returns>The number of rows affected.</returns>
-		public static int Insert(JsonNode json, string table)
-			=> Insert(Data.InsertQuery(json.AsObject(), table));
-
-		/// <summary>Inserts a record represented by a <see cref="System.Text.Json.Nodes.JsonObject"/> into the specified database table.</summary>
-		/// <param name="json">The JSON object containing the column names and values to insert.</param>
-		/// <param name="table">The name of the database table.</param>
-		/// <returns>The number of rows affected.</returns>
-		public static int Insert(JsonObject json, string table)
-			=> Insert(Data.InsertQuery(json, table));
-
-		/// <summary>Inserts a record represented by a <see cref="JsonElement"/> into the specified database table.</summary>
-		/// <param name="json">The JSON element containing the column names and values to insert.</param>
-		/// <param name="table">The name of the database table.</param>
-		/// <returns>The number of rows affected.</returns>
-		public static int Insert(JsonElement json, string table)
-			=> Insert(Data.InsertQuery(json, table));
-
-		private static int Insert((string Query, SqlParameter[] SqlParams) param)
-		{
-			using var connection = new SqlConnection(Data.ConnectionString);
-			using var cmd = new SqlCommand(param.Query, connection);
-			if (param.SqlParams.Length > 0)
-				cmd.Parameters.AddRange(param.SqlParams);
-			connection.Open();
-			return cmd.ExecuteNonQuery();
-		}
-	}
-}
-
-namespace nuel.Async
-{
-	public static partial class Db
-	{
 		/// <summary>Asynchronously inserts a record represented by a <see cref="JsonNode"/> into the specified database table.</summary>
 		/// <param name="json">The JSON node containing the column names and values to insert.</param>
 		/// <param name="table">The name of the database table.</param>
@@ -199,4 +159,3 @@ namespace nuel.Async
 			return await cmd.ExecuteNonQueryAsync();
 		}
 	}
-}

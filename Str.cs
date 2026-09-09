@@ -1,55 +1,10 @@
 using System.Data;
 using Microsoft.Data.SqlClient;
 
-namespace nuel.Sync
+namespace nuel;
+
+public static partial class Db
 {
-    public static partial class Db
-    {
-        /// <summary>Executes the query and returns the first column of the first row as a <see cref="string"/>.</summary>
-        /// <param name="query">The SQL query or stored procedure name to execute.</param>
-        /// <param name="parameters">The parameters for the SQL query.</param>
-        /// <returns>The string representation of the first column of the first row, or null if the value is null or DBNull.</returns>
-        public static string Str(string query, params (string name, object value)[] parameters)
-            => Str(query, false, Data.SqlParams(parameters));
-
-        /// <summary>Executes the query and returns the first column of the first row as a <see cref="string"/>.</summary>
-        /// <param name="query">The SQL query or stored procedure name to execute.</param>
-        /// <param name="isStoredProc">Whether the query is a stored procedure.</param>
-        /// <param name="parameters">The parameters for the SQL query.</param>
-        /// <returns>The string representation of the first column of the first row, or null if the value is null or DBNull.</returns>
-        public static string Str(string query, bool isStoredProc, params (string name, object value)[] parameters)
-            => Str(query, isStoredProc, Data.SqlParams(parameters));
-
-        /// <summary>Executes the query and returns the first column of the first row as a <see cref="string"/>.</summary>
-        /// <param name="query">The SQL query or stored procedure name to execute.</param>
-        /// <param name="isStoredProc">Whether the query is a stored procedure.</param>
-        /// <returns>The string representation of the first column of the first row, or null if the value is null or DBNull.</returns>
-        public static string Str(string query, bool isStoredProc = false)
-            => Str(query, isStoredProc, Data.NoParams);
-
-        /// <summary>Executes the query and returns the first column of the first row as a <see cref="string"/>.</summary>
-        /// <param name="query">The SQL query or stored procedure name to execute.</param>
-        /// <param name="isStoredProc">Whether the query is a stored procedure.</param>
-        /// <param name="parameters">The SQL parameters to apply to the command.</param>
-        /// <returns>The string representation of the first column of the first row, or null if the value is null or DBNull.</returns>
-        public static string Str(string query, bool isStoredProc, params SqlParameter[] parameters)
-        {
-            using var connection = new SqlConnection(Data.ConnectionString);
-            using var cmd = new SqlCommand(query, connection);
-            connection.Open();
-            if (isStoredProc)
-                cmd.CommandType = CommandType.StoredProcedure;
-            cmd.Parameters.AddRange(parameters);
-            var val = cmd.ExecuteScalar();
-            return val is DBNull ? null : val?.ToString();
-        }
-    }
-}
-
-namespace nuel.Async
-{
-    public static partial class Db
-    {
         /// <summary>Asynchronously executes the query and returns the first column of the first row as a <see cref="string"/>.</summary>
         /// <param name="query">The SQL query or stored procedure name to execute.</param>
         /// <param name="parameters">The parameters for the SQL query.</param>
@@ -89,4 +44,3 @@ namespace nuel.Async
             return val is DBNull ? null : val?.ToString();
         }
     }
-}

@@ -4,8 +4,6 @@ using System.Text;
 using System.Text.Json;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using nuel;
-using nuel.Sync;
-using JsonValueType = nuel.Sync.JsonValueType;
 
 namespace Db.Tests;
 
@@ -90,7 +88,7 @@ public class JsonWriterTests
         );
     }
     [TestMethod]
-    public void ReadJson_ObjectResult_DirectUtf8OutputToStream()
+    public async Task ReadJson_ObjectResult_DirectUtf8OutputToStream()
     {
         var dt = new DataTable();
         dt.Columns.Add("Id", typeof(int));
@@ -102,7 +100,7 @@ public class JsonWriterTests
         using var stream = new MemoryStream();
         using (var writer = new Utf8JsonWriter(stream))
         {
-            reader.ReadJson(JsonValueType.Object, writer);
+            await reader.ReadJson(JsonValueType.Object, writer);
             writer.Flush();
         }
 
@@ -116,7 +114,7 @@ public class JsonWriterTests
     }
 
     [TestMethod]
-    public void ReadJson_ArrayResult_DirectUtf8OutputToStream()
+    public async Task ReadJson_ArrayResult_DirectUtf8OutputToStream()
     {
         var dt = new DataTable();
         dt.Columns.Add("Id", typeof(int));
@@ -128,7 +126,7 @@ public class JsonWriterTests
         using var stream = new MemoryStream();
         using (var writer = new Utf8JsonWriter(stream))
         {
-            reader.ReadJson(JsonValueType.Array, writer);
+            await reader.ReadJson(JsonValueType.Array, writer);
             writer.Flush();
         }
 
@@ -144,7 +142,7 @@ public class JsonWriterTests
     }
 
     [TestMethod]
-    public void ReadJson_EmptyReader_WritesExpectedNullOrEmptyArray()
+    public async Task ReadJson_EmptyReader_WritesExpectedNullOrEmptyArray()
     {
         var dt = new DataTable();
         dt.Columns.Add("Id", typeof(int));
@@ -154,7 +152,7 @@ public class JsonWriterTests
         using (var stream = new MemoryStream())
         using (var writer = new Utf8JsonWriter(stream))
         {
-            reader.ReadJson(JsonValueType.Object, writer);
+            await reader.ReadJson(JsonValueType.Object, writer);
             writer.Flush();
             stream.Position = 0;
             using var doc = JsonDocument.Parse(stream);
@@ -166,7 +164,7 @@ public class JsonWriterTests
         using (var stream = new MemoryStream())
         using (var writer = new Utf8JsonWriter(stream))
         {
-            reader.ReadJson(JsonValueType.Array, writer);
+            await reader.ReadJson(JsonValueType.Array, writer);
             writer.Flush();
             stream.Position = 0;
             using var doc = JsonDocument.Parse(stream);
@@ -187,7 +185,7 @@ public class JsonWriterTests
         using var stream = new MemoryStream();
         using (var writer = new Utf8JsonWriter(stream))
         {
-            await nuel.Async.Db.ReadJson(reader, nuel.Async.JsonValueType.Array, writer);
+            await nuel.Db.ReadJson(reader, JsonValueType.Array, writer);
         }
 
         stream.Position = 0;
@@ -199,36 +197,22 @@ public class JsonWriterTests
     }
 
     [TestMethod]
-    public void DbJson_StreamOverloads_ExistInSyncAndAsync()
+    public void DbJson_StreamOverloads_ExistInDb()
     {
-        var syncMethods = typeof(nuel.Sync.Db).GetMethods(BindingFlags.Public | BindingFlags.Static)
+        var asyncMethods = typeof(nuel.Db).GetMethods(BindingFlags.Public | BindingFlags.Static)
             .Where(m => m.Name == "Json" && m.GetParameters().Any(p => p.ParameterType == typeof(Stream)))
             .ToList();
-        Assert.IsTrue(syncMethods.Count >= 6, $"Expected at least 6 sync Json stream overloads, found {syncMethods.Count}.");
-
-        var asyncMethods = typeof(nuel.Async.Db).GetMethods(BindingFlags.Public | BindingFlags.Static)
-            .Where(m => m.Name == "Json" && m.GetParameters().Any(p => p.ParameterType == typeof(Stream)))
-            .ToList();
-        Assert.IsTrue(asyncMethods.Count >= 6, $"Expected at least 6 async Json stream overloads, found {asyncMethods.Count}.");
+        Assert.IsTrue(asyncMethods.Count >= 6, $"Expected at least 6 Json stream overloads, found {asyncMethods.Count}.");
 
         // Verify optional stream parameter on main Json overload
-        var syncOptionalStreamMethod = typeof(nuel.Sync.Db).GetMethods(BindingFlags.Public | BindingFlags.Static)
+        var asyncOptionalStreamMethod = typeof(nuel.Db).GetMethods(BindingFlags.Public | BindingFlags.Static)
             .FirstOrDefault(m => m.Name == "Json" && m.GetParameters().Length == 4 && m.GetParameters()[3].Name == "stream" && m.GetParameters()[3].IsOptional);
-        Assert.IsNotNull(syncOptionalStreamMethod, "Expected sync Json method with optional stream parameter.");
-
-        var asyncOptionalStreamMethod = typeof(nuel.Async.Db).GetMethods(BindingFlags.Public | BindingFlags.Static)
-            .FirstOrDefault(m => m.Name == "Json" && m.GetParameters().Length == 4 && m.GetParameters()[3].Name == "stream" && m.GetParameters()[3].IsOptional);
-        Assert.IsNotNull(asyncOptionalStreamMethod, "Expected async Json method with optional stream parameter.");
+        Assert.IsNotNull(asyncOptionalStreamMethod, "Expected Json method with optional stream parameter.");
 
         // Verify ComplexJson stream overloads
-        var syncComplexMethods = typeof(nuel.Sync.Db).GetMethods(BindingFlags.Public | BindingFlags.Static)
+        var asyncComplexMethods = typeof(nuel.Db).GetMethods(BindingFlags.Public | BindingFlags.Static)
             .Where(m => m.Name == "ComplexJson" && m.GetParameters().Any(p => p.ParameterType == typeof(Stream)))
             .ToList();
-        Assert.IsTrue(syncComplexMethods.Count >= 4, $"Expected at least 4 sync ComplexJson stream overloads, found {syncComplexMethods.Count}.");
-
-        var asyncComplexMethods = typeof(nuel.Async.Db).GetMethods(BindingFlags.Public | BindingFlags.Static)
-            .Where(m => m.Name == "ComplexJson" && m.GetParameters().Any(p => p.ParameterType == typeof(Stream)))
-            .ToList();
-        Assert.IsTrue(asyncComplexMethods.Count >= 4, $"Expected at least 4 async ComplexJson stream overloads, found {asyncComplexMethods.Count}.");
+        Assert.IsTrue(asyncComplexMethods.Count >= 4, $"Expected at least 4 ComplexJson stream overloads, found {asyncComplexMethods.Count}.");
     }
 }

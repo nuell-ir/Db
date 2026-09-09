@@ -7,17 +7,16 @@ Generally speaking, `Db` aims to minimise the SQL Server boilerplate code. In ad
 Set the connection string to get started. This should be done only once and preferably at startup.
 
 ```c#
-nuel.Data.ConnectionString = mySqlServerConnectionString;
+nuel.Db.ConnectionString = mySqlServerConnectionString;
 ```
 
-Depending on the use case, you may choose synchronous or asynchronous methods. Typically asynchronous methods are preferred for non-blocking purposes.
+Simply import the `nuel` namespace:
 
 ```c#
-using nuel.Sync;
-using nuel.Async;
+using nuel;
 ```
 
-Asynchronous methods must be preceded with the `await` keyword and put in `async` methods.
+All database methods are asynchronous and should be awaited with the `await` keyword.
 
 ## Stored Procedures
 
@@ -48,11 +47,11 @@ Simpler overloads accepting `ValueTuple(name, value)` parameters can also be use
 int count = await Db.Val<int>(query, ("@city", "London"));
 ```
 
-A shorthand for Nullable string parameters is the `nuel.Data.NS` function, which replaces empty strings with a `null` value.
+A shorthand for Nullable string parameters is the `nuel.Db.NS` function, which replaces empty strings with a `null` value.
 
 ```c#
 await Db.Execute("update Customers set FullName=@name where Id=@id",
-                Data.NS("@name", name), // nullable string parameter
+                Db.NS("@name", name), // nullable string parameter
                 new SqlParameter("@id", id));
 ```
 
