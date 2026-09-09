@@ -131,12 +131,24 @@ namespace nuel.Sync
 {
 	public static partial class Db
 	{
+		/// <summary>Inserts a record represented by a <see cref="JsonNode"/> into the specified database table.</summary>
+		/// <param name="json">The JSON node containing the column names and values to insert.</param>
+		/// <param name="table">The name of the database table.</param>
+		/// <returns>The number of rows affected.</returns>
 		public static int Insert(JsonNode json, string table)
 			=> Insert(Data.InsertQuery(json.AsObject(), table));
 
+		/// <summary>Inserts a record represented by a <see cref="System.Text.Json.Nodes.JsonObject"/> into the specified database table.</summary>
+		/// <param name="json">The JSON object containing the column names and values to insert.</param>
+		/// <param name="table">The name of the database table.</param>
+		/// <returns>The number of rows affected.</returns>
 		public static int Insert(JsonObject json, string table)
 			=> Insert(Data.InsertQuery(json, table));
 
+		/// <summary>Inserts a record represented by a <see cref="JsonElement"/> into the specified database table.</summary>
+		/// <param name="json">The JSON element containing the column names and values to insert.</param>
+		/// <param name="table">The name of the database table.</param>
+		/// <returns>The number of rows affected.</returns>
 		public static int Insert(JsonElement json, string table)
 			=> Insert(Data.InsertQuery(json, table));
 
@@ -156,12 +168,24 @@ namespace nuel.Async
 {
 	public static partial class Db
 	{
+		/// <summary>Asynchronously inserts a record represented by a <see cref="JsonNode"/> into the specified database table.</summary>
+		/// <param name="json">The JSON node containing the column names and values to insert.</param>
+		/// <param name="table">The name of the database table.</param>
+		/// <returns>A task representing the asynchronous operation, returning the number of rows affected.</returns>
 		public static Task<int> Insert(JsonNode json, string table)
 			=> Insert(Data.InsertQuery(json.AsObject(), table));
 
+		/// <summary>Asynchronously inserts a record represented by a <see cref="System.Text.Json.Nodes.JsonObject"/> into the specified database table.</summary>
+		/// <param name="json">The JSON object containing the column names and values to insert.</param>
+		/// <param name="table">The name of the database table.</param>
+		/// <returns>A task representing the asynchronous operation, returning the number of rows affected.</returns>
 		public static Task<int> Insert(JsonObject json, string table)
 			=> Insert(Data.InsertQuery(json, table));
 
+		/// <summary>Asynchronously inserts a record represented by a <see cref="JsonElement"/> into the specified database table.</summary>
+		/// <param name="json">The JSON element containing the column names and values to insert.</param>
+		/// <param name="table">The name of the database table.</param>
+		/// <returns>A task representing the asynchronous operation, returning the number of rows affected.</returns>
 		public static Task<int> Insert(JsonElement json, string table)
 			=> Insert(Data.InsertQuery(json, table));
 

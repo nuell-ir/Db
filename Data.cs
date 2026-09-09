@@ -1,4 +1,4 @@
-﻿using System.Data;
+using System.Data;
 using System.Text.Encodings.Web;
 using System.Text.Json;
 using Microsoft.Data.SqlClient;
@@ -33,12 +33,17 @@ namespace nuel.Sync
 {
 	public static partial class Db
 	{
+		/// <summary>Gets or sets the database connection string.</summary>
 		public static string ConnectionString
 		{
 			get => Data.ConnectionString;
 			set => Data.ConnectionString = value;
 		}
 
+		/// <summary>Creates a <see cref="SqlParameter"/> whose value is set to <see cref="DBNull.Value"/> if the specified string is null or whitespace.</summary>
+		/// <param name="name">The name of the parameter.</param>
+		/// <param name="value">The string value of the parameter.</param>
+		/// <returns>A <see cref="SqlParameter"/> instance with either the trimmed string or <see cref="DBNull.Value"/>.</returns>
 		public static SqlParameter NS(string name, string value)
 		=> Data.NullableStringParam(name, value);
 	}
@@ -53,12 +58,17 @@ namespace nuel.Async
 {
 	public static partial class Db
 	{
+		/// <summary>Gets or sets the database connection string.</summary>
 		public static string ConnectionString
 		{
 			get => Data.ConnectionString;
 			set => Data.ConnectionString = value;
 		}
 
+		/// <summary>Creates a <see cref="SqlParameter"/> whose value is set to <see cref="DBNull.Value"/> if the specified string is null or whitespace.</summary>
+		/// <param name="name">The name of the parameter.</param>
+		/// <param name="value">The string value of the parameter.</param>
+		/// <returns>A <see cref="SqlParameter"/> instance with either the trimmed string or <see cref="DBNull.Value"/>.</returns>
 		public static SqlParameter NS(string name, string value)
 		=> Data.NullableStringParam(name, value);
 	}

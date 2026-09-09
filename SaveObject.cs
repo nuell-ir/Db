@@ -102,10 +102,11 @@ namespace nuel.Sync
     {
         /// <summary>Saves an object of type T via an insert or update operation.</summary>
         /// <remarks>If the value of the identity field is 0, the values will be inserted as a record; otherwise, a record with the specified identity will be updated.</remarks>
+        /// <typeparam name="T">The type of the object to save.</typeparam>
+        /// <param name="obj">The object to save.</param>
+        /// <param name="table">The name of the table.</param>   
+        /// <param name="idProp">The name of the identity field, the value of which decides whether to insert or update the record.</param>
         /// <returns>The identity of the inserted/updated record, or 0 if no record was updated.</returns>
-        /// <param name="obj">The object to save</param>
-        /// <param name="table">Table name</param>   
-        /// <param name="idProp">The name of the identity field, the value of which decides whether to insert or update the record</param>
         public static int Save<T>(T obj, string table, string idProp = "Id")
             => Save(SaveQuery.Create(obj, table, idProp));
     }
@@ -115,12 +116,13 @@ namespace nuel.Async
 {
     public static partial class Db
     {
-        /// <summary>Saves an object of type T via an insert or update operation.</summary>
+        /// <summary>Asynchronously saves an object of type T via an insert or update operation.</summary>
         /// <remarks>If the value of the identity field is 0, the values will be inserted as a record; otherwise, a record with the specified identity will be updated.</remarks>
-        /// <returns>The identity of the inserted/updated record, or 0 if no record was updated.</returns>
-        /// <param name="obj">The object to save</param>
-        /// <param name="table">Table name</param>   
-        /// <param name="idProp">The name of the identity field, the value of which decides whether to insert or update the record</param>
+        /// <typeparam name="T">The type of the object to save.</typeparam>
+        /// <param name="obj">The object to save.</param>
+        /// <param name="table">The name of the table.</param>   
+        /// <param name="idProp">The name of the identity field, the value of which decides whether to insert or update the record.</param>
+        /// <returns>A task representing the asynchronous operation, returning the identity of the inserted/updated record, or 0 if no record was updated.</returns>
         public static Task<int> Save<T>(T obj, string table, string idProp = "Id")
             => Save(SaveQuery.Create(obj, table, idProp));
     }

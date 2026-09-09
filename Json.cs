@@ -95,35 +95,52 @@ namespace nuel.Sync
 {
 	public static partial class Db
 	{
-		/// <summary>Converts the first row of the query result to a JSON object.</summary>
+		/// <summary>Converts the first row of the query result to a JSON object string.</summary>
+		/// <param name="query">The SQL query or stored procedure name to execute.</param>
+		/// <param name="parameters">The parameters for the SQL query.</param>
+		/// <returns>A JSON string representing the first row of the query result.</returns>
 		public static string Json(string query, params (string name, object value)[] parameters)
 		=> Json(query, JsonValueType.Object, false, Data.SqlParams(parameters));
 
-		/// <summary>Converts the query results to JSON.</summary>
-		/// <param name="result">returned result type as JSON object (the first row) or array (all the rows))</param>        
+		/// <summary>Converts the query results to a JSON string.</summary>
+		/// <param name="query">The SQL query or stored procedure name to execute.</param>
+		/// <param name="result">The JSON structure to return (<see cref="JsonValueType.Object"/> for the first row, or <see cref="JsonValueType.Array"/> for all rows).</param>
+		/// <param name="parameters">The parameters for the SQL query.</param>
+		/// <returns>A JSON string representing the query results.</returns>
 		public static string Json(string query, JsonValueType result, params (string name, object value)[] parameters)
 		=> Json(query, result, false, Data.SqlParams(parameters));
 
-		/// <summary>Converts the query results to JSON.</summary>
-		/// <param name="isStoredProc">is the query a stored procedure</param>        
+		/// <summary>Converts the first row of the query result to a JSON object string.</summary>
+		/// <param name="query">The SQL query or stored procedure name to execute.</param>
+		/// <param name="isStoredProc">Whether the query is a stored procedure.</param>
+		/// <param name="parameters">The parameters for the SQL query.</param>
+		/// <returns>A JSON string representing the first row of the query result.</returns>
 		public static string Json(string query, bool isStoredProc, params (string name, object value)[] parameters)
 			 => Json(query, JsonValueType.Object, isStoredProc, Data.SqlParams(parameters));
 
-		/// <summary>Converts the query results to JSON.</summary>
-		/// <param name="result">returned result type as JSON object (the first row) or array (all the rows))</param>        
-		/// <param name="isStoredProc">is the query a stored procedure</param>        
+		/// <summary>Converts the query results to a JSON string.</summary>
+		/// <param name="query">The SQL query or stored procedure name to execute.</param>
+		/// <param name="result">The JSON structure to return (<see cref="JsonValueType.Object"/> for the first row, or <see cref="JsonValueType.Array"/> for all rows).</param>
+		/// <param name="isStoredProc">Whether the query is a stored procedure.</param>
+		/// <param name="parameters">The parameters for the SQL query.</param>
+		/// <returns>A JSON string representing the query results.</returns>
 		public static string Json(string query, JsonValueType result, bool isStoredProc, params (string name, object value)[] parameters)
 			 => Json(query, result, isStoredProc, Data.SqlParams(parameters));
 
-		/// <summary>Converts the query results to JSON.</summary>
-		/// <param name="result">returned result type as JSON object (the first row) or array (all the rows))</param>        
-		/// <param name="isStoredProc">is the query a stored procedure</param>    
+		/// <summary>Converts the query results to a JSON string.</summary>
+		/// <param name="query">The SQL query or stored procedure name to execute.</param>
+		/// <param name="result">The JSON structure to return (<see cref="JsonValueType.Object"/> for the first row, or <see cref="JsonValueType.Array"/> for all rows).</param>
+		/// <param name="isStoredProc">Whether the query is a stored procedure.</param>
+		/// <returns>A JSON string representing the query results.</returns>
 		public static string Json(string query, JsonValueType result = JsonValueType.Object, bool isStoredProc = false)
 			 => Json(query, result, isStoredProc, Data.NoParams);
 
-		/// <summary>Converts the query results to JSON.</summary>
-		/// <param name="result">returned result type as JSON object (the first row) or array (all the rows))</param>        
-		/// <param name="isStoredProc">is the query a stored procedure</param>        
+		/// <summary>Converts the query results to a JSON string.</summary>
+		/// <param name="query">The SQL query or stored procedure name to execute.</param>
+		/// <param name="result">The JSON structure to return (<see cref="JsonValueType.Object"/> for the first row, or <see cref="JsonValueType.Array"/> for all rows).</param>
+		/// <param name="isStoredProc">Whether the query is a stored procedure.</param>
+		/// <param name="parameters">The SQL parameters to apply to the command.</param>
+		/// <returns>A JSON string representing the query results.</returns>
 		public static string Json(string query, JsonValueType result, bool isStoredProc, params SqlParameter[] parameters)
 		{
 			using var connection = new SqlConnection(Data.ConnectionString);
@@ -193,35 +210,52 @@ namespace nuel.Async
 {
 	public static partial class Db
 	{
-		/// <summary>Converts the first row of the query result to a JSON object.</summary>
+		/// <summary>Asynchronously converts the first row of the query result to a JSON object string.</summary>
+		/// <param name="query">The SQL query or stored procedure name to execute.</param>
+		/// <param name="parameters">The parameters for the SQL query.</param>
+		/// <returns>A task representing the asynchronous operation, returning a JSON string representing the first row.</returns>
 		public static Task<string> Json(string query, params (string name, object value)[] parameters)
 			 => Json(query, JsonValueType.Object, false, Data.SqlParams(parameters));
 
-		/// <summary>Converts the query results to JSON.</summary>
-		/// <param name="result">returned result type as JSON object (the first row) or array (all the rows))</param>        
+		/// <summary>Asynchronously converts the query results to a JSON string.</summary>
+		/// <param name="query">The SQL query or stored procedure name to execute.</param>
+		/// <param name="result">The JSON structure to return (<see cref="JsonValueType.Object"/> for the first row, or <see cref="JsonValueType.Array"/> for all rows).</param>
+		/// <param name="parameters">The parameters for the SQL query.</param>
+		/// <returns>A task representing the asynchronous operation, returning a JSON string representing the query results.</returns>
 		public static Task<string> Json(string query, JsonValueType result, params (string name, object value)[] parameters)
 		=> Json(query, result, false, Data.SqlParams(parameters));
 
-		/// <summary>Converts the query results to JSON.</summary>
-		/// <param name="isStoredProc">is the query a stored procedure</param>   
+		/// <summary>Asynchronously converts the first row of the query result to a JSON object string.</summary>
+		/// <param name="query">The SQL query or stored procedure name to execute.</param>
+		/// <param name="isStoredProc">Whether the query is a stored procedure.</param>
+		/// <param name="parameters">The parameters for the SQL query.</param>
+		/// <returns>A task representing the asynchronous operation, returning a JSON string representing the first row.</returns>
 		public static Task<string> Json(string query, bool isStoredProc, params (string name, object value)[] parameters)
 		=> Json(query, JsonValueType.Object, isStoredProc, Data.SqlParams(parameters));
 
-		/// <summary>Converts the query results to JSON.</summary>
-		/// <param name="result">returned result type as JSON object (the first row) or array (all the rows))</param>        
-		/// <param name="isStoredProc">is the query a stored procedure</param>   
+		/// <summary>Asynchronously converts the query results to a JSON string.</summary>
+		/// <param name="query">The SQL query or stored procedure name to execute.</param>
+		/// <param name="result">The JSON structure to return (<see cref="JsonValueType.Object"/> for the first row, or <see cref="JsonValueType.Array"/> for all rows).</param>
+		/// <param name="isStoredProc">Whether the query is a stored procedure.</param>
+		/// <param name="parameters">The parameters for the SQL query.</param>
+		/// <returns>A task representing the asynchronous operation, returning a JSON string representing the query results.</returns>
 		public static Task<string> Json(string query, JsonValueType result, bool isStoredProc, params (string name, object value)[] parameters)
 		=> Json(query, result, isStoredProc, Data.SqlParams(parameters));
 
-		/// <summary>Converts the query results to JSON.</summary>
-		/// <param name="result">returned result type as JSON object (the first row) or array (all the rows))</param>        
-		/// <param name="isStoredProc">is the query a stored procedure</param>   
+		/// <summary>Asynchronously converts the query results to a JSON string.</summary>
+		/// <param name="query">The SQL query or stored procedure name to execute.</param>
+		/// <param name="result">The JSON structure to return (<see cref="JsonValueType.Object"/> for the first row, or <see cref="JsonValueType.Array"/> for all rows).</param>
+		/// <param name="isStoredProc">Whether the query is a stored procedure.</param>
+		/// <returns>A task representing the asynchronous operation, returning a JSON string representing the query results.</returns>
 		public static Task<string> Json(string query, JsonValueType result = JsonValueType.Object, bool isStoredProc = false)
 			 => Json(query, result, isStoredProc, Data.NoParams);
 
-		/// <summary>Converts the query results to JSON.</summary>
-		/// <param name="result">returned result type as JSON object (the first row) or array (all the rows))</param>        
-		/// <param name="isStoredProc">is the query a stored procedure</param>   
+		/// <summary>Asynchronously converts the query results to a JSON string.</summary>
+		/// <param name="query">The SQL query or stored procedure name to execute.</param>
+		/// <param name="result">The JSON structure to return (<see cref="JsonValueType.Object"/> for the first row, or <see cref="JsonValueType.Array"/> for all rows).</param>
+		/// <param name="isStoredProc">Whether the query is a stored procedure.</param>
+		/// <param name="parameters">The SQL parameters to apply to the command.</param>
+		/// <returns>A task representing the asynchronous operation, returning a JSON string representing the query results.</returns>
 		public async static Task<string> Json(string query, JsonValueType result, bool isStoredProc, params SqlParameter[] parameters)
 		{
 			using var connection = new SqlConnection(Data.ConnectionString);

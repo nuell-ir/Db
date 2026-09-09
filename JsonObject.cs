@@ -58,15 +58,33 @@ namespace nuel.Sync
 {
 	public static partial class Db
 	{
+		/// <summary>Executes the query and converts the first row of the result set into a <see cref="System.Text.Json.Nodes.JsonObject"/>.</summary>
+		/// <param name="query">The SQL query or stored procedure name to execute.</param>
+		/// <param name="parameters">The parameters for the SQL query.</param>
+		/// <returns>A <see cref="System.Text.Json.Nodes.JsonObject"/> representing the first row, or null if no rows were returned.</returns>
 		public static JsonObject JsonObject(string query, params (string name, object value)[] parameters)
 			 => JsonObject(query, false, Data.SqlParams(parameters));
 
+		/// <summary>Executes the query and converts the first row of the result set into a <see cref="System.Text.Json.Nodes.JsonObject"/>.</summary>
+		/// <param name="query">The SQL query or stored procedure name to execute.</param>
+		/// <param name="isStoredProc">Whether the query is a stored procedure.</param>
+		/// <param name="parameters">The parameters for the SQL query.</param>
+		/// <returns>A <see cref="System.Text.Json.Nodes.JsonObject"/> representing the first row, or null if no rows were returned.</returns>
 		public static JsonObject JsonObject(string query, bool isStoredProc, params (string name, object value)[] parameters)
 			 => JsonObject(query, isStoredProc, Data.SqlParams(parameters));
 
+		/// <summary>Executes the query and converts the first row of the result set into a <see cref="System.Text.Json.Nodes.JsonObject"/>.</summary>
+		/// <param name="query">The SQL query or stored procedure name to execute.</param>
+		/// <param name="isStoredProc">Whether the query is a stored procedure.</param>
+		/// <returns>A <see cref="System.Text.Json.Nodes.JsonObject"/> representing the first row, or null if no rows were returned.</returns>
 		public static JsonObject JsonObject(string query, bool isStoredProc = false)
 			 => JsonObject(query, isStoredProc, Data.NoParams);
 
+		/// <summary>Executes the query and converts the first row of the result set into a <see cref="System.Text.Json.Nodes.JsonObject"/>.</summary>
+		/// <param name="query">The SQL query or stored procedure name to execute.</param>
+		/// <param name="isStoredProc">Whether the query is a stored procedure.</param>
+		/// <param name="parameters">The SQL parameters to apply to the command.</param>
+		/// <returns>A <see cref="System.Text.Json.Nodes.JsonObject"/> representing the first row, or null if no rows were returned.</returns>
 		public static JsonObject JsonObject(string query, bool isStoredProc, params SqlParameter[] parameters)
 		{
 			using var connection = new SqlConnection(Data.ConnectionString);
@@ -91,15 +109,33 @@ namespace nuel.Async
 {
 	public static partial class Db
 	{
+		/// <summary>Asynchronously executes the query and converts the first row of the result set into a <see cref="System.Text.Json.Nodes.JsonObject"/>.</summary>
+		/// <param name="query">The SQL query or stored procedure name to execute.</param>
+		/// <param name="parameters">The parameters for the SQL query.</param>
+		/// <returns>A task representing the asynchronous operation, returning a <see cref="System.Text.Json.Nodes.JsonObject"/> representing the first row, or null if no rows were returned.</returns>
 		public static Task<JsonObject> JsonObject(string query, params (string name, object value)[] parameters)
 			 => JsonObject(query, false, Data.SqlParams(parameters));
 
+		/// <summary>Asynchronously executes the query and converts the first row of the result set into a <see cref="System.Text.Json.Nodes.JsonObject"/>.</summary>
+		/// <param name="query">The SQL query or stored procedure name to execute.</param>
+		/// <param name="isStoredProc">Whether the query is a stored procedure.</param>
+		/// <param name="parameters">The parameters for the SQL query.</param>
+		/// <returns>A task representing the asynchronous operation, returning a <see cref="System.Text.Json.Nodes.JsonObject"/> representing the first row, or null if no rows were returned.</returns>
 		public static Task<JsonObject> JsonObject(string query, bool isStoredProc, params (string name, object value)[] parameters)
 			 => JsonObject(query, isStoredProc, Data.SqlParams(parameters));
 
+		/// <summary>Asynchronously executes the query and converts the first row of the result set into a <see cref="System.Text.Json.Nodes.JsonObject"/>.</summary>
+		/// <param name="query">The SQL query or stored procedure name to execute.</param>
+		/// <param name="isStoredProc">Whether the query is a stored procedure.</param>
+		/// <returns>A task representing the asynchronous operation, returning a <see cref="System.Text.Json.Nodes.JsonObject"/> representing the first row, or null if no rows were returned.</returns>
 		public static Task<JsonObject> JsonObject(string query, bool isStoredProc = false)
 			 => JsonObject(query, isStoredProc, Data.NoParams);
 
+		/// <summary>Asynchronously executes the query and converts the first row of the result set into a <see cref="System.Text.Json.Nodes.JsonObject"/>.</summary>
+		/// <param name="query">The SQL query or stored procedure name to execute.</param>
+		/// <param name="isStoredProc">Whether the query is a stored procedure.</param>
+		/// <param name="parameters">The SQL parameters to apply to the command.</param>
+		/// <returns>A task representing the asynchronous operation, returning a <see cref="System.Text.Json.Nodes.JsonObject"/> representing the first row, or null if no rows were returned.</returns>
 		public static async Task<JsonObject> JsonObject(string query, bool isStoredProc, params SqlParameter[] parameters)
 		{
 			using var connection = new SqlConnection(Data.ConnectionString);

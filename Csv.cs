@@ -131,23 +131,33 @@ namespace nuel.Sync
 {
 	public static partial class Db
 	{
-		/// <summary>Converts the query result to CSV string.</summary>
+		/// <summary>Converts the query result to a CSV string.</summary>
+		/// <param name="query">The SQL query or stored procedure name to execute.</param>
+		/// <param name="parameters">The parameters for the SQL query.</param>
+		/// <returns>A CSV formatted string representing the query result, or null if no rows were returned.</returns>
 		public static string Csv(string query, params (string name, object value)[] parameters)
 		=> Csv(query, false, Data.SqlParams(parameters));
 
-		/// <summary>Converts the query result to CSV string.</summary>
-		/// <param name="isStoredProc">is the query a stored procedure</param>
+		/// <summary>Converts the query result to a CSV string.</summary>
+		/// <param name="query">The SQL query or stored procedure name to execute.</param>
+		/// <param name="isStoredProc">Whether the query is a stored procedure.</param>
+		/// <param name="parameters">The parameters for the SQL query.</param>
+		/// <returns>A CSV formatted string representing the query result, or null if no rows were returned.</returns>
 		public static string Csv(string query, bool isStoredProc, params (string name, object value)[] parameters)
 		=> Csv(query, isStoredProc, Data.SqlParams(parameters));
 
-		/// <summary>Converts the query result to CSV string.</summary>
-		/// <param name="isStoredProc">is the query a stored procedure</param>
+		/// <summary>Converts the query result to a CSV string.</summary>
+		/// <param name="query">The SQL query or stored procedure name to execute.</param>
+		/// <param name="isStoredProc">Whether the query is a stored procedure.</param>
+		/// <returns>A CSV formatted string representing the query result, or null if no rows were returned.</returns>
 		public static string Csv(string query, bool isStoredProc = false)
 		=> Csv(query, isStoredProc, Data.NoParams);
 
-
-		/// <summary>Converts the query result to CSV string.</summary>
-		/// <param name="isStoredProc">is the query a stored procedure</param>
+		/// <summary>Converts the query result to a CSV string.</summary>
+		/// <param name="query">The SQL query or stored procedure name to execute.</param>
+		/// <param name="isStoredProc">Whether the query is a stored procedure.</param>
+		/// <param name="parameters">The SQL parameters to apply to the command.</param>
+		/// <returns>A CSV formatted string representing the query result, or null if no rows were returned.</returns>
 		public static string Csv(string query, bool isStoredProc, params SqlParameter[] parameters)
 		{
 			using var connection = new SqlConnection(Data.ConnectionString);
@@ -160,22 +170,33 @@ namespace nuel.Sync
 			return reader.ReadCsv();
 		}
 
-		/// <summary>Converts the multiple results of a query to an array of CSV strings.</summary>
+		/// <summary>Converts multiple results of a query to an array of CSV strings.</summary>
+		/// <param name="query">The SQL query or stored procedure name to execute.</param>
+		/// <param name="parameters">The parameters for the SQL query.</param>
+		/// <returns>An array of CSV formatted strings, one for each result set.</returns>
 		public static string[] MultiCsv(string query, params (string name, object value)[] parameters)
 		=> MultiCsv(query, false, Data.SqlParams(parameters));
 
-		/// <summary>Converts the multiple results of a query to an array of CSV strings.</summary>
-		/// <param name="isStoredProc">is the query a stored procedure</param>
+		/// <summary>Converts multiple results of a query to an array of CSV strings.</summary>
+		/// <param name="query">The SQL query or stored procedure name to execute.</param>
+		/// <param name="isStoredProc">Whether the query is a stored procedure.</param>
+		/// <param name="parameters">The parameters for the SQL query.</param>
+		/// <returns>An array of CSV formatted strings, one for each result set.</returns>
 		public static string[] MultiCsv(string query, bool isStoredProc, params (string name, object value)[] parameters)
 		=> MultiCsv(query, isStoredProc, Data.SqlParams(parameters));
 
-		/// <summary>Converts the multiple results of a query to an array of CSV strings.</summary>
-		/// <param name="isStoredProc">is the query a stored procedure</param>
+		/// <summary>Converts multiple results of a query to an array of CSV strings.</summary>
+		/// <param name="query">The SQL query or stored procedure name to execute.</param>
+		/// <param name="isStoredProc">Whether the query is a stored procedure.</param>
+		/// <returns>An array of CSV formatted strings, one for each result set.</returns>
 		public static string[] MultiCsv(string query, bool isStoredProc = false)
 		=> MultiCsv(query, isStoredProc, Data.NoParams);
 
-		/// <summary>Converts the multiple results of a query to an array of CSV strings.</summary>
-		/// <param name="isStoredProc">is the query a stored procedure</param>
+		/// <summary>Converts multiple results of a query to an array of CSV strings.</summary>
+		/// <param name="query">The SQL query or stored procedure name to execute.</param>
+		/// <param name="isStoredProc">Whether the query is a stored procedure.</param>
+		/// <param name="parameters">The SQL parameters to apply to the command.</param>
+		/// <returns>An array of CSV formatted strings, one for each result set.</returns>
 		public static string[] MultiCsv(string query, bool isStoredProc, params SqlParameter[] parameters)
 		{
 			using var connection = new SqlConnection(Data.ConnectionString);
@@ -207,7 +228,9 @@ namespace nuel.Sync
 			return str.ToString();
 		}
 
-		/// <summary>Converts the object array to CSV string.</summary>
+		/// <summary>Converts an array of objects to a CSV string.</summary>
+		/// <param name="objects">The array of objects to convert.</param>
+		/// <returns>A CSV formatted string representing the objects, or null if the array is null or empty.</returns>
 		public static string Csv(object[] objects)
 		{
 			if (objects is null || objects.Length == 0)
@@ -267,22 +290,33 @@ namespace nuel.Async
 {
 	public static partial class Db
 	{
-		/// <summary>Converts the query result to CSV string.</summary>
+		/// <summary>Asynchronously converts the query result to a CSV string.</summary>
+		/// <param name="query">The SQL query or stored procedure name to execute.</param>
+		/// <param name="parameters">The parameters for the SQL query.</param>
+		/// <returns>A task representing the asynchronous operation, returning a CSV formatted string, or null if no rows were returned.</returns>
 		public static Task<string> Csv(string query, params (string name, object value)[] parameters)
 			 => Csv(query, false, Data.SqlParams(parameters));
 
-		/// <summary>Converts the query result to CSV string.</summary>
-		/// <param name="isStoredProc">is the query a stored procedure</param>
+		/// <summary>Asynchronously converts the query result to a CSV string.</summary>
+		/// <param name="query">The SQL query or stored procedure name to execute.</param>
+		/// <param name="isStoredProc">Whether the query is a stored procedure.</param>
+		/// <param name="parameters">The parameters for the SQL query.</param>
+		/// <returns>A task representing the asynchronous operation, returning a CSV formatted string, or null if no rows were returned.</returns>
 		public static Task<string> Csv(string query, bool isStoredProc, params (string name, object value)[] parameters)
 			 => Csv(query, isStoredProc, Data.SqlParams(parameters));
 
-		/// <summary>Converts the query result to CSV string.</summary>
-		/// <param name="isStoredProc">is the query a stored procedure</param>
+		/// <summary>Asynchronously converts the query result to a CSV string.</summary>
+		/// <param name="query">The SQL query or stored procedure name to execute.</param>
+		/// <param name="isStoredProc">Whether the query is a stored procedure.</param>
+		/// <returns>A task representing the asynchronous operation, returning a CSV formatted string, or null if no rows were returned.</returns>
 		public static Task<string> Csv(string query, bool isStoredProc = false)
 			 => Csv(query, isStoredProc, Data.NoParams);
 
-		/// <summary>Converts the query result to CSV string.</summary>
-		/// <param name="isStoredProc">is the query a stored procedure</param>
+		/// <summary>Asynchronously converts the query result to a CSV string.</summary>
+		/// <param name="query">The SQL query or stored procedure name to execute.</param>
+		/// <param name="isStoredProc">Whether the query is a stored procedure.</param>
+		/// <param name="parameters">The SQL parameters to apply to the command.</param>
+		/// <returns>A task representing the asynchronous operation, returning a CSV formatted string, or null if no rows were returned.</returns>
 		public static async Task<string> Csv(string query, bool isStoredProc, params SqlParameter[] parameters)
 		{
 			using var connection = new SqlConnection(Data.ConnectionString);
@@ -295,23 +329,33 @@ namespace nuel.Async
 			return await reader.ReadCsv();
 		}
 
-		/// <summary>Converts the multiple results of a query to an array of CSV strings.</summary>
-		/// <param name="isStoredProc">is the query a stored procedure</param>
+		/// <summary>Asynchronously converts multiple results of a query to an array of CSV strings.</summary>
+		/// <param name="query">The SQL query or stored procedure name to execute.</param>
+		/// <param name="parameters">The parameters for the SQL query.</param>
+		/// <returns>A task representing the asynchronous operation, returning an array of CSV formatted strings.</returns>
 		public static Task<string[]> MultiCsv(string query, params (string name, object value)[] parameters)
 		=> MultiCsv(query, false, Data.SqlParams(parameters));
 
-		/// <summary>Converts the multiple results of a query to an array of CSV strings.</summary>
-		/// <param name="isStoredProc">is the query a stored procedure</param>
+		/// <summary>Asynchronously converts multiple results of a query to an array of CSV strings.</summary>
+		/// <param name="query">The SQL query or stored procedure name to execute.</param>
+		/// <param name="isStoredProc">Whether the query is a stored procedure.</param>
+		/// <param name="parameters">The parameters for the SQL query.</param>
+		/// <returns>A task representing the asynchronous operation, returning an array of CSV formatted strings.</returns>
 		public static Task<string[]> MultiCsv(string query, bool isStoredProc, params (string name, object value)[] parameters)
 		=> MultiCsv(query, isStoredProc, Data.SqlParams(parameters));
 
-		/// <summary>Converts the multiple results of a query to an array of CSV strings.</summary>
-		/// <param name="isStoredProc">is the query a stored procedure</param>
+		/// <summary>Asynchronously converts multiple results of a query to an array of CSV strings.</summary>
+		/// <param name="query">The SQL query or stored procedure name to execute.</param>
+		/// <param name="isStoredProc">Whether the query is a stored procedure.</param>
+		/// <returns>A task representing the asynchronous operation, returning an array of CSV formatted strings.</returns>
 		public static Task<string[]> MultiCsv(string query, bool isStoredProc = false)
 		=> MultiCsv(query, isStoredProc, Data.NoParams);
 
-		/// <summary>Converts the multiple results of a query to an array of CSV strings.</summary>
-		/// <param name="isStoredProc">is the query a stored procedure</param>
+		/// <summary>Asynchronously converts multiple results of a query to an array of CSV strings.</summary>
+		/// <param name="query">The SQL query or stored procedure name to execute.</param>
+		/// <param name="isStoredProc">Whether the query is a stored procedure.</param>
+		/// <param name="parameters">The SQL parameters to apply to the command.</param>
+		/// <returns>A task representing the asynchronous operation, returning an array of CSV formatted strings.</returns>
 		public static async Task<string[]> MultiCsv(string query, bool isStoredProc, params SqlParameter[] parameters)
 		{
 			using var connection = new SqlConnection(Data.ConnectionString);

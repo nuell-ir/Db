@@ -5,17 +5,40 @@ using Microsoft.Data.SqlClient;
 
 namespace nuel.Sync
 {
+	/// <summary>Provides synchronous database access methods for SQL Server operations.</summary>
 	public static partial class Db
 	{
+		/// <summary>Executes a query with multiple result sets and formats the results into a single JSON string.</summary>
+		/// <param name="query">The SQL query or stored procedure name to execute.</param>
+		/// <param name="props">An array of tuples defining property names and their corresponding result types.</param>
+		/// <param name="parameters">The parameters for the SQL query.</param>
+		/// <returns>A JSON string representing the combined results.</returns>
 		public static string ComplexJson(string query, (string Name, JsonValueType ResultType)[] props, params (string name, object value)[] parameters)
 			 => ComplexJson(query, props, false, Data.SqlParams(parameters));
 
+		/// <summary>Executes a query with multiple result sets and formats the results into a single JSON string.</summary>
+		/// <param name="query">The SQL query or stored procedure name to execute.</param>
+		/// <param name="props">An array of tuples defining property names and their corresponding result types.</param>
+		/// <param name="isStoredProc">Whether the query is a stored procedure.</param>
+		/// <param name="parameters">The parameters for the SQL query.</param>
+		/// <returns>A JSON string representing the combined results.</returns>
 		public static string ComplexJson(string query, (string Name, JsonValueType ResultType)[] props, bool isStoredProc, params (string name, object value)[] parameters)
 			 => ComplexJson(query, props, isStoredProc, Data.SqlParams(parameters));
 
+		/// <summary>Executes a query with multiple result sets and formats the results into a single JSON string.</summary>
+		/// <param name="query">The SQL query or stored procedure name to execute.</param>
+		/// <param name="props">An array of tuples defining property names and their corresponding result types.</param>
+		/// <param name="isStoredProc">Whether the query is a stored procedure.</param>
+		/// <returns>A JSON string representing the combined results.</returns>
 		public static string ComplexJson(string query, (string Name, JsonValueType ResultType)[] props, bool isStoredProc = false)
 			 => ComplexJson(query, props, isStoredProc, Data.NoParams);
 
+		/// <summary>Executes a query with multiple result sets and formats the results into a single JSON string.</summary>
+		/// <param name="query">The SQL query or stored procedure name to execute.</param>
+		/// <param name="props">An array of tuples defining property names and their corresponding result types.</param>
+		/// <param name="isStoredProc">Whether the query is a stored procedure.</param>
+		/// <param name="parameters">The SQL parameters to apply to the command.</param>
+		/// <returns>A JSON string representing the combined results.</returns>
 		public static string ComplexJson(string query, (string Name, JsonValueType ResultType)[] props, bool isStoredProc, params SqlParameter[] parameters)
 		{
 			using var connection = new SqlConnection(Data.ConnectionString);
@@ -73,17 +96,40 @@ namespace nuel.Sync
 
 namespace nuel.Async
 {
+	/// <summary>Provides asynchronous database access methods for SQL Server operations.</summary>
 	public static partial class Db
 	{
+		/// <summary>Asynchronously executes a query with multiple result sets and formats the results into a single JSON string.</summary>
+		/// <param name="query">The SQL query or stored procedure name to execute.</param>
+		/// <param name="props">An array of tuples defining property names and their corresponding result types.</param>
+		/// <param name="parameters">The parameters for the SQL query.</param>
+		/// <returns>A task representing the asynchronous operation, returning a JSON string of the combined results.</returns>
 		public static Task<string> ComplexJson(string query, (string Name, JsonValueType ResultType)[] props, params (string name, object value)[] parameters)
 			 => ComplexJson(query, props, false, Data.SqlParams(parameters));
 
+		/// <summary>Asynchronously executes a query with multiple result sets and formats the results into a single JSON string.</summary>
+		/// <param name="query">The SQL query or stored procedure name to execute.</param>
+		/// <param name="props">An array of tuples defining property names and their corresponding result types.</param>
+		/// <param name="isStoredProc">Whether the query is a stored procedure.</param>
+		/// <param name="parameters">The parameters for the SQL query.</param>
+		/// <returns>A task representing the asynchronous operation, returning a JSON string of the combined results.</returns>
 		public static Task<string> ComplexJson(string query, (string Name, JsonValueType ResultType)[] props, bool isStoredProc, params (string name, object value)[] parameters)
 			 => ComplexJson(query, props, isStoredProc, Data.SqlParams(parameters));
 
+		/// <summary>Asynchronously executes a query with multiple result sets and formats the results into a single JSON string.</summary>
+		/// <param name="query">The SQL query or stored procedure name to execute.</param>
+		/// <param name="props">An array of tuples defining property names and their corresponding result types.</param>
+		/// <param name="isStoredProc">Whether the query is a stored procedure.</param>
+		/// <returns>A task representing the asynchronous operation, returning a JSON string of the combined results.</returns>
 		public static Task<string> ComplexJson(string query, (string Name, JsonValueType ResultType)[] props, bool isStoredProc = false)
 			 => ComplexJson(query, props, isStoredProc, Data.NoParams);
 
+		/// <summary>Asynchronously executes a query with multiple result sets and formats the results into a single JSON string.</summary>
+		/// <param name="query">The SQL query or stored procedure name to execute.</param>
+		/// <param name="props">An array of tuples defining property names and their corresponding result types.</param>
+		/// <param name="isStoredProc">Whether the query is a stored procedure.</param>
+		/// <param name="parameters">The SQL parameters to apply to the command.</param>
+		/// <returns>A task representing the asynchronous operation, returning a JSON string of the combined results.</returns>
 		public static async Task<string> ComplexJson(string query, (string Name, JsonValueType ResultType)[] props, bool isStoredProc = false, params SqlParameter[] parameters)
 		{
 			using var connection = new SqlConnection(Data.ConnectionString);

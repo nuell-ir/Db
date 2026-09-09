@@ -47,15 +47,37 @@ namespace nuel.Sync
 {
 	public static partial class Db
 	{
+		/// <summary>Executes the query and maps the first row of the result set to a new instance of <typeparamref name="T"/>.</summary>
+		/// <typeparam name="T">The type of object to create and populate from the result set row.</typeparam>
+		/// <param name="query">The SQL query or stored procedure name to execute.</param>
+		/// <param name="parameters">The parameters for the SQL query.</param>
+		/// <returns>An instance of <typeparamref name="T"/> populated with data from the first row, or default if no rows were returned.</returns>
 		public static T Object<T>(string query, params (string name, object value)[] parameters) where T : new()
 			=> Object<T>(query, false, Data.SqlParams(parameters));
 
+		/// <summary>Executes the query and maps the first row of the result set to a new instance of <typeparamref name="T"/>.</summary>
+		/// <typeparam name="T">The type of object to create and populate from the result set row.</typeparam>
+		/// <param name="query">The SQL query or stored procedure name to execute.</param>
+		/// <param name="isStoredProc">Whether the query is a stored procedure.</param>
+		/// <param name="parameters">The parameters for the SQL query.</param>
+		/// <returns>An instance of <typeparamref name="T"/> populated with data from the first row, or default if no rows were returned.</returns>
 		public static T Object<T>(string query, bool isStoredProc, params (string name, object value)[] parameters) where T : new()
 			=> Object<T>(query, isStoredProc, Data.SqlParams(parameters));
 
+		/// <summary>Executes the query and maps the first row of the result set to a new instance of <typeparamref name="T"/>.</summary>
+		/// <typeparam name="T">The type of object to create and populate from the result set row.</typeparam>
+		/// <param name="query">The SQL query or stored procedure name to execute.</param>
+		/// <param name="isStoredProc">Whether the query is a stored procedure.</param>
+		/// <returns>An instance of <typeparamref name="T"/> populated with data from the first row, or default if no rows were returned.</returns>
 		public static T Object<T>(string query, bool isStoredProc = false) where T : new()
 			=> Object<T>(query, isStoredProc, Data.NoParams);
 
+		/// <summary>Executes the query and maps the first row of the result set to a new instance of <typeparamref name="T"/>.</summary>
+		/// <typeparam name="T">The type of object to create and populate from the result set row.</typeparam>
+		/// <param name="query">The SQL query or stored procedure name to execute.</param>
+		/// <param name="isStoredProc">Whether the query is a stored procedure.</param>
+		/// <param name="parameters">The SQL parameters to apply to the command.</param>
+		/// <returns>An instance of <typeparamref name="T"/> populated with data from the first row, or default if no rows were returned.</returns>
 		public static T Object<T>(string query, bool isStoredProc, params SqlParameter[] parameters) where T : new()
 		{
 			using var connection = new SqlConnection(Data.ConnectionString);
@@ -80,15 +102,37 @@ namespace nuel.Async
 {
 	public static partial class Db
 	{
+		/// <summary>Asynchronously executes the query and maps the first row of the result set to a new instance of <typeparamref name="T"/>.</summary>
+		/// <typeparam name="T">The type of object to create and populate from the result set row.</typeparam>
+		/// <param name="query">The SQL query or stored procedure name to execute.</param>
+		/// <param name="parameters">The parameters for the SQL query.</param>
+		/// <returns>A task representing the asynchronous operation, returning an instance of <typeparamref name="T"/> populated from the first row, or default if no rows were returned.</returns>
 		public static Task<T> Object<T>(string query, params (string name, object value)[] parameters) where T : new()
 			=> Object<T>(query, false, Data.SqlParams(parameters));
 
+		/// <summary>Asynchronously executes the query and maps the first row of the result set to a new instance of <typeparamref name="T"/>.</summary>
+		/// <typeparam name="T">The type of object to create and populate from the result set row.</typeparam>
+		/// <param name="query">The SQL query or stored procedure name to execute.</param>
+		/// <param name="isStoredProc">Whether the query is a stored procedure.</param>
+		/// <param name="parameters">The parameters for the SQL query.</param>
+		/// <returns>A task representing the asynchronous operation, returning an instance of <typeparamref name="T"/> populated from the first row, or default if no rows were returned.</returns>
 		public static Task<T> Object<T>(string query, bool isStoredProc, params (string name, object value)[] parameters) where T : new()
 			=> Object<T>(query, isStoredProc, Data.SqlParams(parameters));
 
+		/// <summary>Asynchronously executes the query and maps the first row of the result set to a new instance of <typeparamref name="T"/>.</summary>
+		/// <typeparam name="T">The type of object to create and populate from the result set row.</typeparam>
+		/// <param name="query">The SQL query or stored procedure name to execute.</param>
+		/// <param name="isStoredProc">Whether the query is a stored procedure.</param>
+		/// <returns>A task representing the asynchronous operation, returning an instance of <typeparamref name="T"/> populated from the first row, or default if no rows were returned.</returns>
 		public static Task<T> Object<T>(string query, bool isStoredProc = false) where T : new()
 			=> Object<T>(query, isStoredProc, Data.NoParams);
 
+		/// <summary>Asynchronously executes the query and maps the first row of the result set to a new instance of <typeparamref name="T"/>.</summary>
+		/// <typeparam name="T">The type of object to create and populate from the result set row.</typeparam>
+		/// <param name="query">The SQL query or stored procedure name to execute.</param>
+		/// <param name="isStoredProc">Whether the query is a stored procedure.</param>
+		/// <param name="parameters">The SQL parameters to apply to the command.</param>
+		/// <returns>A task representing the asynchronous operation, returning an instance of <typeparamref name="T"/> populated from the first row, or default if no rows were returned.</returns>
 		public static async Task<T> Object<T>(string query, bool isStoredProc, params SqlParameter[] parameters) where T : new()
 		{
 			using var connection = new SqlConnection(Data.ConnectionString);
