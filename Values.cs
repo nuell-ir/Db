@@ -32,9 +32,11 @@ namespace nuell.Sync
             void AddValues()
             {
                 var values = new object[reader.FieldCount];
-                if (reader.Read())
+                while (reader.Read())
+                {
                     reader.GetValues(values);
-                results.AddRange(values);
+                    results.AddRange(values);
+                }
             }
         }
     }
@@ -71,9 +73,11 @@ namespace nuell.Async
             async Task AddValues()
             {
                 var values = new object[reader.FieldCount];
-                if (await reader.ReadAsync())
+                while (await reader.ReadAsync())
+                {
                     reader.GetValues(values);
-                results.AddRange(values);
+                    results.AddRange(values);
+                }
             }
         }
     }
