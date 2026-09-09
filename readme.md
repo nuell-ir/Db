@@ -309,12 +309,24 @@ bool success = await Db.Delete(5, "Customers");
 
 ## `Transaction`
 
-Executes the query as a [transaction](https://docs.microsoft.com/en-us/sql/t-sql/language-elements/transactions-transact-sql), consisting of multiple operations and returns an array containing the number of affected rows for each operation.
+Executes queries within a database [transaction](https://docs.microsoft.com/en-us/sql/t-sql/language-elements/transactions-transact-sql). A single query is executed as an intact batch without text splitting, and multiple commands can be passed as explicit collections for per-command affected row counts and parameter support.
 
+Execute an intact batch with parameters:
 ```c#
-string query1 = $"delete from Orders where CustomerId={id};";
-string query2 = $"delete from Customers where Id={id};";
-int[] rows = await Db.Transaction(query1 + query2);
+int[] rows = await Db.Transaction("delete from Orders where CustomerId=@id; delete from Customers where Id=@id;", ("@id", id));
+```
+
+Execute explicit command collections with parameters:
+```c#
+int[] rows = await Db.Transaction(
+    ("delete from Orders where CustomerId=@id", [("@id", id)]),
+    ("delete from Customers where Id=@id", [("@id", id)])
+);
+```
+
+Or execute an enumerable of queries:
+```c#
+int[] rows = await Db.Transaction([query1, query2]);
 ```
 
 ## `Save`
