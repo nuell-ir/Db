@@ -9,7 +9,7 @@ namespace nuell
 	{
 		internal static string Create(JsonElement json, string deleteIds, string table, string idProp)
 		{
-			var str = new StringBuilder("BEGIN TRAN;");
+			var str = new StringBuilder("SET XACT_ABORT ON; BEGIN TRY BEGIN TRAN;");
 
 			if (!string.IsNullOrWhiteSpace(deleteIds))
 			{
@@ -66,33 +66,37 @@ namespace nuell
 
 			if (insertItems.Count > 0)
 			{
-				str.Append("INSERT INTO ");
-				str.Append(table);
-				str.Append('(');
+				var insertHeader = new StringBuilder("INSERT INTO ")
+					.Append(table)
+					.Append('(');
 				foreach (var prop in props)
 				{
-					str.Append('[');
-					str.Append(prop);
-					str.Append("],");
+					insertHeader.Append('[').Append(prop).Append("],");
 				}
-				str.Remove(str.Length - 1, 1);
-				str.Append(") VALUES ");
-				foreach (var itm in insertItems)
+				insertHeader.Remove(insertHeader.Length - 1, 1);
+				insertHeader.Append(") VALUES ");
+				string insertHeaderSql = insertHeader.ToString();
+
+				foreach (var chunk in insertItems.Chunk(1000))
 				{
-					str.Append('(');
-					foreach (string prop in props)
+					str.Append(insertHeaderSql);
+					foreach (var itm in chunk)
 					{
-						AppendValue(itm.GetProperty(prop));
-						str.Append(',');
+						str.Append('(');
+						foreach (string prop in props)
+						{
+							AppendValue(itm.GetProperty(prop));
+							str.Append(',');
+						}
+						str.Remove(str.Length - 1, 1);
+						str.Append("),");
 					}
 					str.Remove(str.Length - 1, 1);
-					str.Append("),");
+					str.Append(';');
 				}
-				str.Remove(str.Length - 1, 1);
-				str.Append(';');
 			}
 
-			str.Append("COMMIT;");
+			str.Append("COMMIT; END TRY BEGIN CATCH IF @@TRANCOUNT > 0 ROLLBACK; THROW; END CATCH;");
 
 			return str.ToString();
 
