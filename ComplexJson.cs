@@ -1,4 +1,5 @@
 using System.Data;
+using System.Data.Common;
 using System.Text;
 using System.Text.Json;
 using Microsoft.Data.SqlClient;
@@ -71,6 +72,7 @@ namespace nuel
 		public static Task<string> ComplexJson(string query, (string Name, JsonValueType ResultType)[] props, bool isStoredProc, params SqlParameter[] parameters)
 			=> ComplexJson(query, null, props, isStoredProc, parameters);
 
+
 		/// <summary>Asynchronously executes a query with multiple result sets and formats the results into a single JSON string or writes UTF-8 JSON directly to a stream.</summary>
 		/// <param name="query">The SQL query or stored procedure name to execute.</param>
 		/// <param name="stream">The stream to write UTF-8 JSON directly to, or null to return a JSON string.</param>
@@ -87,10 +89,18 @@ namespace nuel
 			cmd.Parameters.AddRange(parameters);
 			await connection.OpenAsync();
 			using var reader = await cmd.ExecuteReaderAsync();
+			return await reader.ReadComplexJson(props, stream);
+		}
+
+		internal static Task<string> ReadComplexJson(this SqlDataReader reader, (string Name, JsonValueType ResultType)[] props, Stream stream = null)
+			=> ReadComplexJson((DbDataReader)reader, props, stream);
+
+		internal static async Task<string> ReadComplexJson(this DbDataReader reader, (string Name, JsonValueType ResultType)[] props, Stream stream = null)
+		{
 			if (stream != null)
 			{
 				using var writer = new Utf8JsonWriter(stream, Data.JsonWriterOptions);
-				await WriteComplexJsonAsync(reader, writer, props);
+				await reader.ReadComplexJson(props, writer);
 				await writer.FlushAsync();
 				return null;
 			}
@@ -98,50 +108,51 @@ namespace nuel
 			{
 				using var memoryStream = new MemoryStream();
 				using var writer = new Utf8JsonWriter(memoryStream, Data.JsonWriterOptions);
-				await WriteComplexJsonAsync(reader, writer, props);
+				await reader.ReadComplexJson(props, writer);
 				await writer.FlushAsync();
 				return Encoding.UTF8.GetString(memoryStream.GetBuffer(), 0, (int)memoryStream.Length);
 			}
+		}
 
-			static async Task WriteComplexJsonAsync(SqlDataReader reader, Utf8JsonWriter writer, (string Name, JsonValueType ResultType)[] props)
+		internal static async Task ReadComplexJson(this DbDataReader reader, (string Name, JsonValueType ResultType)[] props, Utf8JsonWriter writer)
+		{
+			writer.WriteStartObject();
+			for (int i = 0; i < props.Length; i++)
 			{
-				writer.WriteStartObject();
-				for (int i = 0; i < props.Length; i++)
-				{
-					await ReadResultAsync(i);
-					await reader.NextResultAsync();
-				}
-				writer.WriteEndObject();
+				await ReadResultAsync(i);
+				await reader.NextResultAsync();
+			}
+			writer.WriteEndObject();
+			await writer.FlushAsync();
 
-				async Task ReadResultAsync(int i)
+			async Task ReadResultAsync(int i)
+			{
+				writer.WritePropertyName(props[i].Name);
+				if (!reader.HasRows)
 				{
-					writer.WritePropertyName(props[i].Name);
-					if (!reader.HasRows)
-					{
-						writer.WriteNullValue();
-						return;
-					}
-					switch (props[i].ResultType)
-					{
-						case JsonValueType.Value:
-							if (await reader.ReadAsync())
-							{
-								if (reader.IsDBNull(0))
-									writer.WriteNullValue();
-								else
-									writer.WriteDbValue(reader, reader.GetFieldType(0), 0);
-							}
-							else
+					writer.WriteNullValue();
+					return;
+				}
+				switch (props[i].ResultType)
+				{
+					case JsonValueType.Value:
+						if (await reader.ReadAsync())
+						{
+							if (reader.IsDBNull(0))
 								writer.WriteNullValue();
-							break;
-						case JsonValueType.Array:
-						case JsonValueType.Object:
-							await reader.ReadJson(props[i].ResultType, writer);
-							break;
-						case JsonValueType.Csv:
-							writer.WriteStringValue(await reader.ReadCsv());
-							break;
-					}
+							else
+								writer.WriteDbValue(reader, reader.GetFieldType(0), 0);
+						}
+						else
+							writer.WriteNullValue();
+						break;
+					case JsonValueType.Array:
+					case JsonValueType.Object:
+						await reader.ReadJson(props[i].ResultType, writer);
+						break;
+					case JsonValueType.Csv:
+						writer.WriteStringValue(await reader.ReadCsv());
+						break;
 				}
 			}
 		}
