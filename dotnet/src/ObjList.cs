@@ -42,16 +42,17 @@ public static partial class Db
 		using var cmd = new SqlCommand(query, connection);
 		if (isStoredProc)
 			cmd.CommandType = CommandType.StoredProcedure;
-		cmd.Parameters.AddRange(parameters);
-		await connection.OpenAsync();
-		using var reader = await cmd.ExecuteReaderAsync();
+		if (parameters is { Length: > 0 })
+			cmd.Parameters.AddRange(parameters);
+		await connection.OpenAsync().ConfigureAwait(false);
+		using var reader = await cmd.ExecuteReaderAsync(CommandBehavior.SingleResult).ConfigureAwait(false);
 		if (!reader.HasRows)
 			return null;
 
 		var list = new List<T>();
 		var mappings = reader.GetColumnMappings<T>();
 		int mappingCount = mappings.Length;
-		while (await reader.ReadAsync())
+		while (await reader.ReadAsync().ConfigureAwait(false))
 		{
 			var obj = new T();
 			for (int i = 0; i < mappingCount; i++)

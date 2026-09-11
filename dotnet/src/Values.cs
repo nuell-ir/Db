@@ -38,22 +38,36 @@ public static partial class Db
 		using var cmd = new SqlCommand(query, connection);
 		if (isStoredProc)
 			cmd.CommandType = CommandType.StoredProcedure;
-		cmd.Parameters.AddRange(parameters);
-		await connection.OpenAsync();
-		using var reader = await cmd.ExecuteReaderAsync();
+		if (parameters is { Length: > 0 })
+			cmd.Parameters.AddRange(parameters);
+		await connection.OpenAsync().ConfigureAwait(false);
+		using var reader = await cmd.ExecuteReaderAsync().ConfigureAwait(false);
 		var results = new List<object>();
-		await AddValues();
-		while (await reader.NextResultAsync())
-			await AddValues();
-		return [.. results];
+		await AddValues().ConfigureAwait(false);
+		while (await reader.NextResultAsync().ConfigureAwait(false))
+			await AddValues().ConfigureAwait(false);
+		return results.Count == 0 ? [] : results.ToArray();
 
 		async Task AddValues()
 		{
-			var values = new object[reader.FieldCount];
-			while (await reader.ReadAsync())
+			int fieldCount = reader.FieldCount;
+			if (fieldCount == 0)
+				return;
+
+			if (fieldCount == 1)
 			{
-				reader.GetValues(values);
-				results.AddRange(values);
+				while (await reader.ReadAsync().ConfigureAwait(false))
+					results.Add(reader.GetValue(0));
+			}
+			else
+			{
+				var values = new object[fieldCount];
+				while (await reader.ReadAsync().ConfigureAwait(false))
+				{
+					reader.GetValues(values);
+					for (int i = 0; i < fieldCount; i++)
+						results.Add(values[i]);
+				}
 			}
 		}
 	}

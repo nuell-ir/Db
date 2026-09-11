@@ -221,6 +221,46 @@ public class ComplexJsonStreamTests
 		Assert.IsTrue(stream.Length > 0);
 	}
 
+	[TestMethod]
+	public async Task ReadComplexJson_StringAndStream_MatchesForRepeatedSmallQueries()
+	{
+		for (int q = 0; q < 20; q++)
+		{
+			var ds = new DataSet();
+			var dtScalar = ds.Tables.Add("Scalar");
+			dtScalar.Columns.Add("Count", typeof(int));
+			dtScalar.Rows.Add(q * 10);
+
+			var dtObj = ds.Tables.Add("Obj");
+			dtObj.Columns.Add("Name", typeof(string));
+			dtObj.Columns.Add("Amount", typeof(decimal));
+			dtObj.Rows.Add($"Item_{q}", q * 1.5m);
+
+			var dtArr = ds.Tables.Add("Arr");
+			dtArr.Columns.Add("Id", typeof(int));
+			dtArr.Columns.Add("Active", typeof(bool));
+			dtArr.Rows.Add(1, true);
+			dtArr.Rows.Add(2, false);
+
+			var props = new (string Name, JsonValueType ResultType)[]
+			{
+				("count", JsonValueType.Value),
+				("item", JsonValueType.Object),
+				("list", JsonValueType.Array)
+			};
+
+			using var stringReader = ds.CreateDataReader();
+			string expected = await stringReader.ReadComplexJson(props, stream: null);
+
+			using var streamReader = ds.CreateDataReader();
+			using var stream = new MemoryStream();
+			await streamReader.ReadComplexJson(props, stream);
+
+			string actual = Encoding.UTF8.GetString(stream.ToArray());
+			Assert.AreEqual(expected, actual);
+		}
+	}
+
 	private sealed class AsyncOnlyStream : Stream
 	{
 		private readonly MemoryStream _inner = new();

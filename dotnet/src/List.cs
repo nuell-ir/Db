@@ -42,15 +42,31 @@ public static partial class Db
 		using var cmd = new SqlCommand(query, connection);
 		if (isStoredProc)
 			cmd.CommandType = CommandType.StoredProcedure;
-		cmd.Parameters.AddRange(parameters);
-		await connection.OpenAsync();
-		using var reader = await cmd.ExecuteReaderAsync();
-		if (!reader.HasRows)
+		if (parameters is { Length: > 0 })
+			cmd.Parameters.AddRange(parameters);
+		await connection.OpenAsync().ConfigureAwait(false);
+		using var reader = await cmd.ExecuteReaderAsync(CommandBehavior.SingleResult | CommandBehavior.SequentialAccess).ConfigureAwait(false);
+		if (!reader.HasRows || reader.FieldCount == 0)
 			return null;
 
 		var list = new List<T>();
-		while (await reader.ReadAsync())
-			list.Add(reader.GetFieldValue<T>(0));
+		bool sameType = reader.GetFieldType(0) == typeof(T);
+		while (await reader.ReadAsync().ConfigureAwait(false))
+		{
+			if (reader.IsDBNull(0))
+			{
+				list.Add(default);
+			}
+			else if (sameType)
+			{
+				list.Add(reader.GetFieldValue<T>(0));
+			}
+			else
+			{
+				var val = reader.GetValue(0);
+				list.Add(val is T t ? t : (T)Convert.ChangeType(val, typeof(T)));
+			}
+		}
 		return list;
 	}
 }

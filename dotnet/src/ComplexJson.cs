@@ -1,3 +1,4 @@
+using System.Buffers;
 using System.Data;
 using System.Data.Common;
 using System.Text;
@@ -105,54 +106,55 @@ public static partial class Db
 		}
 		else
 		{
-			using var memoryStream = new MemoryStream();
-			await using var writer = new Utf8JsonWriter(memoryStream, Data.JsonWriterOptions);
+			var bufferWriter = new ArrayBufferWriter<byte>(2048);
+			using var writer = new Utf8JsonWriter(bufferWriter, Data.JsonWriterOptions);
 			await reader.ReadComplexJson(props, writer);
-			await writer.FlushAsync();
-			return Encoding.UTF8.GetString(memoryStream.GetBuffer(), 0, (int)memoryStream.Length);
+			writer.Flush();
+			return Encoding.UTF8.GetString(bufferWriter.WrittenSpan);
 		}
 	}
 
 	internal static async Task ReadComplexJson(this DbDataReader reader, (string Name, JsonValueType ResultType)[] props, Utf8JsonWriter writer)
 	{
+		var encodedNames = new JsonEncodedText[props.Length];
+		for (int p = 0; p < props.Length; p++)
+			encodedNames[p] = JsonEncodedText.Encode(props[p].Name);
+
 		writer.WriteStartObject();
 		for (int i = 0; i < props.Length; i++)
 		{
-			await ReadResultAsync(i);
+			writer.WritePropertyName(encodedNames[i]);
+			if (!reader.HasRows)
+			{
+				writer.WriteNullValue();
+			}
+			else
+			{
+				switch (props[i].ResultType)
+				{
+					case JsonValueType.Value:
+						if (await reader.ReadAsync())
+						{
+							if (reader.IsDBNull(0))
+								writer.WriteNullValue();
+							else
+								writer.WriteDbValue(reader, Data.GetJsonColType(reader.GetFieldType(0)), 0);
+						}
+						else
+							writer.WriteNullValue();
+						break;
+					case JsonValueType.Array:
+					case JsonValueType.Object:
+						await reader.ReadJson(props[i].ResultType, writer);
+						break;
+					case JsonValueType.Csv:
+						writer.WriteStringValue(await reader.ReadCsv());
+						break;
+				}
+			}
 			await reader.NextResultAsync();
 		}
 		writer.WriteEndObject();
 		await writer.FlushAsync();
-
-		async Task ReadResultAsync(int i)
-		{
-			writer.WritePropertyName(props[i].Name);
-			if (!reader.HasRows)
-			{
-				writer.WriteNullValue();
-				return;
-			}
-			switch (props[i].ResultType)
-			{
-				case JsonValueType.Value:
-					if (await reader.ReadAsync())
-					{
-						if (reader.IsDBNull(0))
-							writer.WriteNullValue();
-						else
-							writer.WriteDbValue(reader, reader.GetFieldType(0), 0);
-					}
-					else
-						writer.WriteNullValue();
-					break;
-				case JsonValueType.Array:
-				case JsonValueType.Object:
-					await reader.ReadJson(props[i].ResultType, writer);
-					break;
-				case JsonValueType.Csv:
-					writer.WriteStringValue(await reader.ReadCsv());
-					break;
-			}
-		}
 	}
 }

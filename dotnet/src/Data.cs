@@ -28,12 +28,82 @@ public static partial class Data
 	internal static readonly SqlParameter[] NoParams = [];
 
 	internal static SqlParameter[] SqlParams((string name, object value)[] parameters)
-	=> [.. parameters.Select(p => new SqlParameter(p.name, p.value ?? DBNull.Value))];
+	{
+		if (parameters == null || parameters.Length == 0)
+			return NoParams;
+
+		var result = new SqlParameter[parameters.Length];
+		for (int i = 0; i < parameters.Length; i++)
+			result[i] = new SqlParameter(parameters[i].name, parameters[i].value ?? DBNull.Value);
+		return result;
+	}
 
 	internal static readonly JsonWriterOptions JsonWriterOptions = new()
 	{
 		Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping
 	};
+
+	internal static string EscapeIdentifier(string identifier)
+	{
+		ArgumentException.ThrowIfNullOrWhiteSpace(identifier);
+
+		var parts = identifier.Split('.');
+		for (int i = 0; i < parts.Length; i++)
+		{
+			var part = parts[i].Trim();
+			if (part.Length >= 2 && part.StartsWith('[') && part.EndsWith(']'))
+				part = part[1..^1].Replace("]]", "]");
+
+			parts[i] = $"[{part.Replace("]", "]]")}]";
+		}
+		return string.Join(".", parts);
+	}
+
+	internal static void AttachParams(SqlCommand cmd, (string name, object value)[] parameters)
+	{
+		if (parameters is { Length: > 0 })
+		{
+			for (int i = 0; i < parameters.Length; i++)
+				cmd.Parameters.Add(new SqlParameter(parameters[i].name, parameters[i].value ?? DBNull.Value));
+		}
+	}
+
+	internal static void AttachParams(SqlCommand cmd, SqlParameter[] parameters)
+	{
+		if (parameters is { Length: > 0 })
+		{
+			for (int i = 0; i < parameters.Length; i++)
+			{
+				var p = parameters[i];
+				if (p is null)
+					continue;
+
+				try
+				{
+					cmd.Parameters.Add(p);
+				}
+				catch (ArgumentException)
+				{
+					cmd.Parameters.Add(CloneParam(p));
+				}
+			}
+		}
+	}
+
+	internal static SqlParameter CloneParam(SqlParameter param)
+	{
+		return param is ICloneable cloneable
+			? (SqlParameter)cloneable.Clone()
+			: new SqlParameter(param.ParameterName, param.Value)
+			{
+				SqlDbType = param.SqlDbType,
+				Direction = param.Direction,
+				Size = param.Size,
+				Precision = param.Precision,
+				Scale = param.Scale,
+				IsNullable = param.IsNullable
+			};
+	}
 }
 
 public static partial class Db

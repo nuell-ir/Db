@@ -90,18 +90,22 @@ public static partial class Db
 			bool hasWrittenAny = false;
 			do
 			{
-				if (reader.HasRows)
+				if (await reader.ReadAsync())
 				{
 					if (hasWrittenAny)
 					{
-						await writer.EnsureCapacityAsync(1);
+						if (writer.FreeCapacity < 1)
+							await writer.FlushAsync();
 						writer.WriteByte((byte)'\n');
 					}
-					await reader.ReadAsync();
-					var fieldTypes = await writer.WriteCsvHeaderAsync(reader);
-					await writer.WriteCsvRowAsync(reader, fieldTypes);
+					var colTypes = await writer.WriteCsvHeaderAsync(reader);
+					await writer.WriteCsvRowAsync(reader, colTypes);
 					while (await reader.ReadAsync())
-						await writer.WriteCsvRowAsync(reader, fieldTypes);
+					{
+						if (writer.FreeCapacity < 256)
+							await writer.FlushAsync();
+						await writer.WriteCsvRowAsync(reader, colTypes);
+					}
 					hasWrittenAny = true;
 				}
 			} while (await reader.NextResultAsync());
@@ -113,7 +117,7 @@ public static partial class Db
 		}
 		else
 		{
-			var results = new List<string>
+			var results = new List<string>(4)
 			{
 				await reader.ReadCsv()
 			};

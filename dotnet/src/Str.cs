@@ -36,11 +36,18 @@ public static partial class Db
 	{
 		using var connection = new SqlConnection(Data.ConnectionString);
 		using var cmd = new SqlCommand(query, connection);
-		await connection.OpenAsync();
 		if (isStoredProc)
 			cmd.CommandType = CommandType.StoredProcedure;
-		cmd.Parameters.AddRange(parameters);
-		var val = await cmd.ExecuteScalarAsync();
-		return val is DBNull ? null : val?.ToString();
+		if (parameters is { Length: > 0 })
+			cmd.Parameters.AddRange(parameters);
+		await connection.OpenAsync().ConfigureAwait(false);
+		using var reader = await cmd.ExecuteReaderAsync(CommandBehavior.SingleRow | CommandBehavior.SequentialAccess).ConfigureAwait(false);
+		if (await reader.ReadAsync().ConfigureAwait(false) && reader.FieldCount > 0 && !reader.IsDBNull(0))
+		{
+			return reader.GetFieldType(0) == typeof(string)
+				? reader.GetString(0)
+				: reader.GetValue(0).ToString();
+		}
+		return null;
 	}
 }

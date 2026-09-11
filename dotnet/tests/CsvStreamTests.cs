@@ -188,5 +188,59 @@ public class CsvStreamTests
 		};
 		Assert.IsNotNull(compileCheck);
 	}
+
+	[TestMethod]
+	public async Task ReadCsv_Stream_SmallDataset_MatchesStringPath()
+	{
+		var dt = new DataTable();
+		dt.Columns.Add("Id", typeof(int));
+		dt.Columns.Add("Code", typeof(string));
+		dt.Columns.Add("Amount", typeof(decimal));
+		dt.Columns.Add("Active", typeof(bool));
+		dt.Columns.Add("Created", typeof(DateTime));
+
+		var baseDate = new DateTime(2026, 1, 1, 12, 0, 0, DateTimeKind.Utc);
+		for (int i = 0; i < 25; i++)
+		{
+			dt.Rows.Add(i + 1, $"ITEM-{i:D4}", (i + 1) * 19.99m, i % 2 == 0, baseDate.AddHours(i));
+		}
+
+		using var stringReader = dt.CreateDataReader();
+		string expected = await stringReader.ReadCsv(null);
+
+		using var streamReader = dt.CreateDataReader();
+		using var stream = new MemoryStream();
+		await streamReader.ReadCsv(stream);
+
+		string actual = Encoding.UTF8.GetString(stream.ToArray());
+		Assert.AreEqual(expected, actual);
+	}
+
+	[TestMethod]
+	public async Task ReadCsv_Stream_HundredsOfConsecutiveSmallQueries_MatchesStringPath()
+	{
+		for (int q = 0; q < 100; q++)
+		{
+			var dt = new DataTable();
+			dt.Columns.Add("Id", typeof(int));
+			dt.Columns.Add("Tag", typeof(string));
+			dt.Columns.Add("Score", typeof(double));
+
+			for (int r = 0; r < 10; r++)
+			{
+				dt.Rows.Add(q * 100 + r, $"tag_{q}_{r}", r * 2.5);
+			}
+
+			using var stringReader = dt.CreateDataReader();
+			string expected = await stringReader.ReadCsv(null);
+
+			using var streamReader = dt.CreateDataReader();
+			using var stream = new MemoryStream();
+			await streamReader.ReadCsv(stream);
+
+			string actual = Encoding.UTF8.GetString(stream.ToArray());
+			Assert.AreEqual(expected, actual);
+		}
+	}
 }
 

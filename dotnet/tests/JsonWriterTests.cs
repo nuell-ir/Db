@@ -215,4 +215,60 @@ public class JsonWriterTests
 			 .ToList();
 		Assert.IsTrue(asyncComplexMethods.Count >= 4, $"Expected at least 4 ComplexJson stream overloads, found {asyncComplexMethods.Count}.");
 	}
+
+	[TestMethod]
+	public async Task ReadJson_StringAndStream_MatchesForObjectAndArray_WithManySmallQueries()
+	{
+		for (int q = 0; q < 50; q++)
+		{
+			var dt = new DataTable();
+			dt.Columns.Add("Id", typeof(int));
+			dt.Columns.Add("Name", typeof(string));
+			dt.Columns.Add("Active", typeof(bool));
+			dt.Columns.Add("Ts", typeof(TimeSpan));
+
+			for (int r = 0; r < 8; r++)
+			{
+				dt.Rows.Add(q * 10 + r, $"Name_{q}_{r}", r % 2 == 0, TimeSpan.FromMinutes(r * 15 + q));
+			}
+
+			// Test Array
+			using var streamArr = new MemoryStream();
+			using (var writer = new Utf8JsonWriter(streamArr))
+			{
+				using var readerArr = dt.CreateDataReader();
+				await nuel.Db.ReadJson(readerArr, JsonValueType.Array, writer);
+			}
+			string streamArrJson = Encoding.UTF8.GetString(streamArr.ToArray());
+
+			var bufferWriterArr = new System.Buffers.ArrayBufferWriter<byte>(1024);
+			using (var writer = new Utf8JsonWriter(bufferWriterArr))
+			{
+				using var readerArr = dt.CreateDataReader();
+				await nuel.Db.ReadJson(readerArr, JsonValueType.Array, writer);
+			}
+			string bufferArrJson = Encoding.UTF8.GetString(bufferWriterArr.WrittenSpan);
+
+			Assert.AreEqual(streamArrJson, bufferArrJson);
+
+			// Test Object
+			using var streamObj = new MemoryStream();
+			using (var writer = new Utf8JsonWriter(streamObj))
+			{
+				using var readerObj = dt.CreateDataReader();
+				await nuel.Db.ReadJson(readerObj, JsonValueType.Object, writer);
+			}
+			string streamObjJson = Encoding.UTF8.GetString(streamObj.ToArray());
+
+			var bufferWriterObj = new System.Buffers.ArrayBufferWriter<byte>(512);
+			using (var writer = new Utf8JsonWriter(bufferWriterObj))
+			{
+				using var readerObj = dt.CreateDataReader();
+				await nuel.Db.ReadJson(readerObj, JsonValueType.Object, writer);
+			}
+			string bufferObjJson = Encoding.UTF8.GetString(bufferWriterObj.WrittenSpan);
+
+			Assert.AreEqual(streamObjJson, bufferObjJson);
+		}
+	}
 }

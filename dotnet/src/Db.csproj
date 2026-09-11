@@ -3,7 +3,7 @@
 		<TargetFramework>net10.0</TargetFramework>
 		<ImplicitUsings>enable</ImplicitUsings>
 		<RootNamespace>nuel</RootNamespace>
-		<Version>5.0.1</Version>
+		<Version>5.1.0</Version>
 		<Company>nuel</Company>
 		<Product>Db</Product>
 		<Authors>Ako Mahmoodi</Authors>

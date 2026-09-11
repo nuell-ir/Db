@@ -192,7 +192,7 @@ public static partial class Db
 			result.Add(await cmd.ExecuteNonQueryAsync());
 		}
 		await transaction.CommitAsync();
-		return result.ToArray();
+		return [.. result];
 	}
 
 	/// <summary>Asynchronously executes multiple SQL commands with stored procedure flags and parameters within a database transaction.</summary>

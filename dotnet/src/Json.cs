@@ -1,3 +1,4 @@
+using System.Buffers;
 using System.Data;
 using System.Data.Common;
 using System.Text;
@@ -8,6 +9,60 @@ namespace nuel;
 
 public static partial class Data
 {
+	internal enum JsonColType : byte
+	{
+		Int32,
+		Int16,
+		Byte,
+		Int64,
+		Single,
+		Double,
+		Decimal,
+		DateTime,
+		Boolean,
+		String,
+		Guid,
+		DateTimeOffset,
+		TimeSpan,
+		ByteArray
+	}
+
+	internal static JsonColType GetJsonColType(Type type)
+	{
+		type = Nullable.GetUnderlyingType(type) ?? type;
+		return Type.GetTypeCode(type) switch
+		{
+			TypeCode.Int32 => JsonColType.Int32,
+			TypeCode.Int16 => JsonColType.Int16,
+			TypeCode.Byte => JsonColType.Byte,
+			TypeCode.Int64 => JsonColType.Int64,
+			TypeCode.Single => JsonColType.Single,
+			TypeCode.Double => JsonColType.Double,
+			TypeCode.Decimal => JsonColType.Decimal,
+			TypeCode.DateTime => JsonColType.DateTime,
+			TypeCode.Boolean => JsonColType.Boolean,
+			TypeCode.Char or TypeCode.String => JsonColType.String,
+			_ when type == typeof(Guid) => JsonColType.Guid,
+			_ when type == typeof(DateTimeOffset) => JsonColType.DateTimeOffset,
+			_ when type == typeof(TimeSpan) => JsonColType.TimeSpan,
+			_ when type == typeof(byte[]) => JsonColType.ByteArray,
+			_ => throw new NotSupportedException($"Type '{type.FullName}' is not supported.")
+		};
+	}
+
+	internal static (int count, JsonEncodedText[] encodedNames, JsonColType[] colTypes) GetJsonSchema(this DbDataReader reader)
+	{
+		int count = reader.FieldCount;
+		var encodedNames = new JsonEncodedText[count];
+		var colTypes = new JsonColType[count];
+		for (int i = 0; i < count; i++)
+		{
+			encodedNames[i] = JsonEncodedText.Encode(reader.GetName(i));
+			colTypes[i] = GetJsonColType(reader.GetFieldType(i));
+		}
+		return (count, encodedNames, colTypes);
+	}
+
 	internal static (int, string[], Type[]) GetSchema(this DbDataReader reader)
 	{
 		int count = reader.FieldCount;
@@ -21,7 +76,7 @@ public static partial class Data
 		return (count, fieldNames, fieldTypes);
 	}
 
-	internal static void WriteDbValue(this Utf8JsonWriter writer, DbDataReader reader, Type type, int columnIndex)
+	internal static void WriteDbValue(this Utf8JsonWriter writer, DbDataReader reader, JsonColType colType, int columnIndex)
 	{
 		if (reader.IsDBNull(columnIndex))
 		{
@@ -29,64 +84,60 @@ public static partial class Data
 			return;
 		}
 
-		switch (Type.GetTypeCode(type))
+		switch (colType)
 		{
-			case TypeCode.Int32:
+			case JsonColType.Int32:
 				writer.WriteNumberValue(reader.GetInt32(columnIndex));
 				return;
-			case TypeCode.Int16:
+			case JsonColType.Int16:
 				writer.WriteNumberValue(reader.GetInt16(columnIndex));
 				return;
-			case TypeCode.Byte:
+			case JsonColType.Byte:
 				writer.WriteNumberValue(reader.GetByte(columnIndex));
 				return;
-			case TypeCode.Int64:
+			case JsonColType.Int64:
 				writer.WriteNumberValue(reader.GetInt64(columnIndex));
 				return;
-			case TypeCode.Single:
+			case JsonColType.Single:
 				writer.WriteNumberValue(reader.GetFloat(columnIndex));
 				return;
-			case TypeCode.Double:
+			case JsonColType.Double:
 				writer.WriteNumberValue(reader.GetDouble(columnIndex));
 				return;
-			case TypeCode.Decimal:
+			case JsonColType.Decimal:
 				writer.WriteNumberValue(reader.GetDecimal(columnIndex));
 				return;
-			case TypeCode.DateTime:
+			case JsonColType.DateTime:
 				writer.WriteStringValue(reader.GetDateTime(columnIndex));
 				return;
-			case TypeCode.Boolean:
+			case JsonColType.Boolean:
 				writer.WriteBooleanValue(reader.GetBoolean(columnIndex));
 				return;
-			case TypeCode.Char:
-			case TypeCode.String:
+			case JsonColType.String:
 				writer.WriteStringValue(reader.GetString(columnIndex));
 				return;
+			case JsonColType.Guid:
+				writer.WriteStringValue(reader.GetGuid(columnIndex));
+				return;
+			case JsonColType.DateTimeOffset:
+				writer.WriteStringValue(reader is SqlDataReader sdr ? sdr.GetDateTimeOffset(columnIndex) : reader.GetFieldValue<DateTimeOffset>(columnIndex));
+				return;
+			case JsonColType.TimeSpan:
+				TimeSpan ts = reader is SqlDataReader tsSdr ? tsSdr.GetTimeSpan(columnIndex) : reader.GetFieldValue<TimeSpan>(columnIndex);
+				Span<char> span = stackalloc char[32];
+				ts.TryFormat(span, out int written);
+				writer.WriteStringValue(span[..written]);
+				return;
+			case JsonColType.ByteArray:
+				writer.WriteBase64StringValue((byte[])reader.GetValue(columnIndex));
+				return;
+			default:
+				throw new NotSupportedException($"Column type '{colType}' is not supported.");
 		}
-
-		if (type == typeof(Guid))
-		{
-			writer.WriteStringValue(reader.GetGuid(columnIndex));
-			return;
-		}
-		if (type == typeof(DateTimeOffset))
-		{
-			writer.WriteStringValue(reader is SqlDataReader sdr ? sdr.GetDateTimeOffset(columnIndex) : reader.GetFieldValue<DateTimeOffset>(columnIndex));
-			return;
-		}
-		if (type == typeof(TimeSpan))
-		{
-			writer.WriteStringValue((reader is SqlDataReader sdr ? sdr.GetTimeSpan(columnIndex) : reader.GetFieldValue<TimeSpan>(columnIndex)).ToString());
-			return;
-		}
-		if (type == typeof(byte[]))
-		{
-			writer.WriteBase64StringValue((byte[])reader.GetValue(columnIndex));
-			return;
-		}
-
-		throw new NotSupportedException($"Type '{type.FullName}' is not supported.");
 	}
+
+	internal static void WriteDbValue(this Utf8JsonWriter writer, DbDataReader reader, Type type, int columnIndex)
+		=> WriteDbValue(writer, reader, GetJsonColType(type), columnIndex);
 }
 
 public static partial class Db
@@ -201,7 +252,7 @@ public static partial class Db
 			cmd.CommandType = CommandType.StoredProcedure;
 		cmd.Parameters.AddRange(parameters);
 		await connection.OpenAsync();
-		using var reader = await cmd.ExecuteReaderAsync();
+		using var reader = await cmd.ExecuteReaderAsync(CommandBehavior.SingleResult);
 		if (stream != null)
 		{
 			await using var writer = new Utf8JsonWriter(stream, Data.JsonWriterOptions);
@@ -211,27 +262,23 @@ public static partial class Db
 		}
 		else
 		{
-			using var memoryStream = new MemoryStream();
-			await using var writer = new Utf8JsonWriter(memoryStream, Data.JsonWriterOptions);
+			var bufferWriter = new ArrayBufferWriter<byte>(1024);
+			using var writer = new Utf8JsonWriter(bufferWriter, Data.JsonWriterOptions);
 			await reader.ReadJson(result, writer);
-			await writer.FlushAsync();
-			return Encoding.UTF8.GetString(memoryStream.GetBuffer(), 0, (int)memoryStream.Length);
+			writer.Flush();
+			return Encoding.UTF8.GetString(bufferWriter.WrittenSpan);
 		}
 	}
 
 	internal async static Task ReadJson(this DbDataReader reader, JsonValueType result, Utf8JsonWriter writer)
 	{
-		string[] fieldNames;
-		Type[] fieldTypes;
-		int count;
-
 		switch (result)
 		{
 			case JsonValueType.Object:
 				if (await reader.ReadAsync())
 				{
-					(count, fieldNames, fieldTypes) = reader.GetSchema();
-					WriteObject();
+					var (count, encodedNames, colTypes) = reader.GetJsonSchema();
+					WriteObject(count, encodedNames, colTypes);
 				}
 				else
 					writer.WriteNullValue();
@@ -240,10 +287,10 @@ public static partial class Db
 				writer.WriteStartArray();
 				if (await reader.ReadAsync())
 				{
-					(count, fieldNames, fieldTypes) = reader.GetSchema();
-					WriteObject();
+					var (count, encodedNames, colTypes) = reader.GetJsonSchema();
+					WriteObject(count, encodedNames, colTypes);
 					while (await reader.ReadAsync())
-						WriteObject();
+						WriteObject(count, encodedNames, colTypes);
 				}
 				writer.WriteEndArray();
 				break;
@@ -252,16 +299,13 @@ public static partial class Db
 		}
 		await writer.FlushAsync();
 
-		void WriteObject()
+		void WriteObject(int count, JsonEncodedText[] encodedNames, Data.JsonColType[] colTypes)
 		{
 			writer.WriteStartObject();
 			for (int i = 0; i < count; i++)
 			{
-				writer.WritePropertyName(fieldNames[i]);
-				if (reader.IsDBNull(i))
-					writer.WriteNullValue();
-				else
-					writer.WriteDbValue(reader, fieldTypes[i], i);
+				writer.WritePropertyName(encodedNames[i]);
+				writer.WriteDbValue(reader, colTypes[i], i);
 			}
 			writer.WriteEndObject();
 		}

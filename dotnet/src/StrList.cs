@@ -38,14 +38,16 @@ public static partial class Db
 		using var cmd = new SqlCommand(query, connection);
 		if (isStoredProc)
 			cmd.CommandType = CommandType.StoredProcedure;
-		cmd.Parameters.AddRange(parameters);
-		await connection.OpenAsync();
-		using var reader = await cmd.ExecuteReaderAsync();
-		if (!reader.HasRows)
+		if (parameters is { Length: > 0 })
+			cmd.Parameters.AddRange(parameters);
+		await connection.OpenAsync().ConfigureAwait(false);
+		using var reader = await cmd.ExecuteReaderAsync(CommandBehavior.SingleResult | CommandBehavior.SequentialAccess).ConfigureAwait(false);
+		if (!reader.HasRows || reader.FieldCount == 0)
 			return null;
 		var list = new List<string>();
-		while (await reader.ReadAsync())
-			list.Add(reader.IsDBNull(0) ? null : reader.GetString(0));
+		bool isString = reader.GetFieldType(0) == typeof(string);
+		while (await reader.ReadAsync().ConfigureAwait(false))
+			list.Add(reader.IsDBNull(0) ? null : isString ? reader.GetString(0) : reader.GetValue(0).ToString());
 		return list;
 	}
 }

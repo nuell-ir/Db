@@ -64,4 +64,73 @@ public class JsonObjectTests
 
 		Assert.ThrowsExactly<NotSupportedException>(() => reader.GetJsonNode(typeof(object), 0));
 	}
+
+	[TestMethod]
+	public void GetJsonNode_NullableTypes_ReturnsExpectedJsonNodes()
+	{
+		var guid = Guid.NewGuid();
+		var dt = new DataTable();
+		dt.Columns.Add("NullableInt", typeof(int));
+		dt.Columns.Add("NullableGuid", typeof(Guid));
+		dt.Columns.Add("NullableBool", typeof(bool));
+		dt.Rows.Add(42, guid, true);
+
+		using var reader = dt.CreateDataReader();
+		Assert.IsTrue(reader.Read());
+
+		var intNode = reader.GetJsonNode(typeof(int?), 0);
+		Assert.AreEqual(42, (int)intNode!);
+
+		var guidNode = reader.GetJsonNode(typeof(Guid?), 1);
+		Assert.AreEqual(guid.ToString(), (string)guidNode!);
+
+		var boolNode = reader.GetJsonNode(typeof(bool?), 2);
+		Assert.AreEqual(true, (bool)boolNode!);
+	}
+
+	[TestMethod]
+	public void GetJsonObject_WithoutColumnSchema_ReturnsExpectedJsonObject()
+	{
+		var dt = new DataTable();
+		dt.Columns.Add("Id", typeof(int));
+		dt.Columns.Add("Name", typeof(string));
+		dt.Columns.Add("Active", typeof(bool));
+		dt.Rows.Add(1, "Alice", true);
+
+		using var reader = dt.CreateDataReader();
+		Assert.IsTrue(reader.Read());
+
+		var json = reader.GetJsonObject();
+		Assert.IsNotNull(json);
+		Assert.AreEqual(1, (int)json["Id"]!);
+		Assert.AreEqual("Alice", (string)json["Name"]!);
+		Assert.AreEqual(true, (bool)json["Active"]!);
+	}
+
+	[TestMethod]
+	public void GetJsonObject_NullColumnsCollection_FallsBackToDirectReader()
+	{
+		var dt = new DataTable();
+		dt.Columns.Add("Id", typeof(int));
+		dt.Columns.Add("Name", typeof(string));
+		dt.Rows.Add(99, "Bob");
+
+		using var reader = dt.CreateDataReader();
+		Assert.IsTrue(reader.Read());
+
+		var json = reader.GetJsonObject(null);
+		Assert.IsNotNull(json);
+		Assert.AreEqual(99, (int)json["Id"]!);
+		Assert.AreEqual("Bob", (string)json["Name"]!);
+	}
+
+	[TestMethod]
+	public async Task JsonObject_NullOrWhitespaceQuery_ThrowsArgumentException()
+	{
+		await Assert.ThrowsExactlyAsync<ArgumentNullException>(() => nuel.Db.JsonObject(null!));
+		await Assert.ThrowsExactlyAsync<ArgumentException>(() => nuel.Db.JsonObject("   "));
+		await Assert.ThrowsExactlyAsync<ArgumentNullException>(() => nuel.Db.JsonObject(null!, true));
+		await Assert.ThrowsExactlyAsync<ArgumentException>(() => nuel.Db.JsonObject("   ", true));
+	}
 }
+

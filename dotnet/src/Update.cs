@@ -9,128 +9,146 @@ public static class UpdateQuery
 {
 	internal static (string Query, SqlParameter[] SqlParams) Create(JsonElement json, string table, string primaryKey)
 	{
-		JsonProperty primaryKeyProp = new();
+		JsonProperty primaryKeyProp = default;
+		bool hasPk = false;
 		var sqlParams = new List<SqlParameter>();
-		var str = new StringBuilder();
+		var str = new StringBuilder(256);
 
-		str.Append("UPDATE ");
-		str.Append(table);
-		str.Append(" SET ");
+		str.Append("UPDATE ").Append(table).Append(" SET ");
+		bool first = true;
+
 		foreach (var p in json.EnumerateObject())
-			if (p.Name == primaryKey)
-				primaryKeyProp = p;
-			else
+		{
+			if (p.NameEquals(primaryKey))
 			{
-				str.Append('[');
-				str.Append(p.Name);
-				str.Append("]=");
-				AppendValue(p);
-				str.Append(',');
+				primaryKeyProp = p;
+				hasPk = true;
+				continue;
 			}
-		str.Remove(str.Length - 1, 1);
-		str.Append(" WHERE [");
-		str.Append(primaryKey);
-		str.Append("]=");
-		if (primaryKeyProp.Value.ValueKind != JsonValueKind.Undefined && primaryKeyProp.Name == primaryKey)
-			AppendValue(primaryKeyProp);
-		else
+
+			if (!first)
+				str.Append(',');
+			first = false;
+
+			string paramName = "@" + p.Name;
+			str.Append('[').Append(p.Name).Append("]=").Append(paramName);
+			sqlParams.Add(CreateSqlParameter(paramName, p.Value));
+		}
+
+		if (!hasPk || primaryKeyProp.Value.ValueKind == JsonValueKind.Undefined)
 			throw new ArgumentException($"{primaryKey} property was not provided");
 
-		return (str.ToString(), sqlParams.ToArray());
+		string pkParamName = "@" + primaryKey;
+		str.Append(" WHERE [").Append(primaryKey).Append("]=").Append(pkParamName);
+		sqlParams.Add(CreateSqlParameter(pkParamName, primaryKeyProp.Value));
 
-		void AppendValue(JsonProperty prop)
+		return (str.ToString(), [.. sqlParams]);
+
+		static SqlParameter CreateSqlParameter(string paramName, JsonElement value)
 		{
-			switch (prop.Value.ValueKind)
+			switch (value.ValueKind)
 			{
 				case JsonValueKind.Number:
-					str.Append(prop.Value);
-					break;
+					if (value.TryGetInt32(out int iVal))
+						return new SqlParameter(paramName, iVal);
+					if (value.TryGetInt64(out long lVal))
+						return new SqlParameter(paramName, lVal);
+					if (value.TryGetDecimal(out decimal dVal))
+						return new SqlParameter(paramName, dVal);
+					return new SqlParameter(paramName, value.GetDouble());
+
 				case JsonValueKind.True:
-					str.Append(1);
-					break;
+					return new SqlParameter(paramName, true);
+
 				case JsonValueKind.False:
-					str.Append(0);
-					break;
+					return new SqlParameter(paramName, false);
+
 				case JsonValueKind.Null:
-					str.Append("NULL");
-					break;
+					return new SqlParameter(paramName, DBNull.Value);
+
 				case JsonValueKind.String:
-					string paramName = $"@{prop.Name}";
-					str.Append(paramName);
-					sqlParams.Add(new SqlParameter(paramName, prop.Value.GetString()));
-					break;
+					return new SqlParameter(paramName, (object)value.GetString() ?? DBNull.Value);
+
+				default:
+					return new SqlParameter(paramName, value.GetRawText());
 			}
 		}
 	}
 
 	internal static (string Query, SqlParameter[] SqlParams) Create(JsonObject json, string table, string primaryKey)
 	{
-		KeyValuePair<string, JsonNode> primaryKeyProp = new();
-		var sqlParams = new List<SqlParameter>();
-		var str = new StringBuilder();
+		JsonNode primaryKeyNode = null;
+		bool hasPk = false;
+		var sqlParams = new List<SqlParameter>(json.Count);
+		var str = new StringBuilder(256);
 
-		str.Append("UPDATE ");
-		str.Append(table);
-		str.Append(" SET ");
+		str.Append("UPDATE ").Append(table).Append(" SET ");
+		bool first = true;
+
 		foreach (var p in json)
+		{
 			if (p.Key == primaryKey)
-				primaryKeyProp = p;
-			else
 			{
-				str.Append('[');
-				str.Append(p.Key);
-				str.Append("]=");
-				AppendValue(p);
-				str.Append(',');
+				primaryKeyNode = p.Value;
+				hasPk = true;
+				continue;
 			}
-		str.Remove(str.Length - 1, 1);
-		str.Append(" WHERE [");
-		str.Append(primaryKey);
-		str.Append("]=");
-		if (primaryKeyProp.Key == primaryKey)
-			AppendValue(primaryKeyProp);
-		else
+
+			if (!first)
+				str.Append(',');
+			first = false;
+
+			string paramName = "@" + p.Key;
+			str.Append('[').Append(p.Key).Append("]=").Append(paramName);
+			sqlParams.Add(CreateSqlParameter(paramName, p.Value));
+		}
+
+		if (!hasPk)
 			throw new ArgumentException($"{primaryKey} property was not provided");
 
-		return (str.ToString(), sqlParams.ToArray());
+		string pkParamName = "@" + primaryKey;
+		str.Append(" WHERE [").Append(primaryKey).Append("]=").Append(pkParamName);
+		sqlParams.Add(CreateSqlParameter(pkParamName, primaryKeyNode));
 
-		void AppendValue(KeyValuePair<string, JsonNode?> prop)
+		return (str.ToString(), [.. sqlParams]);
+
+		static SqlParameter CreateSqlParameter(string paramName, JsonNode node)
 		{
-			JsonNode val = prop.Value;
+			if (node is null)
+				return new SqlParameter(paramName, DBNull.Value);
 
-			if (val is null)
-			{
-				str.Append("NULL");
-				return;
-			}
-
-			// Because setting JsonObject.index[] does not automatically convert POCO values to JsonElement,
-			// if a value is assigned in the code, it should be manually converted to JsonElement first.
-			// But to check whether a value is JsonElement or an assigned PCOO value, 
-			// 'is JsonElement' can't be applied to JsonValue, 
-			// so this is to check the value type:
-			if (!val.AsValue().TryGetValue(out JsonElement _))
-				val = JsonNode.Parse(val.ToJsonString());
-
-			switch (val.GetValue<JsonElement>().ValueKind)
+			switch (node.GetValueKind())
 			{
 				case JsonValueKind.Number:
-					str.Append(val);
-					break;
+					if (node is JsonValue jvNum)
+					{
+						if (jvNum.TryGetValue(out int iVal))
+							return new SqlParameter(paramName, iVal);
+						if (jvNum.TryGetValue(out long lVal))
+							return new SqlParameter(paramName, lVal);
+						if (jvNum.TryGetValue(out decimal dVal))
+							return new SqlParameter(paramName, dVal);
+						if (jvNum.TryGetValue(out double dblVal))
+							return new SqlParameter(paramName, dblVal);
+					}
+					return new SqlParameter(paramName, node.AsValue().GetValue<object>());
+
 				case JsonValueKind.True:
-					str.Append(1);
-					break;
+					return new SqlParameter(paramName, true);
+
 				case JsonValueKind.False:
-					str.Append(0);
-					break;
+					return new SqlParameter(paramName, false);
+
 				case JsonValueKind.Null:
-					str.Append("NULL");
-					break;
+					return new SqlParameter(paramName, DBNull.Value);
+
 				case JsonValueKind.String:
-					string paramName = $"@{prop.Key}";
-					str.Append(paramName);
-					sqlParams.Add(new SqlParameter(paramName, (string)val));
-					break;
+					if (node is JsonValue jvStr && jvStr.TryGetValue(out string sVal))
+						return new SqlParameter(paramName, (object)sVal ?? DBNull.Value);
+					return new SqlParameter(paramName, (object)node.GetValue<string>() ?? DBNull.Value);
+
+				default:
+					return new SqlParameter(paramName, node.ToJsonString());
 			}
 		}
 	}

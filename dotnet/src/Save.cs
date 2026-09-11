@@ -5,188 +5,213 @@ using Microsoft.Data.SqlClient;
 
 namespace nuel;
 
-internal class SaveParams
+internal readonly struct SaveParams(int id, string query, SqlParameter[] sqlParams)
 {
-	public int Id;
-	public string Query;
-	public SqlParameter[] SqlParams;
+	public int Id { get; init; } = id;
+	public string Query { get; init; } = query;
+	public SqlParameter[] SqlParams { get; init; } = sqlParams;
 }
 
 internal static partial class SaveQuery
 {
-
 	internal static SaveParams Create(JsonElement json, string table, string idProp)
 	{
-		int id = json.GetProperty(idProp).GetInt32();
+		int id = 0;
+		if (json.TryGetProperty(idProp, out var idElement))
+		{
+			if (idElement.ValueKind == JsonValueKind.Number && idElement.TryGetInt32(out int parsedInt))
+				id = parsedInt;
+			else if (idElement.ValueKind == JsonValueKind.String && int.TryParse(idElement.GetString(), out int parsedStrId))
+				id = parsedStrId;
+		}
+
 		var sqlParams = new List<SqlParameter>();
-		var str = new StringBuilder();
+		var str = new StringBuilder(256);
 		if (id == 0)
 		{
-			str.Append("INSERT INTO ");
-			str.Append(table);
-			str.Append('(');
+			str.Append("INSERT INTO ").Append(table).Append(" (");
+			var vals = new StringBuilder(128);
+			bool first = true;
+
 			foreach (var prop in json.EnumerateObject())
-				if (prop.Name != idProp)
+			{
+				if (prop.NameEquals(idProp))
+					continue;
+
+				if (!first)
 				{
-					str.Append('[');
-					str.Append(prop.Name);
-					str.Append("],");
-				}
-			str.Remove(str.Length - 1, 1);
-			str.Append(") VALUES (");
-			foreach (var prop in json.EnumerateObject())
-				if (prop.Name != idProp)
-				{
-					AppendValue(prop);
 					str.Append(',');
+					vals.Append(',');
 				}
-			str.Remove(str.Length - 1, 1);
-			str.Append("); SELECT CAST(SCOPE_IDENTITY() AS int);");
+				first = false;
+
+				str.Append('[').Append(prop.Name).Append(']');
+				string paramName = "@" + prop.Name;
+				vals.Append(paramName);
+				sqlParams.Add(CreateSqlParameter(paramName, prop.Value));
+			}
+
+			str.Append(") VALUES (").Append(vals).Append("); SELECT CAST(SCOPE_IDENTITY() AS int);");
 		}
 		else
 		{
-			str.Append("UPDATE ");
-			str.Append(table);
-			str.Append(" SET ");
-			foreach (var p in json.EnumerateObject())
-				if (p.Name != idProp)
-				{
-					str.Append('[');
-					str.Append(p.Name);
-					str.Append("]=");
-					AppendValue(p);
-					str.Append(',');
-				}
-			str.Remove(str.Length - 1, 1);
-			str.Append(" WHERE ");
-			str.Append(idProp);
-			str.Append('=');
-			str.Append(id);
-		}
-		return new SaveParams
-		{
-			Id = id,
-			Query = str.ToString(),
-			SqlParams = [.. sqlParams]
-		};
+			str.Append("UPDATE ").Append(table).Append(" SET ");
+			bool first = true;
 
-		void AppendValue(JsonProperty prop)
+			foreach (var prop in json.EnumerateObject())
+			{
+				if (prop.NameEquals(idProp))
+					continue;
+
+				if (!first)
+					str.Append(',');
+				first = false;
+
+				string paramName = "@" + prop.Name;
+				str.Append('[').Append(prop.Name).Append("]=").Append(paramName);
+				sqlParams.Add(CreateSqlParameter(paramName, prop.Value));
+			}
+
+			string idParamName = "@" + idProp;
+			str.Append(" WHERE [").Append(idProp).Append("]=").Append(idParamName);
+			sqlParams.Add(new SqlParameter(idParamName, id));
+		}
+
+		return new SaveParams(id, str.ToString(), [.. sqlParams]);
+
+		static SqlParameter CreateSqlParameter(string paramName, JsonElement value)
 		{
-			switch (prop.Value.ValueKind)
+			switch (value.ValueKind)
 			{
 				case JsonValueKind.Number:
-					str.Append(prop.Value);
-					break;
+					if (value.TryGetInt32(out int iVal))
+						return new SqlParameter(paramName, iVal);
+					if (value.TryGetInt64(out long lVal))
+						return new SqlParameter(paramName, lVal);
+					if (value.TryGetDecimal(out decimal dVal))
+						return new SqlParameter(paramName, dVal);
+					return new SqlParameter(paramName, value.GetDouble());
+
 				case JsonValueKind.True:
-					str.Append(1);
-					break;
+					return new SqlParameter(paramName, true);
+
 				case JsonValueKind.False:
-					str.Append(0);
-					break;
+					return new SqlParameter(paramName, false);
+
 				case JsonValueKind.Null:
-					str.Append("NULL");
-					break;
+					return new SqlParameter(paramName, DBNull.Value);
+
 				case JsonValueKind.String:
-					string paramName = $"@{prop.Name}";
-					str.Append(paramName);
-					sqlParams.Add(new SqlParameter(paramName, prop.Value.GetString()));
-					break;
+					return new SqlParameter(paramName, (object)value.GetString() ?? DBNull.Value);
+
+				default:
+					return new SqlParameter(paramName, value.GetRawText());
 			}
 		}
 	}
 
 	internal static SaveParams Create(JsonObject json, string table, string idProp)
 	{
-		int id = json[idProp].GetValue<int>();
-		var sqlParams = new List<SqlParameter>();
-		var str = new StringBuilder();
+		int id = 0;
+		if (json.TryGetPropertyValue(idProp, out var idNode) && idNode != null)
+		{
+			if (idNode.GetValueKind() == JsonValueKind.Number && idNode is JsonValue jvNum && jvNum.TryGetValue(out int numVal))
+				id = numVal;
+			else if (int.TryParse(idNode.ToString(), out int parsedId))
+				id = parsedId;
+		}
+
+		var sqlParams = new List<SqlParameter>(json.Count);
+		var str = new StringBuilder(256);
 		if (id == 0)
 		{
-			str.Append("INSERT INTO ");
-			str.Append(table);
-			str.Append('(');
+			str.Append("INSERT INTO ").Append(table).Append(" (");
+			var vals = new StringBuilder(128);
+			bool first = true;
+
 			foreach (var prop in json)
-				if (prop.Key != idProp)
+			{
+				if (prop.Key == idProp)
+					continue;
+
+				if (!first)
 				{
-					str.Append('[');
-					str.Append(prop.Key);
-					str.Append("],");
-				}
-			str.Remove(str.Length - 1, 1);
-			str.Append(") VALUES (");
-			foreach (var prop in json)
-				if (prop.Key != idProp)
-				{
-					AppendValue(prop);
 					str.Append(',');
+					vals.Append(',');
 				}
-			str.Remove(str.Length - 1, 1);
-			str.Append("); SELECT CAST(SCOPE_IDENTITY() AS int);");
+				first = false;
+
+				str.Append('[').Append(prop.Key).Append(']');
+				string paramName = "@" + prop.Key;
+				vals.Append(paramName);
+				sqlParams.Add(CreateSqlParameter(paramName, prop.Value));
+			}
+
+			str.Append(") VALUES (").Append(vals).Append("); SELECT CAST(SCOPE_IDENTITY() AS int);");
 		}
 		else
 		{
-			str.Append("UPDATE ");
-			str.Append(table);
-			str.Append(" SET ");
-			foreach (var p in json)
-				if (p.Key != idProp)
-				{
-					str.Append('[');
-					str.Append(p.Key);
-					str.Append("]=");
-					AppendValue(p);
-					str.Append(',');
-				}
-			str.Remove(str.Length - 1, 1);
-			str.Append(" WHERE ");
-			str.Append(idProp);
-			str.Append('=');
-			str.Append(id);
-		}
-		return new SaveParams
-		{
-			Id = id,
-			Query = str.ToString(),
-			SqlParams = sqlParams.ToArray()
-		};
+			str.Append("UPDATE ").Append(table).Append(" SET ");
+			bool first = true;
 
-		void AppendValue(KeyValuePair<string, JsonNode?> prop)
-		{
-			JsonNode val = prop.Value;
-
-			if (val is null)
+			foreach (var prop in json)
 			{
-				str.Append("NULL");
-				return;
+				if (prop.Key == idProp)
+					continue;
+
+				if (!first)
+					str.Append(',');
+				first = false;
+
+				string paramName = "@" + prop.Key;
+				str.Append('[').Append(prop.Key).Append("]=").Append(paramName);
+				sqlParams.Add(CreateSqlParameter(paramName, prop.Value));
 			}
 
-			// Because setting JsonObject.index[] does not automatically convert POCO values to JsonElement,
-			// if a value is assigned in the code, it should be manually converted to JsonElement first.
-			// But to check whether a value is JsonElement or an assigned PCOO value, 
-			// 'is JsonElement' can't be applied to JsonValue, 
-			// so this is to check the value type:
-			if (!val.AsValue().TryGetValue(out JsonElement _))
-				val = JsonNode.Parse(val.ToJsonString());
+			string idParamName = "@" + idProp;
+			str.Append(" WHERE [").Append(idProp).Append("]=").Append(idParamName);
+			sqlParams.Add(new SqlParameter(idParamName, id));
+		}
 
-			switch (val.GetValue<JsonElement>().ValueKind)
+		return new SaveParams(id, str.ToString(), [.. sqlParams]);
+
+		static SqlParameter CreateSqlParameter(string paramName, JsonNode node)
+		{
+			if (node is null)
+				return new SqlParameter(paramName, DBNull.Value);
+
+			switch (node.GetValueKind())
 			{
 				case JsonValueKind.Number:
-					str.Append(val);
-					break;
+					if (node is JsonValue jvNum)
+					{
+						if (jvNum.TryGetValue(out int iVal))
+							return new SqlParameter(paramName, iVal);
+						if (jvNum.TryGetValue(out long lVal))
+							return new SqlParameter(paramName, lVal);
+						if (jvNum.TryGetValue(out decimal dVal))
+							return new SqlParameter(paramName, dVal);
+						if (jvNum.TryGetValue(out double dblVal))
+							return new SqlParameter(paramName, dblVal);
+					}
+					return new SqlParameter(paramName, node.AsValue().GetValue<object>());
+
 				case JsonValueKind.True:
-					str.Append(1);
-					break;
+					return new SqlParameter(paramName, true);
+
 				case JsonValueKind.False:
-					str.Append(0);
-					break;
+					return new SqlParameter(paramName, false);
+
 				case JsonValueKind.Null:
-					str.Append("NULL");
-					break;
+					return new SqlParameter(paramName, DBNull.Value);
+
 				case JsonValueKind.String:
-					string paramName = $"@{prop.Key}";
-					str.Append(paramName);
-					sqlParams.Add(new SqlParameter(paramName, (string)val));
-					break;
+					if (node is JsonValue jvStr && jvStr.TryGetValue(out string sVal))
+						return new SqlParameter(paramName, (object)sVal ?? DBNull.Value);
+					return new SqlParameter(paramName, (object)node.GetValue<string>() ?? DBNull.Value);
+
+				default:
+					return new SqlParameter(paramName, node.ToJsonString());
 			}
 		}
 	}

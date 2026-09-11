@@ -217,15 +217,12 @@ public static partial class Db
 		using var cmd = new SqlCommand(query, connection);
 		if (isStoredProc)
 			cmd.CommandType = CommandType.StoredProcedure;
-		cmd.Parameters.AddRange(parameters);
-		await connection.OpenAsync();
-		using var reader = await cmd.ExecuteReaderAsync();
-		if (reader.HasRows)
-		{
-			await reader.ReadAsync();
+		if (parameters is { Length: > 0 })
+			cmd.Parameters.AddRange(parameters);
+		await connection.OpenAsync().ConfigureAwait(false);
+		using var reader = await cmd.ExecuteReaderAsync(CommandBehavior.SingleRow | CommandBehavior.SingleResult).ConfigureAwait(false);
+		if (await reader.ReadAsync().ConfigureAwait(false))
 			return reader.GetObject<T>();
-		}
-		else
-			return default;
+		return default;
 	}
 }

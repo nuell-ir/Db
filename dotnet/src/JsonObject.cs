@@ -13,6 +13,7 @@ public static partial class Data
 		if (reader.IsDBNull(i))
 			return null;
 
+		dataType = Nullable.GetUnderlyingType(dataType) ?? dataType;
 		var typeCode = Type.GetTypeCode(dataType);
 		switch (typeCode)
 		{
@@ -25,7 +26,7 @@ public static partial class Data
 			case TypeCode.Decimal: return reader.GetDecimal(i);
 			case TypeCode.DateTime: return reader.GetDateTime(i);
 			case TypeCode.Boolean: return reader.GetBoolean(i);
-			case TypeCode.Char: return reader.GetChar(i);
+			case TypeCode.Char: return reader is SqlDataReader ? reader.GetString(i) : reader.GetChar(i);
 			case TypeCode.String: return reader.GetString(i);
 		}
 
@@ -41,8 +42,23 @@ public static partial class Data
 		throw new NotSupportedException($"Type '{dataType.FullName}' is not supported.");
 	}
 
+	internal static JsonObject GetJsonObject(this DbDataReader reader)
+	{
+		int count = reader.FieldCount;
+		var obj = new System.Text.Json.Nodes.JsonObject();
+		for (int i = 0; i < count; i++)
+		{
+			var dataType = reader.GetFieldType(i);
+			obj[reader.GetName(i)] = reader.GetJsonNode(dataType, i);
+		}
+		return obj;
+	}
+
 	internal static JsonObject GetJsonObject(this DbDataReader reader, ReadOnlyCollection<DbColumn> columns)
 	{
+		if (columns == null)
+			return reader.GetJsonObject();
+
 		var obj = new System.Text.Json.Nodes.JsonObject();
 		for (int i = 0; i < columns.Count; i++)
 		{
@@ -60,15 +76,29 @@ public static partial class Db
 	/// <param name="parameters">The parameters for the SQL query.</param>
 	/// <returns>A task representing the asynchronous operation, returning a <see cref="System.Text.Json.Nodes.JsonObject"/> representing the first row, or null if no rows were returned.</returns>
 	public static Task<JsonObject> JsonObject(string query, params (string name, object value)[] parameters)
-		 => JsonObject(query, false, Data.SqlParams(parameters));
+		 => JsonObject(query, false, parameters);
 
 	/// <summary>Asynchronously executes the query and converts the first row of the result set into a <see cref="System.Text.Json.Nodes.JsonObject"/>.</summary>
 	/// <param name="query">The SQL query or stored procedure name to execute.</param>
 	/// <param name="isStoredProc">Whether the query is a stored procedure.</param>
 	/// <param name="parameters">The parameters for the SQL query.</param>
 	/// <returns>A task representing the asynchronous operation, returning a <see cref="System.Text.Json.Nodes.JsonObject"/> representing the first row, or null if no rows were returned.</returns>
-	public static Task<JsonObject> JsonObject(string query, bool isStoredProc, params (string name, object value)[] parameters)
-		 => JsonObject(query, isStoredProc, Data.SqlParams(parameters));
+	public async static Task<JsonObject> JsonObject(string query, bool isStoredProc, params (string name, object value)[] parameters)
+	{
+		ArgumentException.ThrowIfNullOrWhiteSpace(query);
+
+		await using var connection = new SqlConnection(Data.ConnectionString);
+		await using var cmd = new SqlCommand(query, connection);
+		if (isStoredProc)
+			cmd.CommandType = CommandType.StoredProcedure;
+		Data.AttachParams(cmd, parameters);
+		await connection.OpenAsync().ConfigureAwait(false);
+		await using var reader = await cmd.ExecuteReaderAsync(CommandBehavior.SingleRow | CommandBehavior.SingleResult).ConfigureAwait(false);
+		if (await reader.ReadAsync().ConfigureAwait(false))
+			return reader.GetJsonObject();
+
+		return default;
+	}
 
 	/// <summary>Asynchronously executes the query and converts the first row of the result set into a <see cref="System.Text.Json.Nodes.JsonObject"/>.</summary>
 	/// <param name="query">The SQL query or stored procedure name to execute.</param>
@@ -79,24 +109,30 @@ public static partial class Db
 
 	/// <summary>Asynchronously executes the query and converts the first row of the result set into a <see cref="System.Text.Json.Nodes.JsonObject"/>.</summary>
 	/// <param name="query">The SQL query or stored procedure name to execute.</param>
+	/// <param name="parameters">The SQL parameters to apply to the command.</param>
+	/// <returns>A task representing the asynchronous operation, returning a <see cref="System.Text.Json.Nodes.JsonObject"/> representing the first row, or null if no rows were returned.</returns>
+	public static Task<JsonObject> JsonObject(string query, params SqlParameter[] parameters)
+		 => JsonObject(query, false, parameters);
+
+	/// <summary>Asynchronously executes the query and converts the first row of the result set into a <see cref="System.Text.Json.Nodes.JsonObject"/>.</summary>
+	/// <param name="query">The SQL query or stored procedure name to execute.</param>
 	/// <param name="isStoredProc">Whether the query is a stored procedure.</param>
 	/// <param name="parameters">The SQL parameters to apply to the command.</param>
 	/// <returns>A task representing the asynchronous operation, returning a <see cref="System.Text.Json.Nodes.JsonObject"/> representing the first row, or null if no rows were returned.</returns>
-	public static async Task<JsonObject> JsonObject(string query, bool isStoredProc, params SqlParameter[] parameters)
+	public async static Task<JsonObject> JsonObject(string query, bool isStoredProc, params SqlParameter[] parameters)
 	{
-		using var connection = new SqlConnection(Data.ConnectionString);
-		using var cmd = new SqlCommand(query, connection);
+		ArgumentException.ThrowIfNullOrWhiteSpace(query);
+
+		await using var connection = new SqlConnection(Data.ConnectionString);
+		await using var cmd = new SqlCommand(query, connection);
 		if (isStoredProc)
 			cmd.CommandType = CommandType.StoredProcedure;
-		cmd.Parameters.AddRange(parameters);
-		await connection.OpenAsync();
-		using var reader = await cmd.ExecuteReaderAsync();
-		if (reader.HasRows)
-		{
-			await reader.ReadAsync();
-			return reader.GetJsonObject(await reader.GetColumnSchemaAsync());
-		}
-		else
-			return default;
+		Data.AttachParams(cmd, parameters);
+		await connection.OpenAsync().ConfigureAwait(false);
+		await using var reader = await cmd.ExecuteReaderAsync(CommandBehavior.SingleRow | CommandBehavior.SingleResult).ConfigureAwait(false);
+		if (await reader.ReadAsync().ConfigureAwait(false))
+			return reader.GetJsonObject();
+
+		return default;
 	}
 }

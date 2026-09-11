@@ -50,117 +50,164 @@ public static class CsvWriter
 		return fieldTypes;
 	}
 
-	internal static char GetCsvTypeFlag(Type colType)
+	internal enum CsvColType : byte
+	{
+		Int32,
+		Int64,
+		Int16,
+		Byte,
+		Single,
+		Double,
+		Decimal,
+		DateTime,
+		Boolean,
+		String,
+		Guid,
+		DateTimeOffset,
+		TimeSpan,
+		ByteArray
+	}
+
+	internal static (char Flag, CsvColType ColType) GetCsvTypeInfo(Type colType)
 	{
 		colType = Nullable.GetUnderlyingType(colType) ?? colType;
 
 		var typeCode = Type.GetTypeCode(colType);
 		return typeCode switch
 		{
-			TypeCode.Byte or TypeCode.Int16 or TypeCode.Int32 or TypeCode.Int64 => '!',
-			TypeCode.Decimal or TypeCode.Double or TypeCode.Single => '%',
-			TypeCode.DateTime => '#',
-			TypeCode.Boolean => '^',
-			TypeCode.Char or TypeCode.String => '$',
-			_ when colType == typeof(DateTimeOffset) => '#',
-			_ when colType == typeof(Guid) || colType == typeof(TimeSpan) || colType == typeof(byte[]) => '$',
+			TypeCode.Int32 => ('!', CsvColType.Int32),
+			TypeCode.Int64 => ('!', CsvColType.Int64),
+			TypeCode.Int16 => ('!', CsvColType.Int16),
+			TypeCode.Byte => ('!', CsvColType.Byte),
+			TypeCode.Single => ('%', CsvColType.Single),
+			TypeCode.Double => ('%', CsvColType.Double),
+			TypeCode.Decimal => ('%', CsvColType.Decimal),
+			TypeCode.DateTime => ('#', CsvColType.DateTime),
+			TypeCode.Boolean => ('^', CsvColType.Boolean),
+			TypeCode.Char or TypeCode.String => ('$', CsvColType.String),
+			_ when colType == typeof(DateTimeOffset) => ('#', CsvColType.DateTimeOffset),
+			_ when colType == typeof(Guid) => ('$', CsvColType.Guid),
+			_ when colType == typeof(TimeSpan) => ('$', CsvColType.TimeSpan),
+			_ when colType == typeof(byte[]) => ('$', CsvColType.ByteArray),
 			_ => throw new NotSupportedException($"Type '{colType.FullName}' is not supported.")
 		};
 	}
 
-	internal static void WriteCsvRow(this StringBuilder str, DbDataReader reader, Type[] fieldTypes)
+	internal static char GetCsvTypeFlag(Type colType)
+		=> GetCsvTypeInfo(colType).Flag;
+
+	internal static (Type[] FieldTypes, CsvColType[] ColTypes) WriteCsvHeaderTypes(this StringBuilder str, DbDataReader reader)
+	{
+		int columns = reader.FieldCount;
+		var fieldTypes = new Type[columns];
+		var colTypes = new CsvColType[columns];
+		for (int i = 0; i < columns; i++)
+		{
+			var type = reader.GetFieldType(i);
+			fieldTypes[i] = type;
+			var (flag, colType) = GetCsvTypeInfo(type);
+			colTypes[i] = colType;
+			str.Append(flag);
+			str.Append(reader.GetName(i));
+			if (i < columns - 1)
+				str.Append(sep);
+		}
+		return (fieldTypes, colTypes);
+	}
+
+	internal static void WriteCsvRow(this StringBuilder str, DbDataReader reader, CsvColType[] colTypes)
 	{
 		Span<char> span = stackalloc char[64];
 		str.Append(line);
-		for (int i = 0; i < fieldTypes.Length; i++)
+		for (int i = 0; i < colTypes.Length; i++)
 		{
 			if (reader.IsDBNull(i))
 				str.Append('Ø');
 			else
 			{
-				var type = fieldTypes[i];
-				switch (Type.GetTypeCode(type))
+				switch (colTypes[i])
 				{
-					case TypeCode.Int32:
+					case CsvColType.Int32:
 						reader.GetInt32(i).TryFormat(span, out int wInt, default, CultureInfo.InvariantCulture);
 						str.Append(span[..wInt]);
 						break;
-					case TypeCode.Int64:
+					case CsvColType.Int64:
 						reader.GetInt64(i).TryFormat(span, out int wLong, default, CultureInfo.InvariantCulture);
 						str.Append(span[..wLong]);
 						break;
-					case TypeCode.Int16:
+					case CsvColType.Int16:
 						reader.GetInt16(i).TryFormat(span, out int wShort, default, CultureInfo.InvariantCulture);
 						str.Append(span[..wShort]);
 						break;
-					case TypeCode.Byte:
+					case CsvColType.Byte:
 						reader.GetByte(i).TryFormat(span, out int wByte, default, CultureInfo.InvariantCulture);
 						str.Append(span[..wByte]);
 						break;
-					case TypeCode.Single:
+					case CsvColType.Single:
 						reader.GetFloat(i).TryFormat(span, out int wFloat, default, CultureInfo.InvariantCulture);
 						str.Append(span[..wFloat]);
 						break;
-					case TypeCode.Double:
+					case CsvColType.Double:
 						reader.GetDouble(i).TryFormat(span, out int wDouble, default, CultureInfo.InvariantCulture);
 						str.Append(span[..wDouble]);
 						break;
-					case TypeCode.Decimal:
+					case CsvColType.Decimal:
 						reader.GetDecimal(i).TryFormat(span, out int wDec, default, CultureInfo.InvariantCulture);
 						str.Append(span[..wDec]);
 						break;
-					case TypeCode.DateTime:
+					case CsvColType.DateTime:
 						long dtSec = new DateTimeOffset(reader.GetDateTime(i)).ToUnixTimeSeconds();
 						dtSec.TryFormat(span, out int wDt, default, CultureInfo.InvariantCulture);
 						str.Append(span[..wDt]);
 						break;
-					case TypeCode.Boolean:
+					case CsvColType.Boolean:
 						str.Append(reader.GetBoolean(i) ? '1' : '0');
 						break;
-					case TypeCode.Char:
-					case TypeCode.String:
+					case CsvColType.String:
 						str.Append(reader.GetString(i));
 						break;
-					default:
-						if (type == typeof(Guid))
-						{
-							reader.GetGuid(i).TryFormat(span, out int wGuid, "D");
-							str.Append(span[..wGuid]);
-						}
-						else if (type == typeof(DateTimeOffset))
-						{
-							long dtoSec = (reader is SqlDataReader sdr ? sdr.GetDateTimeOffset(i) : reader.GetFieldValue<DateTimeOffset>(i)).ToUnixTimeSeconds();
-							dtoSec.TryFormat(span, out int wDto, default, CultureInfo.InvariantCulture);
-							str.Append(span[..wDto]);
-						}
-						else if (type == typeof(TimeSpan))
-						{
-							TimeSpan ts = reader is SqlDataReader sdr ? sdr.GetTimeSpan(i) : reader.GetFieldValue<TimeSpan>(i);
-							ts.TryFormat(span, out int wTs, "c", CultureInfo.InvariantCulture);
-							str.Append(span[..wTs]);
-						}
-						else if (type == typeof(byte[]))
-							str.Append(Convert.ToBase64String((byte[])reader.GetValue(i)));
-						else
-							throw new NotSupportedException($"Type '{type.FullName}' is not supported.");
+					case CsvColType.Guid:
+						reader.GetGuid(i).TryFormat(span, out int wGuid, "D");
+						str.Append(span[..wGuid]);
 						break;
+					case CsvColType.DateTimeOffset:
+						long dtoSec = (reader is SqlDataReader sdr ? sdr.GetDateTimeOffset(i) : reader.GetFieldValue<DateTimeOffset>(i)).ToUnixTimeSeconds();
+						dtoSec.TryFormat(span, out int wDto, default, CultureInfo.InvariantCulture);
+						str.Append(span[..wDto]);
+						break;
+					case CsvColType.TimeSpan:
+						TimeSpan ts = reader is SqlDataReader tsSdr ? tsSdr.GetTimeSpan(i) : reader.GetFieldValue<TimeSpan>(i);
+						ts.TryFormat(span, out int wTs, "c", CultureInfo.InvariantCulture);
+						str.Append(span[..wTs]);
+						break;
+					case CsvColType.ByteArray:
+						str.Append(Convert.ToBase64String((byte[])reader.GetValue(i)));
+						break;
+					default:
+						throw new NotSupportedException($"Column type '{colTypes[i]}' is not supported.");
 				}
 			}
-			if (i < fieldTypes.Length - 1)
+			if (i < colTypes.Length - 1)
 				str.Append(sep);
 		}
 	}
 
-	internal static async Task<Type[]> WriteCsvHeaderAsync(this Utf8CsvStreamWriter writer, DbDataReader reader)
+	internal static void WriteCsvRow(this StringBuilder str, DbDataReader reader, Type[] fieldTypes)
+	{
+		var colTypes = new CsvColType[fieldTypes.Length];
+		for (int i = 0; i < fieldTypes.Length; i++)
+			colTypes[i] = GetCsvTypeInfo(fieldTypes[i]).ColType;
+		str.WriteCsvRow(reader, colTypes);
+	}
+
+	internal static async Task<CsvColType[]> WriteCsvHeaderAsync(this Utf8CsvStreamWriter writer, DbDataReader reader)
 	{
 		int columns = reader.FieldCount;
-		var fieldTypes = new Type[columns];
-		Type type;
+		var colTypes = new CsvColType[columns];
 		for (int i = 0; i < columns; i++)
 		{
-			type = reader.GetFieldType(i);
-			fieldTypes[i] = type;
-			char flag = GetCsvTypeFlag(type);
+			var (flag, colType) = GetCsvTypeInfo(reader.GetFieldType(i));
+			colTypes[i] = colType;
 			await writer.EnsureCapacityAsync(1);
 			writer.WriteByte((byte)flag);
 			await writer.WriteStringAsync(reader.GetName(i));
@@ -170,114 +217,83 @@ public static class CsvWriter
 				writer.WriteByte((byte)sep);
 			}
 		}
-		return fieldTypes;
+		return colTypes;
 	}
 
-	internal static async Task WriteCsvRowAsync(this Utf8CsvStreamWriter writer, DbDataReader reader, Type[] fieldTypes)
+	internal static async ValueTask WriteCsvRowAsync(this Utf8CsvStreamWriter writer, DbDataReader reader, CsvColType[] colTypes)
 	{
-		await writer.EnsureCapacityAsync(1);
 		writer.WriteByte((byte)line);
 
-		for (int i = 0; i < fieldTypes.Length; i++)
+		for (int i = 0; i < colTypes.Length; i++)
 		{
 			if (reader.IsDBNull(i))
 			{
-				await writer.EnsureCapacityAsync(2);
 				writer.WriteNull();
 			}
 			else
 			{
-				var type = fieldTypes[i];
-				switch (Type.GetTypeCode(type))
+				switch (colTypes[i])
 				{
-					case TypeCode.Int32:
-						await writer.EnsureCapacityAsync(16);
-						Utf8Formatter.TryFormat(reader.GetInt32(i), writer.FreeSpan, out int wInt);
-						writer.Advance(wInt);
+					case CsvColType.Int32:
+						writer.WriteInt32(reader.GetInt32(i));
 						break;
-					case TypeCode.Int64:
-						await writer.EnsureCapacityAsync(32);
-						Utf8Formatter.TryFormat(reader.GetInt64(i), writer.FreeSpan, out int wLong);
-						writer.Advance(wLong);
+					case CsvColType.Int64:
+						writer.WriteInt64(reader.GetInt64(i));
 						break;
-					case TypeCode.Int16:
-						await writer.EnsureCapacityAsync(16);
-						Utf8Formatter.TryFormat(reader.GetInt16(i), writer.FreeSpan, out int wShort);
-						writer.Advance(wShort);
+					case CsvColType.Int16:
+						writer.WriteInt16(reader.GetInt16(i));
 						break;
-					case TypeCode.Byte:
-						await writer.EnsureCapacityAsync(8);
-						Utf8Formatter.TryFormat(reader.GetByte(i), writer.FreeSpan, out int wByte);
-						writer.Advance(wByte);
+					case CsvColType.Byte:
+						writer.WriteByteValue(reader.GetByte(i));
 						break;
-					case TypeCode.Single:
-						await writer.EnsureCapacityAsync(32);
-						reader.GetFloat(i).TryFormat(writer.FreeSpan, out int wFloat, default, CultureInfo.InvariantCulture);
-						writer.Advance(wFloat);
+					case CsvColType.Single:
+						writer.WriteFloat(reader.GetFloat(i));
 						break;
-					case TypeCode.Double:
-						await writer.EnsureCapacityAsync(32);
-						reader.GetDouble(i).TryFormat(writer.FreeSpan, out int wDouble, default, CultureInfo.InvariantCulture);
-						writer.Advance(wDouble);
+					case CsvColType.Double:
+						writer.WriteDouble(reader.GetDouble(i));
 						break;
-					case TypeCode.Decimal:
-						await writer.EnsureCapacityAsync(40);
-						reader.GetDecimal(i).TryFormat(writer.FreeSpan, out int wDec, default, CultureInfo.InvariantCulture);
-						writer.Advance(wDec);
+					case CsvColType.Decimal:
+						writer.WriteDecimal(reader.GetDecimal(i));
 						break;
-					case TypeCode.DateTime:
-						await writer.EnsureCapacityAsync(32);
-						long dtSec = new DateTimeOffset(reader.GetDateTime(i)).ToUnixTimeSeconds();
-						Utf8Formatter.TryFormat(dtSec, writer.FreeSpan, out int wDt);
-						writer.Advance(wDt);
+					case CsvColType.DateTime:
+						writer.WriteDateTime(reader.GetDateTime(i));
 						break;
-					case TypeCode.Boolean:
-						await writer.EnsureCapacityAsync(1);
+					case CsvColType.Boolean:
 						writer.WriteByte(reader.GetBoolean(i) ? (byte)'1' : (byte)'0');
 						break;
-					case TypeCode.Char:
-					case TypeCode.String:
+					case CsvColType.String:
 						await writer.WriteStringAsync(reader.GetString(i));
 						break;
-					default:
-						if (type == typeof(Guid))
-						{
-							await writer.EnsureCapacityAsync(36);
-							Utf8Formatter.TryFormat(reader.GetGuid(i), writer.FreeSpan, out int wGuid, 'D');
-							writer.Advance(wGuid);
-						}
-						else if (type == typeof(DateTimeOffset))
-						{
-							await writer.EnsureCapacityAsync(32);
-							long dtoSec = (reader is SqlDataReader sdr ? sdr.GetDateTimeOffset(i) : reader.GetFieldValue<DateTimeOffset>(i)).ToUnixTimeSeconds();
-							Utf8Formatter.TryFormat(dtoSec, writer.FreeSpan, out int wDto);
-							writer.Advance(wDto);
-						}
-						else if (type == typeof(TimeSpan))
-						{
-							await writer.EnsureCapacityAsync(32);
-							TimeSpan ts = reader is SqlDataReader sdr ? sdr.GetTimeSpan(i) : reader.GetFieldValue<TimeSpan>(i);
-							ts.TryFormat(writer.FreeSpan, out int wTs, "c", CultureInfo.InvariantCulture);
-							writer.Advance(wTs);
-						}
-						else if (type == typeof(byte[]))
-						{
-							await writer.WriteBytesBase64Async((byte[])reader.GetValue(i));
-						}
-						else
-						{
-							throw new NotSupportedException($"Type '{type.FullName}' is not supported.");
-						}
+					case CsvColType.Guid:
+						writer.WriteGuid(reader.GetGuid(i));
 						break;
+					case CsvColType.DateTimeOffset:
+						writer.WriteDateTimeOffset(reader is SqlDataReader sdr ? sdr.GetDateTimeOffset(i) : reader.GetFieldValue<DateTimeOffset>(i));
+						break;
+					case CsvColType.TimeSpan:
+						writer.WriteTimeSpan(reader is SqlDataReader tsSdr ? tsSdr.GetTimeSpan(i) : reader.GetFieldValue<TimeSpan>(i));
+						break;
+					case CsvColType.ByteArray:
+						await writer.WriteBytesBase64Async((byte[])reader.GetValue(i));
+						break;
+					default:
+						throw new NotSupportedException($"Column type '{colTypes[i]}' is not supported.");
 				}
 			}
 
-			if (i < fieldTypes.Length - 1)
+			if (i < colTypes.Length - 1)
 			{
-				await writer.EnsureCapacityAsync(1);
 				writer.WriteByte((byte)sep);
 			}
 		}
+	}
+
+	internal static async Task WriteCsvRowAsync(this Utf8CsvStreamWriter writer, DbDataReader reader, Type[] fieldTypes)
+	{
+		var colTypes = new CsvColType[fieldTypes.Length];
+		for (int i = 0; i < fieldTypes.Length; i++)
+			colTypes[i] = GetCsvTypeInfo(fieldTypes[i]).ColType;
+		await writer.WriteCsvRowAsync(reader, colTypes);
 	}
 }
 
@@ -286,7 +302,7 @@ internal sealed class Utf8CsvStreamWriter : IAsyncDisposable
 	private readonly Stream _stream;
 	private byte[] _buffer;
 	private int _pos;
-	private const int DefaultBufferSize = 32768;
+	private const int DefaultBufferSize = 4096;
 
 	public Utf8CsvStreamWriter(Stream stream)
 	{
@@ -296,6 +312,7 @@ internal sealed class Utf8CsvStreamWriter : IAsyncDisposable
 	}
 
 	public Span<byte> FreeSpan => _buffer.AsSpan(_pos);
+	public int FreeCapacity => _buffer.Length - _pos;
 
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
 	public void Advance(int count) => _pos += count;
@@ -333,13 +350,98 @@ internal sealed class Utf8CsvStreamWriter : IAsyncDisposable
 		_buffer[_pos++] = 0x98;
 	}
 
+	[MethodImpl(MethodImplOptions.AggressiveInlining)]
+	public void WriteInt32(int val)
+	{
+		Utf8Formatter.TryFormat(val, FreeSpan, out int written);
+		_pos += written;
+	}
+
+	[MethodImpl(MethodImplOptions.AggressiveInlining)]
+	public void WriteInt64(long val)
+	{
+		Utf8Formatter.TryFormat(val, FreeSpan, out int written);
+		_pos += written;
+	}
+
+	[MethodImpl(MethodImplOptions.AggressiveInlining)]
+	public void WriteInt16(short val)
+	{
+		Utf8Formatter.TryFormat(val, FreeSpan, out int written);
+		_pos += written;
+	}
+
+	[MethodImpl(MethodImplOptions.AggressiveInlining)]
+	public void WriteByteValue(byte val)
+	{
+		Utf8Formatter.TryFormat(val, FreeSpan, out int written);
+		_pos += written;
+	}
+
+	[MethodImpl(MethodImplOptions.AggressiveInlining)]
+	public void WriteFloat(float val)
+	{
+		val.TryFormat(FreeSpan, out int written, default, CultureInfo.InvariantCulture);
+		_pos += written;
+	}
+
+	[MethodImpl(MethodImplOptions.AggressiveInlining)]
+	public void WriteDouble(double val)
+	{
+		val.TryFormat(FreeSpan, out int written, default, CultureInfo.InvariantCulture);
+		_pos += written;
+	}
+
+	[MethodImpl(MethodImplOptions.AggressiveInlining)]
+	public void WriteDecimal(decimal val)
+	{
+		val.TryFormat(FreeSpan, out int written, default, CultureInfo.InvariantCulture);
+		_pos += written;
+	}
+
+	[MethodImpl(MethodImplOptions.AggressiveInlining)]
+	public void WriteDateTime(DateTime val)
+	{
+		long dtSec = new DateTimeOffset(val).ToUnixTimeSeconds();
+		Utf8Formatter.TryFormat(dtSec, FreeSpan, out int written);
+		_pos += written;
+	}
+
+	[MethodImpl(MethodImplOptions.AggressiveInlining)]
+	public void WriteDateTimeOffset(DateTimeOffset val)
+	{
+		Utf8Formatter.TryFormat(val.ToUnixTimeSeconds(), FreeSpan, out int written);
+		_pos += written;
+	}
+
+	[MethodImpl(MethodImplOptions.AggressiveInlining)]
+	public void WriteTimeSpan(TimeSpan val)
+	{
+		val.TryFormat(FreeSpan, out int written, "c", CultureInfo.InvariantCulture);
+		_pos += written;
+	}
+
+	[MethodImpl(MethodImplOptions.AggressiveInlining)]
+	public void WriteGuid(Guid val)
+	{
+		Utf8Formatter.TryFormat(val, FreeSpan, out int written, 'D');
+		_pos += written;
+	}
+
 	public async ValueTask WriteStringAsync(string str)
 	{
 		if (string.IsNullOrEmpty(str))
 			return;
 
-		int byteCount = Encoding.UTF8.GetByteCount(str);
-		await EnsureCapacityAsync(byteCount);
+		int maxBytes = Encoding.UTF8.GetMaxByteCount(str.Length);
+		if (_buffer.Length - _pos < maxBytes)
+		{
+			int actualBytes = Encoding.UTF8.GetByteCount(str);
+			if (_buffer.Length - _pos < actualBytes)
+			{
+				await EnsureCapacitySlowAsync(actualBytes);
+			}
+		}
 		_pos += Encoding.UTF8.GetBytes(str.AsSpan(), _buffer.AsSpan(_pos));
 	}
 
@@ -349,7 +451,10 @@ internal sealed class Utf8CsvStreamWriter : IAsyncDisposable
 			return;
 
 		int maxLen = Base64.GetMaxEncodedToUtf8Length(bytes.Length);
-		await EnsureCapacityAsync(maxLen);
+		if (_buffer.Length - _pos < maxLen)
+		{
+			await EnsureCapacitySlowAsync(maxLen);
+		}
 		Base64.EncodeToUtf8(bytes, _buffer.AsSpan(_pos), out _, out int written);
 		_pos += written;
 	}
@@ -416,10 +521,11 @@ public static partial class Db
 			return null;
 
 		var (props, propGetters) = GetCsvMetadata(objects[0].GetType());
-		var str = new StringBuilder();
-		var fieldTypes = str.WriteCsvHeader(props);
 		int objectCount = objects.Length;
 		int propCount = props.Length;
+		int estimatedCap = Math.Max(256, objectCount * propCount * 12);
+		var str = new StringBuilder(estimatedCap);
+		var fieldTypes = str.WriteCsvHeader(props);
 
 		Span<char> span = stackalloc char[64];
 		object val;
@@ -577,7 +683,7 @@ public static partial class Db
 			cmd.CommandType = CommandType.StoredProcedure;
 		cmd.Parameters.AddRange(parameters);
 		await connection.OpenAsync();
-		using var reader = await cmd.ExecuteReaderAsync();
+		using var reader = await cmd.ExecuteReaderAsync(CommandBehavior.SingleResult);
 		return await reader.ReadCsv(stream);
 	}
 
@@ -586,28 +692,33 @@ public static partial class Db
 
 	internal static async Task<string> ReadCsv(this DbDataReader reader, Stream stream = null)
 	{
-		if (!reader.HasRows)
-			return null;
-
 		if (stream != null)
 		{
+			if (!await reader.ReadAsync())
+				return null;
+
 			await using var writer = new Utf8CsvStreamWriter(stream);
-			await reader.ReadAsync();
-			var fieldTypes = await writer.WriteCsvHeaderAsync(reader);
-			await writer.WriteCsvRowAsync(reader, fieldTypes);
+			var colTypes = await writer.WriteCsvHeaderAsync(reader);
+			await writer.WriteCsvRowAsync(reader, colTypes);
 			while (await reader.ReadAsync())
-				await writer.WriteCsvRowAsync(reader, fieldTypes);
+			{
+				if (writer.FreeCapacity < 256)
+					await writer.FlushAsync();
+				await writer.WriteCsvRowAsync(reader, colTypes);
+			}
 			await writer.FinishAsync();
 			return null;
 		}
 		else
 		{
-			var str = new StringBuilder();
-			await reader.ReadAsync();
-			var fieldTypes = str.WriteCsvHeader(reader);
-			str.WriteCsvRow(reader, fieldTypes);
+			if (!await reader.ReadAsync())
+				return null;
+
+			var str = new StringBuilder(1024);
+			var (_, colTypes) = str.WriteCsvHeaderTypes(reader);
+			str.WriteCsvRow(reader, colTypes);
 			while (await reader.ReadAsync())
-				str.WriteCsvRow(reader, fieldTypes);
+				str.WriteCsvRow(reader, colTypes);
 			return str.ToString();
 		}
 	}
