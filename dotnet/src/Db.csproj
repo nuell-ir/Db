@@ -9,8 +9,9 @@
 		<Authors>Ako Mahmoodi</Authors>
 		<PackageId>nuel_Db</PackageId>
 		<RepositoryUrl>https://github.com/pellk/Db</RepositoryUrl>
-		<PackageLicenseFile>LICENSE</PackageLicenseFile>
+		<PackageLicenseExpression>MIT</PackageLicenseExpression>
 		<PackageTags>SQL Server, JSON, CSV</PackageTags>
+		<PackageReadmeFile>README.md</PackageReadmeFile>
 		<GenerateDocumentationFile>true</GenerateDocumentationFile>
 	</PropertyGroup>
 	<ItemGroup>
@@ -19,16 +20,9 @@
 		</AssemblyAttribute>
 	</ItemGroup>
 	<ItemGroup>
-		<Compile Remove="Tests\**" />
-		<None Remove="Tests\**" />
-	</ItemGroup>
-	<ItemGroup>
 		<PackageReference Include="Microsoft.Data.SqlClient" Version="7.0.2" />
 	</ItemGroup>
 	<ItemGroup>
-		<None Include="LICENSE">
-			<Pack>True</Pack>
-			<PackagePath />
-		</None>
+		<None Include="..\README.md" Pack="true" PackagePath="\" />
 	</ItemGroup>
 </Project>
