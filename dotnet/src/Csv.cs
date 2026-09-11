@@ -582,7 +582,7 @@ public static partial class Db
 	}
 
 	internal static Task<string> ReadCsv(this SqlDataReader reader)
-		=> ReadCsv((DbDataReader)reader, null);
+		=> ReadCsv(reader, null);
 
 	internal static async Task<string> ReadCsv(this DbDataReader reader, Stream stream = null)
 	{

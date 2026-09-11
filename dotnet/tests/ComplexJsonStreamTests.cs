@@ -199,4 +199,49 @@ public class ComplexJsonStreamTests
 		};
 		Assert.IsNotNull(compileCheck);
 	}
+
+	[TestMethod]
+	public async Task ReadComplexJson_AsyncOnlyStream_DoesNotThrowSyncException()
+	{
+		var ds = new DataSet();
+		var dt = ds.Tables.Add("Data");
+		dt.Columns.Add("Val", typeof(int));
+		dt.Rows.Add(123);
+
+		var props = new (string Name, JsonValueType ResultType)[]
+		{
+			("val", JsonValueType.Value)
+		};
+
+		using var reader = ds.CreateDataReader();
+		using var stream = new AsyncOnlyStream();
+
+		var result = await reader.ReadComplexJson(props, stream);
+		Assert.IsNull(result);
+		Assert.IsTrue(stream.Length > 0);
+	}
+
+	private sealed class AsyncOnlyStream : Stream
+	{
+		private readonly MemoryStream _inner = new();
+
+		public override bool CanRead => _inner.CanRead;
+		public override bool CanSeek => _inner.CanSeek;
+		public override bool CanWrite => _inner.CanWrite;
+		public override long Length => _inner.Length;
+		public override long Position { get => _inner.Position; set => _inner.Position = value; }
+
+		public override void Flush() => throw new InvalidOperationException("Synchronous operations are disallowed. Call WriteAsync or set AllowSynchronousIO to true instead.");
+		public override int Read(byte[] buffer, int offset, int count) => throw new InvalidOperationException("Synchronous operations are disallowed.");
+		public override long Seek(long offset, SeekOrigin origin) => _inner.Seek(offset, origin);
+		public override void SetLength(long value) => _inner.SetLength(value);
+		public override void Write(byte[] buffer, int offset, int count) => throw new InvalidOperationException("Synchronous operations are disallowed.");
+		public override void Write(ReadOnlySpan<byte> buffer) => throw new InvalidOperationException("Synchronous operations are disallowed.");
+
+		public override Task FlushAsync(CancellationToken cancellationToken) => Task.CompletedTask;
+		public override ValueTask WriteAsync(ReadOnlyMemory<byte> buffer, CancellationToken cancellationToken = default)
+		{
+			return _inner.WriteAsync(buffer, cancellationToken);
+		}
+	}
 }

@@ -204,7 +204,7 @@ public static partial class Db
 		using var reader = await cmd.ExecuteReaderAsync();
 		if (stream != null)
 		{
-			using var writer = new Utf8JsonWriter(stream, Data.JsonWriterOptions);
+			await using var writer = new Utf8JsonWriter(stream, Data.JsonWriterOptions);
 			await reader.ReadJson(result, writer);
 			await writer.FlushAsync();
 			return null;
@@ -212,7 +212,7 @@ public static partial class Db
 		else
 		{
 			using var memoryStream = new MemoryStream();
-			using var writer = new Utf8JsonWriter(memoryStream, Data.JsonWriterOptions);
+			await using var writer = new Utf8JsonWriter(memoryStream, Data.JsonWriterOptions);
 			await reader.ReadJson(result, writer);
 			await writer.FlushAsync();
 			return Encoding.UTF8.GetString(memoryStream.GetBuffer(), 0, (int)memoryStream.Length);
