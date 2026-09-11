@@ -1,0 +1,58 @@
+{
+  "name": "@nuell/db",
+  "version": "1.0.0",
+  "description": "High-performance TypeScript/JavaScript CSV parser for data produced by C# nuel.Db",
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "tsup",
+    "test": "node --experimental-strip-types --test tests/parser.test.ts",
+    "typecheck": "tsc --noEmit",
+    "prepack": "npm run build",
+    "prepublishOnly": "npm test"
+  },
+  "keywords": [
+    "nuel",
+    "db",
+    "sql-server",
+    "csv",
+    "parser",
+    "fast-csv",
+    "database",
+    "csharp",
+    "typed-csv"
+  ],
+  "author": "Ako Mahmoodi",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/pellk/Db.git",
+    "directory": "npm"
+  },
+  "bugs": {
+    "url": "https://github.com/pellk/Db/issues"
+  },
+  "homepage": "https://github.com/pellk/Db#readme",
+  "devDependencies": {
+    "@types/node": "^22.13.9",
+    "tsup": "^8.4.0",
+    "typescript": "^5.7.3"
+  }
+}
