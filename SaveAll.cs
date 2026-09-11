@@ -9,6 +9,9 @@ internal static partial class SaveAllQuery
 	{
 		internal static string Create(JsonElement json, string deleteIds, string table, string idProp)
 		{
+			if (json.ValueKind != JsonValueKind.Array)
+				throw new ArgumentException("The json parameter must be a JSON array.", nameof(json));
+
 			var str = new StringBuilder("SET XACT_ABORT ON; BEGIN TRY BEGIN TRAN;");
 
 			if (!string.IsNullOrWhiteSpace(deleteIds))
