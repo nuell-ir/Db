@@ -65,7 +65,7 @@ public static class UpdateQuery
 
 		internal static (string Query, SqlParameter[] SqlParams) Create(JsonObject json, string table, string primaryKey)
 		{
-			KeyValuePair<string, JsonNode?> primaryKeyProp = new();
+			KeyValuePair<string, JsonNode> primaryKeyProp = new();
 			var sqlParams = new List<SqlParameter>();
 			var str = new StringBuilder();
 
@@ -114,19 +114,19 @@ public static class UpdateQuery
 
 				switch (val.GetValue<JsonElement>().ValueKind)
 				{
-					case System.Text.Json.JsonValueKind.Number:
+					case JsonValueKind.Number:
 						str.Append(val);
 						break;
-					case System.Text.Json.JsonValueKind.True:
+					case JsonValueKind.True:
 						str.Append(1);
 						break;
-					case System.Text.Json.JsonValueKind.False:
+					case JsonValueKind.False:
 						str.Append(0);
 						break;
-					case System.Text.Json.JsonValueKind.Null:
+					case JsonValueKind.Null:
 						str.Append("NULL");
 						break;
-					case System.Text.Json.JsonValueKind.String:
+					case JsonValueKind.String:
 						string paramName = $"@{prop.Key}";
 						str.Append(paramName);
 						sqlParams.Add(new SqlParameter(paramName, (string)val));
