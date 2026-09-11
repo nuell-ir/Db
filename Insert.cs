@@ -6,156 +6,156 @@ using Microsoft.Data.SqlClient;
 namespace nuel;
 
 public static partial class Data
+{
+	internal static (string Query, SqlParameter[] SqlParams) InsertQuery(JsonElement json, string table)
 	{
-		internal static (string Query, SqlParameter[] SqlParams) InsertQuery(JsonElement json, string table)
+		var sqlParams = new List<SqlParameter>();
+		var str = new StringBuilder();
+
+		str.Append("INSERT INTO ");
+		str.Append(table);
+		str.Append('(');
+		foreach (var prop in json.EnumerateObject())
 		{
-			var sqlParams = new List<SqlParameter>();
-			var str = new StringBuilder();
-
-			str.Append("INSERT INTO ");
-			str.Append(table);
-			str.Append('(');
-			foreach (var prop in json.EnumerateObject())
-			{
-				str.Append('[');
-				str.Append(prop.Name);
-				str.Append("],");
-			}
-			str.Remove(str.Length - 1, 1);
-			str.Append(") VALUES (");
-			foreach (var prop in json.EnumerateObject())
-			{
-				AppendValue(prop);
-				str.Append(',');
-			}
-			str.Remove(str.Length - 1, 1);
-			str.Append(')');
-
-			return (str.ToString(), sqlParams.ToArray());
-
-			void AppendValue(JsonProperty prop)
-			{
-				switch (prop.Value.ValueKind)
-				{
-					case JsonValueKind.Number:
-						str.Append(prop.Value);
-						break;
-					case JsonValueKind.True:
-						str.Append(1);
-						break;
-					case JsonValueKind.False:
-						str.Append(0);
-						break;
-					case JsonValueKind.Null:
-						str.Append("NULL");
-						break;
-					case JsonValueKind.String:
-						string paramName = $"@{prop.Name}";
-						str.Append(paramName);
-						sqlParams.Add(new SqlParameter(paramName, prop.Value.GetString()));
-						break;
-				}
-			}
+			str.Append('[');
+			str.Append(prop.Name);
+			str.Append("],");
 		}
-
-		internal static (string Query, SqlParameter[] SqlParams) InsertQuery(JsonObject json, string table)
+		str.Remove(str.Length - 1, 1);
+		str.Append(") VALUES (");
+		foreach (var prop in json.EnumerateObject())
 		{
-			var sqlParams = new List<SqlParameter>();
-			var str = new StringBuilder();
+			AppendValue(prop);
+			str.Append(',');
+		}
+		str.Remove(str.Length - 1, 1);
+		str.Append(')');
 
-			str.Append("INSERT INTO ");
-			str.Append(table);
-			str.Append('(');
-			foreach (var prop in json)
+		return (str.ToString(), sqlParams.ToArray());
+
+		void AppendValue(JsonProperty prop)
+		{
+			switch (prop.Value.ValueKind)
 			{
-				str.Append('[');
-				str.Append(prop.Key);
-				str.Append("],");
-			}
-			str.Remove(str.Length - 1, 1);
-			str.Append(") VALUES (");
-			foreach (var prop in json)
-			{
-				AppendValue(prop);
-				str.Append(',');
-			}
-			str.Remove(str.Length - 1, 1);
-			str.Append(')');
-
-			return (str.ToString(), sqlParams.ToArray());
-
-			void AppendValue(KeyValuePair<string, JsonNode?> prop)
-			{
-				JsonNode val = prop.Value;
-
-				if (val is null)
-				{
+				case JsonValueKind.Number:
+					str.Append(prop.Value);
+					break;
+				case JsonValueKind.True:
+					str.Append(1);
+					break;
+				case JsonValueKind.False:
+					str.Append(0);
+					break;
+				case JsonValueKind.Null:
 					str.Append("NULL");
-					return;
-				}
-
-				// Because setting JsonObject.index[] does not automatically convert POCO values to JsonElement,
-				// if a value is assigned in the code, it should be manually converted to JsonElement first.
-				// But to check whether a value is JsonElement or an assigned POCO value, 
-				// 'is JsonElement' can't be applied to JsonValue, 
-				// so this is to check the value type:
-				if (!val.AsValue().TryGetValue(out JsonElement _))
-					val = JsonNode.Parse(val.ToJsonString());
-
-				switch (val.GetValue<JsonElement>().ValueKind)
-				{
-					case JsonValueKind.Number:
-						str.Append(val);
-						break;
-					case JsonValueKind.True:
-						str.Append(1);
-						break;
-					case JsonValueKind.False:
-						str.Append(0);
-						break;
-					case JsonValueKind.Null:
-						str.Append("NULL");
-						break;
-					case JsonValueKind.String:
-						string paramName = $"@{prop.Key}";
-						str.Append(paramName);
-						sqlParams.Add(new SqlParameter(paramName, (string)val));
-						break;
-				}
+					break;
+				case JsonValueKind.String:
+					string paramName = $"@{prop.Name}";
+					str.Append(paramName);
+					sqlParams.Add(new SqlParameter(paramName, prop.Value.GetString()));
+					break;
 			}
 		}
 	}
+
+	internal static (string Query, SqlParameter[] SqlParams) InsertQuery(JsonObject json, string table)
+	{
+		var sqlParams = new List<SqlParameter>();
+		var str = new StringBuilder();
+
+		str.Append("INSERT INTO ");
+		str.Append(table);
+		str.Append('(');
+		foreach (var prop in json)
+		{
+			str.Append('[');
+			str.Append(prop.Key);
+			str.Append("],");
+		}
+		str.Remove(str.Length - 1, 1);
+		str.Append(") VALUES (");
+		foreach (var prop in json)
+		{
+			AppendValue(prop);
+			str.Append(',');
+		}
+		str.Remove(str.Length - 1, 1);
+		str.Append(')');
+
+		return (str.ToString(), sqlParams.ToArray());
+
+		void AppendValue(KeyValuePair<string, JsonNode?> prop)
+		{
+			JsonNode val = prop.Value;
+
+			if (val is null)
+			{
+				str.Append("NULL");
+				return;
+			}
+
+			// Because setting JsonObject.index[] does not automatically convert POCO values to JsonElement,
+			// if a value is assigned in the code, it should be manually converted to JsonElement first.
+			// But to check whether a value is JsonElement or an assigned POCO value, 
+			// 'is JsonElement' can't be applied to JsonValue, 
+			// so this is to check the value type:
+			if (!val.AsValue().TryGetValue(out JsonElement _))
+				val = JsonNode.Parse(val.ToJsonString());
+
+			switch (val.GetValue<JsonElement>().ValueKind)
+			{
+				case JsonValueKind.Number:
+					str.Append(val);
+					break;
+				case JsonValueKind.True:
+					str.Append(1);
+					break;
+				case JsonValueKind.False:
+					str.Append(0);
+					break;
+				case JsonValueKind.Null:
+					str.Append("NULL");
+					break;
+				case JsonValueKind.String:
+					string paramName = $"@{prop.Key}";
+					str.Append(paramName);
+					sqlParams.Add(new SqlParameter(paramName, (string)val));
+					break;
+			}
+		}
+	}
+}
 
 public static partial class Db
 {
-		/// <summary>Asynchronously inserts a record represented by a <see cref="JsonNode"/> into the specified database table.</summary>
-		/// <param name="json">The JSON node containing the column names and values to insert.</param>
-		/// <param name="table">The name of the database table.</param>
-		/// <returns>A task representing the asynchronous operation, returning the number of rows affected.</returns>
-		public static Task<int> Insert(JsonNode json, string table)
-			=> Insert(Data.InsertQuery(json.AsObject(), table));
+	/// <summary>Asynchronously inserts a record represented by a <see cref="JsonNode"/> into the specified database table.</summary>
+	/// <param name="json">The JSON node containing the column names and values to insert.</param>
+	/// <param name="table">The name of the database table.</param>
+	/// <returns>A task representing the asynchronous operation, returning the number of rows affected.</returns>
+	public static Task<int> Insert(JsonNode json, string table)
+		=> Insert(Data.InsertQuery(json.AsObject(), table));
 
-		/// <summary>Asynchronously inserts a record represented by a <see cref="System.Text.Json.Nodes.JsonObject"/> into the specified database table.</summary>
-		/// <param name="json">The JSON object containing the column names and values to insert.</param>
-		/// <param name="table">The name of the database table.</param>
-		/// <returns>A task representing the asynchronous operation, returning the number of rows affected.</returns>
-		public static Task<int> Insert(JsonObject json, string table)
-			=> Insert(Data.InsertQuery(json, table));
+	/// <summary>Asynchronously inserts a record represented by a <see cref="System.Text.Json.Nodes.JsonObject"/> into the specified database table.</summary>
+	/// <param name="json">The JSON object containing the column names and values to insert.</param>
+	/// <param name="table">The name of the database table.</param>
+	/// <returns>A task representing the asynchronous operation, returning the number of rows affected.</returns>
+	public static Task<int> Insert(JsonObject json, string table)
+		=> Insert(Data.InsertQuery(json, table));
 
-		/// <summary>Asynchronously inserts a record represented by a <see cref="JsonElement"/> into the specified database table.</summary>
-		/// <param name="json">The JSON element containing the column names and values to insert.</param>
-		/// <param name="table">The name of the database table.</param>
-		/// <returns>A task representing the asynchronous operation, returning the number of rows affected.</returns>
-		public static Task<int> Insert(JsonElement json, string table)
-			=> Insert(Data.InsertQuery(json, table));
+	/// <summary>Asynchronously inserts a record represented by a <see cref="JsonElement"/> into the specified database table.</summary>
+	/// <param name="json">The JSON element containing the column names and values to insert.</param>
+	/// <param name="table">The name of the database table.</param>
+	/// <returns>A task representing the asynchronous operation, returning the number of rows affected.</returns>
+	public static Task<int> Insert(JsonElement json, string table)
+		=> Insert(Data.InsertQuery(json, table));
 
-		private static async Task<int> Insert((string Query, SqlParameter[] SqlParams) param)
-		{
-			using var connection = new SqlConnection(Data.ConnectionString);
-			using var cmd = new SqlCommand(param.Query, connection);
-			if (param.SqlParams.Length > 0)
-				cmd.Parameters.AddRange(param.SqlParams);
-			await connection.OpenAsync();
-			return await cmd.ExecuteNonQueryAsync();
-		}
+	private static async Task<int> Insert((string Query, SqlParameter[] SqlParams) param)
+	{
+		using var connection = new SqlConnection(Data.ConnectionString);
+		using var cmd = new SqlCommand(param.Query, connection);
+		if (param.SqlParams.Length > 0)
+			cmd.Parameters.AddRange(param.SqlParams);
+		await connection.OpenAsync();
+		return await cmd.ExecuteNonQueryAsync();
 	}
+}
