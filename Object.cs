@@ -1,13 +1,155 @@
 using System.Data;
 using System.Data.Common;
-using Microsoft.Data.SqlClient;
-
+using System.Linq.Expressions;
 using System.Reflection;
+using Microsoft.Data.SqlClient;
 
 namespace nuel;
 
+internal readonly struct ColumnMapping<T>
+{
+	public readonly int Ordinal;
+	public readonly Action<T, DbDataReader, int> Reader;
+
+	public ColumnMapping(int ordinal, Action<T, DbDataReader, int> reader)
+	{
+		Ordinal = ordinal;
+		Reader = reader;
+	}
+}
+
+internal static class TypeCache<T>
+{
+	private static readonly Dictionary<string, Action<T, DbDataReader, int>> _columnReaders;
+	private static readonly Dictionary<string, PropertyInfo> _properties;
+
+	static TypeCache()
+	{
+		var props = typeof(T).GetProperties(BindingFlags.Public | BindingFlags.Instance);
+		_columnReaders = new Dictionary<string, Action<T, DbDataReader, int>>(props.Length, StringComparer.OrdinalIgnoreCase);
+		_properties = new Dictionary<string, PropertyInfo>(props.Length, StringComparer.OrdinalIgnoreCase);
+
+		foreach (var prop in props)
+		{
+			if (!prop.CanWrite || prop.GetSetMethod() == null)
+				continue;
+
+			_properties.TryAdd(prop.Name, prop);
+			_columnReaders.TryAdd(prop.Name, CreateColumnReader(prop));
+		}
+	}
+
+	public static Action<T, DbDataReader, int> GetColumnReader(string columnName)
+	{
+		_columnReaders.TryGetValue(columnName, out var reader);
+		return reader;
+	}
+
+	public static Dictionary<string, PropertyInfo> Properties => _properties;
+
+	private static Action<T, DbDataReader, int> CreateColumnReader(PropertyInfo prop)
+	{
+		Type propType = prop.PropertyType;
+		Type targetType = Nullable.GetUnderlyingType(propType) ?? propType;
+		bool isNullableOrRef = !propType.IsValueType || Nullable.GetUnderlyingType(propType) != null;
+
+		if (typeof(T).IsValueType)
+		{
+			return (target, reader, ordinal) =>
+			{
+				object boxed = target;
+				if (reader.IsDBNull(ordinal))
+				{
+					if (isNullableOrRef)
+						prop.SetValue(boxed, null);
+				}
+				else
+				{
+					object val = reader.GetValue(ordinal);
+					if (val.GetType() != targetType)
+						val = ConvertValue(val, targetType);
+					prop.SetValue(boxed, val);
+				}
+			};
+		}
+
+		var targetParam = Expression.Parameter(typeof(T), "target");
+		var valParam = Expression.Parameter(typeof(object), "val");
+		Expression castVal = Expression.Convert(valParam, propType);
+		Expression assign = Expression.Assign(Expression.Property(targetParam, prop), castVal);
+		Action<T, object> setter = Expression.Lambda<Action<T, object>>(assign, targetParam, valParam).Compile();
+
+		if (isNullableOrRef)
+		{
+			return (target, reader, ordinal) =>
+			{
+				if (reader.IsDBNull(ordinal))
+				{
+					setter(target, null);
+				}
+				else
+				{
+					object val = reader.GetValue(ordinal);
+					if (val.GetType() != targetType)
+						val = ConvertValue(val, targetType);
+					setter(target, val);
+				}
+			};
+		}
+		else
+		{
+			return (target, reader, ordinal) =>
+			{
+				if (!reader.IsDBNull(ordinal))
+				{
+					object val = reader.GetValue(ordinal);
+					if (val.GetType() != targetType)
+						val = ConvertValue(val, targetType);
+					setter(target, val);
+				}
+			};
+		}
+	}
+
+	private static object ConvertValue(object val, Type targetType)
+	{
+		if (targetType.IsEnum)
+			return Enum.ToObject(targetType, val);
+		if (targetType == typeof(Guid) && val is string str)
+			return Guid.Parse(str);
+		return Convert.ChangeType(val, targetType);
+	}
+}
+
 internal static class ObjectReflector
 {
+	internal static ColumnMapping<T>[] GetColumnMappings<T>(this DbDataReader reader) where T : new()
+	{
+		int fieldCount = reader.FieldCount;
+		var list = new List<ColumnMapping<T>>(fieldCount);
+		for (int i = 0; i < fieldCount; i++)
+		{
+			var colReader = TypeCache<T>.GetColumnReader(reader.GetName(i));
+			if (colReader != null)
+				list.Add(new ColumnMapping<T>(i, colReader));
+		}
+		return list.ToArray();
+	}
+
+	internal static T GetObject<T>(this DbDataReader reader, ColumnMapping<T>[] mappings) where T : new()
+	{
+		var obj = new T();
+		for (int i = 0; i < mappings.Length; i++)
+			mappings[i].Reader(obj, reader, mappings[i].Ordinal);
+		return obj;
+	}
+
+	internal static T GetObject<T>(this DbDataReader reader) where T : new()
+	{
+		var mappings = reader.GetColumnMappings<T>();
+		return reader.GetObject(mappings);
+	}
+
 	internal static T GetObject<T>(this DbDataReader reader, Dictionary<string, PropertyInfo> props) where T : new()
 	{
 		int fieldCount = reader.FieldCount;
@@ -33,12 +175,6 @@ internal static class ObjectReflector
 			}
 		}
 		return obj;
-	}
-
-	internal static T GetObject<T>(this DbDataReader reader) where T : new()
-	{
-		var props = typeof(T).GetProperties().ToDictionary(p => p.Name, p => p);
-		return reader.GetObject<T>(props);
 	}
 }
 

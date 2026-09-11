@@ -111,5 +111,62 @@ public class ObjectReflectorTests
 		CollectionAssert.AreEqual(bytes, poco.Data);
 		Assert.AreEqual(12345L, poco.BigNumber);
 	}
+
+	[TestMethod]
+	public void GetColumnMappings_WithUnmappedColumnsAndCaseInsensitivity_MapsCorrectly()
+	{
+		var dt = new DataTable();
+		dt.Columns.Add("EXTRA_1", typeof(string));
+		dt.Columns.Add("id", typeof(int)); // lowercase
+		dt.Columns.Add("NAME", typeof(string)); // uppercase
+		dt.Columns.Add("EXTRA_2", typeof(int));
+		dt.Columns.Add("nullableint", typeof(int)); // lowercase
+		dt.Columns.Add("bignumber", typeof(int)); // int in DB -> long in POCO
+
+		dt.Rows.Add("ignored1", 101, "Alice", 999, 55, 777);
+		dt.Rows.Add("ignored2", 102, DBNull.Value, 888, DBNull.Value, 888);
+
+		using var reader = dt.CreateDataReader();
+		var mappings = reader.GetColumnMappings<PocoModel>();
+
+		// Out of 6 columns, only 4 match PocoModel properties (id, NAME, nullableint, bignumber)
+		Assert.AreEqual(4, mappings.Length);
+
+		var list = new List<PocoModel>();
+		while (reader.Read())
+		{
+			list.Add(reader.GetObject(mappings));
+		}
+
+		Assert.AreEqual(2, list.Count);
+
+		Assert.AreEqual(101, list[0].Id);
+		Assert.AreEqual("Alice", list[0].Name);
+		Assert.AreEqual(55, list[0].NullableInt);
+		Assert.AreEqual(777L, list[0].BigNumber);
+
+		Assert.AreEqual(102, list[1].Id);
+		Assert.IsNull(list[1].Name);
+		Assert.IsNull(list[1].NullableInt);
+		Assert.AreEqual(888L, list[1].BigNumber);
+	}
+
+	[TestMethod]
+	public void Csv_Objects_UsesCachedCompiledGettersWithoutReflection()
+	{
+		var items = new[]
+		{
+			new PocoModel { Id = 1, Name = "Item 1", BigNumber = 100 },
+			new PocoModel { Id = 2, Name = "Item 2", BigNumber = 200 }
+		};
+
+		var csv1 = nuel.Db.Csv(items);
+		var csv2 = nuel.Db.Csv(items); // Hit cache
+
+		Assert.IsNotNull(csv1);
+		Assert.AreEqual(csv1, csv2);
+		Assert.IsTrue(csv1.Contains("Item 1"));
+		Assert.IsTrue(csv1.Contains("Item 2"));
+	}
 }
 

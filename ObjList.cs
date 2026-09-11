@@ -49,9 +49,15 @@ public static partial class Db
 			return null;
 
 		var list = new List<T>();
-		var props = typeof(T).GetProperties().ToDictionary(p => p.Name, p => p);
+		var mappings = reader.GetColumnMappings<T>();
+		int mappingCount = mappings.Length;
 		while (await reader.ReadAsync())
-			list.Add(reader.GetObject<T>(props));
+		{
+			var obj = new T();
+			for (int i = 0; i < mappingCount; i++)
+				mappings[i].Reader(obj, reader, mappings[i].Ordinal);
+			list.Add(obj);
+		}
 		return list;
 	}
 }

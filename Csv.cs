@@ -1,8 +1,10 @@
 using System.Buffers;
 using System.Buffers.Text;
+using System.Collections.Concurrent;
 using System.Data;
 using System.Data.Common;
 using System.Globalization;
+using System.Linq.Expressions;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Text;
@@ -380,6 +382,31 @@ internal sealed class Utf8CsvStreamWriter : IAsyncDisposable
 
 public static partial class Db
 {
+	private static readonly ConcurrentDictionary<Type, (PropertyInfo[] Props, Func<object, object>[] Getters)> _csvTypeCache = new();
+
+	private static (PropertyInfo[] Props, Func<object, object>[] Getters) GetCsvMetadata(Type type)
+	{
+		return _csvTypeCache.GetOrAdd(type, static t =>
+		{
+			var props = t.GetProperties();
+			var getters = new Func<object, object>[props.Length];
+			for (int i = 0; i < props.Length; i++)
+				getters[i] = CreateCsvGetter(props[i]);
+			return (props, getters);
+		});
+	}
+
+	private static Func<object, object> CreateCsvGetter(PropertyInfo prop)
+	{
+		var param = Expression.Parameter(typeof(object), "obj");
+		Expression instance = prop.DeclaringType!.IsValueType
+			? Expression.Unbox(param, prop.DeclaringType)
+			: Expression.Convert(param, prop.DeclaringType);
+		Expression property = Expression.Property(instance, prop);
+		Expression box = Expression.Convert(property, typeof(object));
+		return Expression.Lambda<Func<object, object>>(box, param).Compile();
+	}
+
 	/// <summary>Converts an array of objects to a CSV string.</summary>
 	/// <param name="objects">The array of objects to convert.</param>
 	/// <returns>A CSV formatted string representing the objects, or null if the array is null or empty.</returns>
@@ -388,8 +415,7 @@ public static partial class Db
 		if (objects is null || objects.Length == 0)
 			return null;
 
-		var props = objects[0].GetType().GetProperties();
-		var propGetters = props.Select(p => (Func<object, object>)(o => p.GetValue(o))).ToArray();
+		var (props, propGetters) = GetCsvMetadata(objects[0].GetType());
 		var str = new StringBuilder();
 		var fieldTypes = str.WriteCsvHeader(props);
 		int objectCount = objects.Length;
@@ -400,7 +426,7 @@ public static partial class Db
 		for (int i = 0; i < objectCount; i++)
 		{
 			str.Append(CsvWriter.line);
-			for (int p = 0; p < props.Length; p++)
+			for (int p = 0; p < propCount; p++)
 			{
 				val = propGetters[p](objects[i]);
 				if (val is null)
