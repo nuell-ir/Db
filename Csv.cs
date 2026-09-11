@@ -68,6 +68,7 @@ public static class CsvWriter
 
 		internal static void WriteCsvRow(this StringBuilder str, DbDataReader reader, Type[] fieldTypes)
 		{
+			Span<char> span = stackalloc char[64];
 			str.Append(line);
 			for (int i = 0; i < fieldTypes.Length; i++)
 			{
@@ -79,31 +80,40 @@ public static class CsvWriter
 					switch (Type.GetTypeCode(type))
 					{
 						case TypeCode.Int32:
-							str.Append(reader.GetInt32(i));
+							reader.GetInt32(i).TryFormat(span, out int wInt, default, CultureInfo.InvariantCulture);
+							str.Append(span[..wInt]);
 							break;
 						case TypeCode.Int64:
-							str.Append(reader.GetInt64(i));
+							reader.GetInt64(i).TryFormat(span, out int wLong, default, CultureInfo.InvariantCulture);
+							str.Append(span[..wLong]);
 							break;
 						case TypeCode.Int16:
-							str.Append(reader.GetInt16(i));
+							reader.GetInt16(i).TryFormat(span, out int wShort, default, CultureInfo.InvariantCulture);
+							str.Append(span[..wShort]);
 							break;
 						case TypeCode.Byte:
-							str.Append(reader.GetByte(i));
+							reader.GetByte(i).TryFormat(span, out int wByte, default, CultureInfo.InvariantCulture);
+							str.Append(span[..wByte]);
 							break;
 						case TypeCode.Single:
-							str.Append(reader.GetFloat(i).ToString(CultureInfo.InvariantCulture));
+							reader.GetFloat(i).TryFormat(span, out int wFloat, default, CultureInfo.InvariantCulture);
+							str.Append(span[..wFloat]);
 							break;
 						case TypeCode.Double:
-							str.Append(reader.GetDouble(i).ToString(CultureInfo.InvariantCulture));
+							reader.GetDouble(i).TryFormat(span, out int wDouble, default, CultureInfo.InvariantCulture);
+							str.Append(span[..wDouble]);
 							break;
 						case TypeCode.Decimal:
-							str.Append(reader.GetDecimal(i).ToString(CultureInfo.InvariantCulture));
+							reader.GetDecimal(i).TryFormat(span, out int wDec, default, CultureInfo.InvariantCulture);
+							str.Append(span[..wDec]);
 							break;
 						case TypeCode.DateTime:
-							str.Append(new DateTimeOffset(reader.GetDateTime(i)).ToUnixTimeSeconds());
+							long dtSec = new DateTimeOffset(reader.GetDateTime(i)).ToUnixTimeSeconds();
+							dtSec.TryFormat(span, out int wDt, default, CultureInfo.InvariantCulture);
+							str.Append(span[..wDt]);
 							break;
 						case TypeCode.Boolean:
-							str.Append(reader.GetBoolean(i) ? 1 : 0);
+							str.Append(reader.GetBoolean(i) ? '1' : '0');
 							break;
 						case TypeCode.Char:
 						case TypeCode.String:
@@ -111,11 +121,22 @@ public static class CsvWriter
 							break;
 						default:
 							if (type == typeof(Guid))
-								str.Append(reader.GetGuid(i));
+							{
+								reader.GetGuid(i).TryFormat(span, out int wGuid, "D");
+								str.Append(span[..wGuid]);
+							}
 							else if (type == typeof(DateTimeOffset))
-								str.Append((reader is SqlDataReader sdr ? sdr.GetDateTimeOffset(i) : reader.GetFieldValue<DateTimeOffset>(i)).ToUnixTimeSeconds());
+							{
+								long dtoSec = (reader is SqlDataReader sdr ? sdr.GetDateTimeOffset(i) : reader.GetFieldValue<DateTimeOffset>(i)).ToUnixTimeSeconds();
+								dtoSec.TryFormat(span, out int wDto, default, CultureInfo.InvariantCulture);
+								str.Append(span[..wDto]);
+							}
 							else if (type == typeof(TimeSpan))
-								str.Append(reader is SqlDataReader sdr ? sdr.GetTimeSpan(i) : reader.GetFieldValue<TimeSpan>(i));
+							{
+								TimeSpan ts = reader is SqlDataReader sdr ? sdr.GetTimeSpan(i) : reader.GetFieldValue<TimeSpan>(i);
+								ts.TryFormat(span, out int wTs, "c", CultureInfo.InvariantCulture);
+								str.Append(span[..wTs]);
+							}
 							else if (type == typeof(byte[]))
 								str.Append(Convert.ToBase64String((byte[])reader.GetValue(i)));
 							else
@@ -374,6 +395,7 @@ public static partial class Db
 		int objectCount = objects.Length;
 		int propCount = props.Length;
 
+		Span<char> span = stackalloc char[64];
 		object val;
 		for (int i = 0; i < objectCount; i++)
 		{
@@ -389,20 +411,66 @@ public static partial class Db
 					var underlying = Nullable.GetUnderlyingType(type) ?? type;
 
 					if (val is DateTime dt)
-						str.Append(new DateTimeOffset(dt).ToUnixTimeSeconds());
+					{
+						long dtSec = new DateTimeOffset(dt).ToUnixTimeSeconds();
+						dtSec.TryFormat(span, out int written, default, CultureInfo.InvariantCulture);
+						str.Append(span[..written]);
+					}
 					else if (val is DateTimeOffset dto)
-						str.Append(dto.ToUnixTimeSeconds());
+					{
+						dto.ToUnixTimeSeconds().TryFormat(span, out int written, default, CultureInfo.InvariantCulture);
+						str.Append(span[..written]);
+					}
 					else if (val is bool b)
 						str.Append(b ? '1' : '0');
 					else if (val is byte[] bytes)
 						str.Append(Convert.ToBase64String(bytes));
 					else if (val is float f)
-						str.Append(f.ToString(CultureInfo.InvariantCulture));
+					{
+						f.TryFormat(span, out int written, default, CultureInfo.InvariantCulture);
+						str.Append(span[..written]);
+					}
 					else if (val is double d)
-						str.Append(d.ToString(CultureInfo.InvariantCulture));
+					{
+						d.TryFormat(span, out int written, default, CultureInfo.InvariantCulture);
+						str.Append(span[..written]);
+					}
 					else if (val is decimal dec)
-						str.Append(dec.ToString(CultureInfo.InvariantCulture));
-					else if (underlying == typeof(Guid) || underlying == typeof(TimeSpan) || Type.GetTypeCode(underlying) != TypeCode.Object)
+					{
+						dec.TryFormat(span, out int written, default, CultureInfo.InvariantCulture);
+						str.Append(span[..written]);
+					}
+					else if (val is TimeSpan ts)
+					{
+						ts.TryFormat(span, out int written, "c", CultureInfo.InvariantCulture);
+						str.Append(span[..written]);
+					}
+					else if (val is int intVal)
+					{
+						intVal.TryFormat(span, out int written, default, CultureInfo.InvariantCulture);
+						str.Append(span[..written]);
+					}
+					else if (val is long longVal)
+					{
+						longVal.TryFormat(span, out int written, default, CultureInfo.InvariantCulture);
+						str.Append(span[..written]);
+					}
+					else if (val is short shortVal)
+					{
+						shortVal.TryFormat(span, out int written, default, CultureInfo.InvariantCulture);
+						str.Append(span[..written]);
+					}
+					else if (val is byte byteVal)
+					{
+						byteVal.TryFormat(span, out int written, default, CultureInfo.InvariantCulture);
+						str.Append(span[..written]);
+					}
+					else if (val is ISpanFormattable spanFormattable && (underlying == typeof(Guid) || Type.GetTypeCode(underlying) != TypeCode.Object))
+					{
+						spanFormattable.TryFormat(span, out int written, default, CultureInfo.InvariantCulture);
+						str.Append(span[..written]);
+					}
+					else if (underlying == typeof(Guid) || Type.GetTypeCode(underlying) != TypeCode.Object)
 						str.Append(val);
 					else
 						throw new NotSupportedException($"Type '{type.FullName}' is not supported.");
