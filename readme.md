@@ -98,6 +98,12 @@ string csv = await Db.Csv("select * from Employees");
 //!Id~$FullName~#BirthDate~^IsMarried|1~Loraine Bickerdicke~777497400~1|2~Shelley Askem~723673800~0
 ```
 
+An optional `stream` parameter writes UTF-8 CSV directly to a stream (e.g. an HTTP `response.Body` or `FileStream`), reducing allocations by automatically buffering and bypassing intermediate UTF-16 string conversion:
+
+```c#
+await Db.Csv("select * from Employees", response.Body);
+```
+
 Please note that the standard comma and new line characters have been replaced by tilde (~) and vertical line (|) respectively in order to avoid conflicts with typical texts. 
 
 Moreover, column names have been flagged with the following type markers:

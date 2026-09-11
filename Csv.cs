@@ -1,7 +1,10 @@
+using System.Buffers;
+using System.Buffers.Text;
 using System.Data;
 using System.Data.Common;
 using System.Globalization;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 using System.Text;
 using Microsoft.Data.SqlClient;
 
@@ -124,7 +127,235 @@ public static class CsvWriter
 					str.Append(sep);
 			}
 		}
+
+		internal static async Task<Type[]> WriteCsvHeaderAsync(this Utf8CsvStreamWriter writer, DbDataReader reader)
+		{
+			int columns = reader.FieldCount;
+			var fieldTypes = new Type[columns];
+			Type type;
+			for (int i = 0; i < columns; i++)
+			{
+				type = reader.GetFieldType(i);
+				fieldTypes[i] = type;
+				char flag = GetCsvTypeFlag(type);
+				await writer.EnsureCapacityAsync(1);
+				writer.WriteByte((byte)flag);
+				await writer.WriteStringAsync(reader.GetName(i));
+				if (i < columns - 1)
+				{
+					await writer.EnsureCapacityAsync(1);
+					writer.WriteByte((byte)sep);
+				}
+			}
+			return fieldTypes;
+		}
+
+		internal static async Task WriteCsvRowAsync(this Utf8CsvStreamWriter writer, DbDataReader reader, Type[] fieldTypes)
+		{
+			await writer.EnsureCapacityAsync(1);
+			writer.WriteByte((byte)line);
+
+			for (int i = 0; i < fieldTypes.Length; i++)
+			{
+				if (reader.IsDBNull(i))
+				{
+					await writer.EnsureCapacityAsync(2);
+					writer.WriteNull();
+				}
+				else
+				{
+					var type = fieldTypes[i];
+					switch (Type.GetTypeCode(type))
+					{
+						case TypeCode.Int32:
+							await writer.EnsureCapacityAsync(16);
+							Utf8Formatter.TryFormat(reader.GetInt32(i), writer.FreeSpan, out int wInt);
+							writer.Advance(wInt);
+							break;
+						case TypeCode.Int64:
+							await writer.EnsureCapacityAsync(32);
+							Utf8Formatter.TryFormat(reader.GetInt64(i), writer.FreeSpan, out int wLong);
+							writer.Advance(wLong);
+							break;
+						case TypeCode.Int16:
+							await writer.EnsureCapacityAsync(16);
+							Utf8Formatter.TryFormat(reader.GetInt16(i), writer.FreeSpan, out int wShort);
+							writer.Advance(wShort);
+							break;
+						case TypeCode.Byte:
+							await writer.EnsureCapacityAsync(8);
+							Utf8Formatter.TryFormat(reader.GetByte(i), writer.FreeSpan, out int wByte);
+							writer.Advance(wByte);
+							break;
+						case TypeCode.Single:
+							await writer.EnsureCapacityAsync(32);
+							reader.GetFloat(i).TryFormat(writer.FreeSpan, out int wFloat, default, CultureInfo.InvariantCulture);
+							writer.Advance(wFloat);
+							break;
+						case TypeCode.Double:
+							await writer.EnsureCapacityAsync(32);
+							reader.GetDouble(i).TryFormat(writer.FreeSpan, out int wDouble, default, CultureInfo.InvariantCulture);
+							writer.Advance(wDouble);
+							break;
+						case TypeCode.Decimal:
+							await writer.EnsureCapacityAsync(40);
+							reader.GetDecimal(i).TryFormat(writer.FreeSpan, out int wDec, default, CultureInfo.InvariantCulture);
+							writer.Advance(wDec);
+							break;
+						case TypeCode.DateTime:
+							await writer.EnsureCapacityAsync(32);
+							long dtSec = new DateTimeOffset(reader.GetDateTime(i)).ToUnixTimeSeconds();
+							Utf8Formatter.TryFormat(dtSec, writer.FreeSpan, out int wDt);
+							writer.Advance(wDt);
+							break;
+						case TypeCode.Boolean:
+							await writer.EnsureCapacityAsync(1);
+							writer.WriteByte(reader.GetBoolean(i) ? (byte)'1' : (byte)'0');
+							break;
+						case TypeCode.Char:
+						case TypeCode.String:
+							await writer.WriteStringAsync(reader.GetString(i));
+							break;
+						default:
+							if (type == typeof(Guid))
+							{
+								await writer.EnsureCapacityAsync(36);
+								Utf8Formatter.TryFormat(reader.GetGuid(i), writer.FreeSpan, out int wGuid, 'D');
+								writer.Advance(wGuid);
+							}
+							else if (type == typeof(DateTimeOffset))
+							{
+								await writer.EnsureCapacityAsync(32);
+								long dtoSec = (reader is SqlDataReader sdr ? sdr.GetDateTimeOffset(i) : reader.GetFieldValue<DateTimeOffset>(i)).ToUnixTimeSeconds();
+								Utf8Formatter.TryFormat(dtoSec, writer.FreeSpan, out int wDto);
+								writer.Advance(wDto);
+							}
+							else if (type == typeof(TimeSpan))
+							{
+								await writer.EnsureCapacityAsync(32);
+								TimeSpan ts = reader is SqlDataReader sdr ? sdr.GetTimeSpan(i) : reader.GetFieldValue<TimeSpan>(i);
+								ts.TryFormat(writer.FreeSpan, out int wTs, "c", CultureInfo.InvariantCulture);
+								writer.Advance(wTs);
+							}
+							else if (type == typeof(byte[]))
+							{
+								await writer.WriteBytesBase64Async((byte[])reader.GetValue(i));
+							}
+							else
+							{
+								throw new NotSupportedException($"Type '{type.FullName}' is not supported.");
+							}
+							break;
+					}
+				}
+
+				if (i < fieldTypes.Length - 1)
+				{
+					await writer.EnsureCapacityAsync(1);
+					writer.WriteByte((byte)sep);
+				}
+			}
+		}
 	}
+
+internal sealed class Utf8CsvStreamWriter : IAsyncDisposable
+{
+	private readonly Stream _stream;
+	private byte[] _buffer;
+	private int _pos;
+	private const int DefaultBufferSize = 32768;
+
+	public Utf8CsvStreamWriter(Stream stream)
+	{
+		_stream = stream;
+		_buffer = ArrayPool<byte>.Shared.Rent(DefaultBufferSize);
+		_pos = 0;
+	}
+
+	public Span<byte> FreeSpan => _buffer.AsSpan(_pos);
+
+	[MethodImpl(MethodImplOptions.AggressiveInlining)]
+	public void Advance(int count) => _pos += count;
+
+	[MethodImpl(MethodImplOptions.AggressiveInlining)]
+	public ValueTask EnsureCapacityAsync(int needed)
+	{
+		if (_buffer.Length - _pos >= needed)
+			return ValueTask.CompletedTask;
+
+		return EnsureCapacitySlowAsync(needed);
+	}
+
+	private async ValueTask EnsureCapacitySlowAsync(int needed)
+	{
+		await FlushAsync();
+		if (_buffer.Length < needed)
+		{
+			byte[] newBuf = ArrayPool<byte>.Shared.Rent(Math.Max(_buffer.Length * 2, needed));
+			ArrayPool<byte>.Shared.Return(_buffer);
+			_buffer = newBuf;
+		}
+	}
+
+	[MethodImpl(MethodImplOptions.AggressiveInlining)]
+	public void WriteByte(byte b)
+	{
+		_buffer[_pos++] = b;
+	}
+
+	[MethodImpl(MethodImplOptions.AggressiveInlining)]
+	public void WriteNull()
+	{
+		_buffer[_pos++] = 0xC3;
+		_buffer[_pos++] = 0x98;
+	}
+
+	public async ValueTask WriteStringAsync(string str)
+	{
+		if (string.IsNullOrEmpty(str))
+			return;
+
+		int byteCount = Encoding.UTF8.GetByteCount(str);
+		await EnsureCapacityAsync(byteCount);
+		_pos += Encoding.UTF8.GetBytes(str.AsSpan(), _buffer.AsSpan(_pos));
+	}
+
+	public async ValueTask WriteBytesBase64Async(byte[] bytes)
+	{
+		if (bytes == null || bytes.Length == 0)
+			return;
+
+		int maxLen = Base64.GetMaxEncodedToUtf8Length(bytes.Length);
+		await EnsureCapacityAsync(maxLen);
+		Base64.EncodeToUtf8(bytes, _buffer.AsSpan(_pos), out _, out int written);
+		_pos += written;
+	}
+
+	public async ValueTask FlushAsync()
+	{
+		if (_pos > 0)
+		{
+			await _stream.WriteAsync(_buffer.AsMemory(0, _pos));
+			_pos = 0;
+		}
+	}
+
+	public async ValueTask FinishAsync()
+	{
+		await FlushAsync();
+		await _stream.FlushAsync();
+	}
+
+	public ValueTask DisposeAsync()
+	{
+		if (_buffer != null)
+		{
+			ArrayPool<byte>.Shared.Return(_buffer);
+			_buffer = null;
+		}
+		return ValueTask.CompletedTask;
+	}
+}
 
 public static partial class Db
 {
@@ -205,12 +436,46 @@ public static partial class Db
 		public static Task<string> Csv(string query, bool isStoredProc = false)
 			 => Csv(query, isStoredProc, Data.NoParams);
 
+		/// <summary>Asynchronously converts the query result to UTF-8 CSV directly written to the specified stream.</summary>
+		/// <param name="query">The SQL query or stored procedure name to execute.</param>
+		/// <param name="stream">The stream to write UTF-8 CSV directly to.</param>
+		/// <param name="isStoredProc">Whether the query is a stored procedure.</param>
+		/// <returns>A task representing the asynchronous operation, returning null after writing UTF-8 CSV directly to the stream.</returns>
+		public static Task<string> Csv(string query, Stream stream, bool isStoredProc = false)
+			 => Csv(query, stream, isStoredProc, Data.NoParams);
+
+		/// <summary>Asynchronously converts the query result to UTF-8 CSV directly written to the specified stream.</summary>
+		/// <param name="query">The SQL query or stored procedure name to execute.</param>
+		/// <param name="stream">The stream to write UTF-8 CSV directly to.</param>
+		/// <param name="parameters">The parameters for the SQL query.</param>
+		/// <returns>A task representing the asynchronous operation, returning null after writing UTF-8 CSV directly to the stream.</returns>
+		public static Task<string> Csv(string query, Stream stream, params (string name, object value)[] parameters)
+			=> Csv(query, stream, false, Data.SqlParams(parameters));
+
+		/// <summary>Asynchronously converts the query result to UTF-8 CSV directly written to the specified stream.</summary>
+		/// <param name="query">The SQL query or stored procedure name to execute.</param>
+		/// <param name="stream">The stream to write UTF-8 CSV directly to.</param>
+		/// <param name="isStoredProc">Whether the query is a stored procedure.</param>
+		/// <param name="parameters">The parameters for the SQL query.</param>
+		/// <returns>A task representing the asynchronous operation, returning null after writing UTF-8 CSV directly to the stream.</returns>
+		public static Task<string> Csv(string query, Stream stream, bool isStoredProc, params (string name, object value)[] parameters)
+			=> Csv(query, stream, isStoredProc, Data.SqlParams(parameters));
+
 		/// <summary>Asynchronously converts the query result to a CSV string.</summary>
 		/// <param name="query">The SQL query or stored procedure name to execute.</param>
 		/// <param name="isStoredProc">Whether the query is a stored procedure.</param>
 		/// <param name="parameters">The SQL parameters to apply to the command.</param>
 		/// <returns>A task representing the asynchronous operation, returning a CSV formatted string, or null if no rows were returned.</returns>
-		public static async Task<string> Csv(string query, bool isStoredProc, params SqlParameter[] parameters)
+		public static Task<string> Csv(string query, bool isStoredProc, params SqlParameter[] parameters)
+			=> Csv(query, null, isStoredProc, parameters);
+
+		/// <summary>Asynchronously converts the query result to a CSV string or writes UTF-8 CSV directly to a stream.</summary>
+		/// <param name="query">The SQL query or stored procedure name to execute.</param>
+		/// <param name="stream">The stream to write UTF-8 CSV directly to, or null to return a CSV string.</param>
+		/// <param name="isStoredProc">Whether the query is a stored procedure.</param>
+		/// <param name="parameters">The SQL parameters to apply to the command.</param>
+		/// <returns>A task representing the asynchronous operation, returning a CSV formatted string, or null if a stream is provided or if no rows were returned.</returns>
+		public static async Task<string> Csv(string query, Stream stream, bool isStoredProc, params SqlParameter[] parameters)
 		{
 			using var connection = new SqlConnection(Data.ConnectionString);
 			using var cmd = new SqlCommand(query, connection);
@@ -219,7 +484,7 @@ public static partial class Db
 			cmd.Parameters.AddRange(parameters);
 			await connection.OpenAsync();
 			using var reader = await cmd.ExecuteReaderAsync();
-			return await reader.ReadCsv();
+			return await reader.ReadCsv(stream);
 		}
 
 		/// <summary>Asynchronously converts multiple results of a query to an array of CSV strings.</summary>
@@ -267,16 +532,34 @@ public static partial class Db
 			return [.. results];
 		}
 
-		internal static async Task<string> ReadCsv(this SqlDataReader reader)
+		internal static Task<string> ReadCsv(this SqlDataReader reader)
+			=> ReadCsv((DbDataReader)reader, null);
+
+		internal static async Task<string> ReadCsv(this DbDataReader reader, Stream stream = null)
 		{
 			if (!reader.HasRows)
 				return null;
-			var str = new StringBuilder();
-			await reader.ReadAsync();
-			var fieldTypes = str.WriteCsvHeader(reader);
-			str.WriteCsvRow(reader, fieldTypes);
-			while (await reader.ReadAsync())
+
+			if (stream != null)
+			{
+				await using var writer = new Utf8CsvStreamWriter(stream);
+				await reader.ReadAsync();
+				var fieldTypes = await writer.WriteCsvHeaderAsync(reader);
+				await writer.WriteCsvRowAsync(reader, fieldTypes);
+				while (await reader.ReadAsync())
+					await writer.WriteCsvRowAsync(reader, fieldTypes);
+				await writer.FinishAsync();
+				return null;
+			}
+			else
+			{
+				var str = new StringBuilder();
+				await reader.ReadAsync();
+				var fieldTypes = str.WriteCsvHeader(reader);
 				str.WriteCsvRow(reader, fieldTypes);
-			return str.ToString();
+				while (await reader.ReadAsync())
+					str.WriteCsvRow(reader, fieldTypes);
+				return str.ToString();
+			}
 		}
 	}
