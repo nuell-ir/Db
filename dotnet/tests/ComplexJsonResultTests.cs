@@ -51,7 +51,7 @@ public class DbComplexJsonResultTests
 		};
 
 		using var expectedReader = ds.CreateDataReader();
-		var expected = await expectedReader.ReadComplexJson(props);
+		var expected = await expectedReader.ReadJson(props);
 
 		using var reader = ds.CreateDataReader();
 		using var body = new AsyncOnlyStream();

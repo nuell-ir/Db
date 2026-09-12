@@ -216,11 +216,11 @@ public class JsonWriterTests
 			Assert.AreEqual(typeof(Task<string>), m.ReturnType, $"Method {m} should return Task<string>.");
 		}
 
-		// Verify ComplexJson has no stream overloads
+		// Verify the old ComplexJson API has been removed
 		var asyncComplexMethods = typeof(nuel.Db).GetMethods(BindingFlags.Public | BindingFlags.Static)
-			 .Where(m => m.Name == "ComplexJson" && m.GetParameters().Any(p => p.ParameterType == typeof(Stream)))
+			 .Where(m => m.Name == "ComplexJson")
 			 .ToList();
-		Assert.AreEqual(0, asyncComplexMethods.Count, "ComplexJson should have no stream overloads on Db.");
+		Assert.AreEqual(0, asyncComplexMethods.Count, "ComplexJson should no longer exist on Db.");
 	}
 
 	[TestMethod]

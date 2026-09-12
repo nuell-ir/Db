@@ -279,9 +279,9 @@ DateTime birth = (DateTime)values[1];
 int count = (int)values[2];
 ```
 
-## `ComplexJson`
+## `Json` with multiple result sets
 
-If the query returns multiple results of CSV, JSON array, JSON object, and simple values, consider using the `ComplexJson` method.
+For multiple result sets, pass an array of `(string Name, JsonValueType ResultType)` tuples as the `result` parameter of `Db.Json`. A single `JsonValueType.Object` or `JsonValueType.Array` keeps the single-result behavior.
 
 It receives a tuple array that specifies the label and type of each result and returns a JSON object. For example:
 
@@ -298,11 +298,11 @@ var resultTypes = new [] {
     ("customersArray", JsonValueType.Array),
 };
 
-string json = await ComplexJson(query, resultTypes);
+string json = await Db.Json(query, result: resultTypes);
 //{"employeeCount":1200,"oneEmployee":{...},"employeeCsv":"...","customersArray":[...]}
 ```
 
-The returned JSON object in the above example includes 4 properties with the names corresponding to those specified in the tuple.
+The returned JSON object in the above example includes 4 properties, mapped to result sets in tuple-array order. Empty result sets become `null`, including those marked `Array`; a single-result `JsonValueType.Array` returns `[]` when empty.
 
 In ASP.NET Core MVC, return `DbComplexJsonResult` directly from a controller action:
 

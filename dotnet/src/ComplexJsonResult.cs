@@ -84,7 +84,7 @@ public sealed class DbComplexJsonResult : ActionResult
 		cancellationToken.ThrowIfCancellationRequested();
 
 		await using var writer = new Utf8JsonWriter(response.Body, Data.JsonWriterOptions);
-		await reader.ReadComplexJson(props, writer, cancellationToken);
+		await reader.ReadJson(props, writer, cancellationToken);
 		await writer.FlushAsync(cancellationToken);
 	}
 }

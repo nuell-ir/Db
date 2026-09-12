@@ -11,7 +11,7 @@ namespace Db.Tests;
 public class ComplexJsonStreamTests
 {
 	[TestMethod]
-	public async Task ReadComplexJson_Stream_NullWhenAllResultsEmpty()
+	public async Task ReadJson_Stream_NullWhenAllResultsEmpty()
 	{
 		var ds = new DataSet();
 		var dtScalar = ds.Tables.Add("Scalar");
@@ -50,7 +50,7 @@ public class ComplexJsonStreamTests
 	}
 
 	[TestMethod]
-	public async Task ReadComplexJson_Stream_ProducesIdenticalOutputToString_ForAllTypes()
+	public async Task ReadJson_Stream_ProducesIdenticalOutputToString_ForAllTypes()
 	{
 		var ds = new DataSet();
 
@@ -91,7 +91,7 @@ public class ComplexJsonStreamTests
 
 		// 1. Get expected string from string path
 		using var stringReader = ds.CreateDataReader();
-		string expected = await stringReader.ReadComplexJson(props);
+		string expected = await stringReader.ReadJson(props);
 		Assert.IsNotNull(expected);
 
 		// 2. Stream to MemoryStream using DbComplexJsonResult
@@ -116,7 +116,7 @@ public class ComplexJsonStreamTests
 	}
 
 	[TestMethod]
-	public async Task ReadComplexJson_DirectUtf8JsonWriter_WritesToExistingWriter()
+	public async Task ReadJson_DirectUtf8JsonWriter_WritesToExistingWriter()
 	{
 		var ds = new DataSet();
 		var dtVal = ds.Tables.Add("Val");
@@ -138,7 +138,7 @@ public class ComplexJsonStreamTests
 		using var stream = new MemoryStream();
 		using (var writer = new Utf8JsonWriter(stream, Data.JsonWriterOptions))
 		{
-			await reader.ReadComplexJson(props, writer);
+			await reader.ReadJson(props, writer);
 		}
 
 		string json = Encoding.UTF8.GetString(stream.ToArray());
@@ -151,41 +151,46 @@ public class ComplexJsonStreamTests
 	}
 
 	[TestMethod]
-	public void DbComplexJson_NoStreamOverloads_InDb()
+	public void DbJson_MultipleResults_HasTypedOverloads()
 	{
 		var streamMethods = typeof(nuel.Db).GetMethods(BindingFlags.Public | BindingFlags.Static)
-			 .Where(m => m.Name == "ComplexJson" && m.GetParameters().Any(p => p.ParameterType == typeof(Stream)))
+			 .Where(m => m.Name == "Json" && m.GetParameters().Any(p => p.ParameterType == typeof(Stream)))
 			 .ToList();
 
-		Assert.AreEqual(0, streamMethods.Count, "Db.ComplexJson should have no stream overloads.");
+		Assert.AreEqual(0, streamMethods.Count, "Db.Json should have no stream overloads.");
 
 		var allComplexMethods = typeof(nuel.Db).GetMethods(BindingFlags.Public | BindingFlags.Static)
-			 .Where(m => m.Name == "ComplexJson")
+			 .Where(m => m.Name == "Json" && m.GetParameters().Any(p => p.ParameterType == typeof((string, JsonValueType)[])))
 			 .ToList();
 
-		Assert.IsTrue(allComplexMethods.Count >= 4, "Db.ComplexJson should have at least 4 overloads.");
+		Assert.AreEqual(4, allComplexMethods.Count, "Db.Json should have four tuple-array overloads.");
 		foreach (var method in allComplexMethods)
 		{
+			Assert.AreEqual("result", method.GetParameters()[1].Name);
 			Assert.AreEqual(typeof(Task<string>), method.ReturnType, $"Overload {method} should return Task<string>");
 		}
 	}
 
 	[TestMethod]
-	public void DbComplexJson_Overloads_ResolveUnambiguously()
+	public void DbJson_MultipleResults_Overloads_ResolveUnambiguously()
 	{
 		var props = new (string Name, JsonValueType ResultType)[]
 		{
 				("test", JsonValueType.Value)
 		};
 
-		// Compile-time check: verifying Db.ComplexJson and DbComplexJsonResult calls compile without CS0121 ambiguity
+		// Compile-time check: verifying Db.Json and DbComplexJsonResult calls compile without CS0121 ambiguity
 		Action compileCheck = () =>
 		{
-			_ = nuel.Db.ComplexJson("select 1", props);
-			_ = nuel.Db.ComplexJson("select 1", props, true);
-			_ = nuel.Db.ComplexJson("select 1", props, ("p", 1));
-			_ = nuel.Db.ComplexJson("select 1", props, true, ("p", 1));
-			_ = nuel.Db.ComplexJson("select 1", props, true, new Microsoft.Data.SqlClient.SqlParameter("p", 1));
+			_ = nuel.Db.Json("select 1", result: props);
+			_ = nuel.Db.Json("select 1", result: [("test", JsonValueType.Value)]);
+			_ = nuel.Db.Json("select 1", result: JsonValueType.Object);
+			_ = nuel.Db.Json("select 1", result: JsonValueType.Array);
+			_ = nuel.Db.Json("select 1", ("p", 1));
+			_ = nuel.Db.Json("select 1", props, true);
+			_ = nuel.Db.Json("select 1", props, ("p", 1));
+			_ = nuel.Db.Json("select 1", props, true, ("p", 1));
+			_ = nuel.Db.Json("select 1", props, true, new Microsoft.Data.SqlClient.SqlParameter("p", 1));
 			_ = new nuel.DbComplexJsonResult("select 1", props);
 			_ = new nuel.DbComplexJsonResult("select 1", props, true);
 			_ = new nuel.DbComplexJsonResult("select 1", props, ("p", 1));
@@ -196,7 +201,7 @@ public class ComplexJsonStreamTests
 	}
 
 	[TestMethod]
-	public async Task ReadComplexJson_AsyncOnlyStream_DoesNotThrowSyncException()
+	public async Task ReadJson_AsyncOnlyStream_DoesNotThrowSyncException()
 	{
 		var ds = new DataSet();
 		var dt = ds.Tables.Add("Data");
@@ -216,7 +221,7 @@ public class ComplexJsonStreamTests
 	}
 
 	[TestMethod]
-	public async Task ReadComplexJson_StringAndStream_MatchesForRepeatedSmallQueries()
+	public async Task ReadJson_StringAndStream_MatchesForRepeatedSmallQueries()
 	{
 		for (int q = 0; q < 20; q++)
 		{
@@ -244,7 +249,7 @@ public class ComplexJsonStreamTests
 			};
 
 			using var stringReader = ds.CreateDataReader();
-			string expected = await stringReader.ReadComplexJson(props);
+			string expected = await stringReader.ReadJson(props);
 
 			using var streamReader = ds.CreateDataReader();
 			using var stream = new MemoryStream();

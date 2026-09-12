@@ -140,6 +140,7 @@ public static partial class Data
 		=> WriteDbValue(writer, reader, GetJsonColType(type), columnIndex);
 }
 
+/// <summary>Provides asynchronous database access methods for SQL Server operations.</summary>
 public static partial class Db
 {
 	/// <summary>Asynchronously converts the first row of the query result to a JSON object string.</summary>
@@ -258,5 +259,101 @@ public static partial class Db
 			}
 			writer.WriteEndObject();
 		}
+	}
+
+	/// <summary>Asynchronously executes a query with multiple result sets and formats the results into a single JSON string.</summary>
+	/// <param name="query">The SQL query or stored procedure name to execute.</param>
+	/// <param name="result">An array of tuples defining property names and their corresponding result types.</param>
+	/// <param name="parameters">The parameters for the SQL query.</param>
+	/// <returns>A task representing the asynchronous operation, returning a JSON string of the combined results.</returns>
+	public static Task<string> Json(string query, (string Name, JsonValueType ResultType)[] result, params (string name, object value)[] parameters)
+		 => Json(query, result, false, Data.SqlParams(parameters));
+
+	/// <summary>Asynchronously executes a query with multiple result sets and formats the results into a single JSON string.</summary>
+	/// <param name="query">The SQL query or stored procedure name to execute.</param>
+	/// <param name="result">An array of tuples defining property names and their corresponding result types.</param>
+	/// <param name="isStoredProc">Whether the query is a stored procedure.</param>
+	/// <param name="parameters">The parameters for the SQL query.</param>
+	/// <returns>A task representing the asynchronous operation, returning a JSON string of the combined results.</returns>
+	public static Task<string> Json(string query, (string Name, JsonValueType ResultType)[] result, bool isStoredProc, params (string name, object value)[] parameters)
+		 => Json(query, result, isStoredProc, Data.SqlParams(parameters));
+
+	/// <summary>Asynchronously executes a query with multiple result sets and formats the results into a single JSON string.</summary>
+	/// <param name="query">The SQL query or stored procedure name to execute.</param>
+	/// <param name="result">An array of tuples defining property names and their corresponding result types.</param>
+	/// <param name="isStoredProc">Whether the query is a stored procedure.</param>
+	/// <returns>A task representing the asynchronous operation, returning a JSON string of the combined results.</returns>
+	public static Task<string> Json(string query, (string Name, JsonValueType ResultType)[] result, bool isStoredProc = false)
+		 => Json(query, result, isStoredProc, Data.NoParams);
+
+	/// <summary>Asynchronously executes a query with multiple result sets and formats the results into a single JSON string.</summary>
+	/// <param name="query">The SQL query or stored procedure name to execute.</param>
+	/// <param name="result">An array of tuples defining property names and their corresponding result types.</param>
+	/// <param name="isStoredProc">Whether the query is a stored procedure.</param>
+	/// <param name="parameters">The SQL parameters to apply to the command.</param>
+	/// <returns>A task representing the asynchronous operation, returning a JSON string of the combined results.</returns>
+	public static async Task<string> Json(string query, (string Name, JsonValueType ResultType)[] result, bool isStoredProc, params SqlParameter[] parameters)
+	{
+		using var connection = new SqlConnection(Data.ConnectionString);
+		using var cmd = new SqlCommand(query, connection);
+		if (isStoredProc)
+			cmd.CommandType = CommandType.StoredProcedure;
+		cmd.Parameters.AddRange(parameters);
+		await connection.OpenAsync();
+		using var reader = await cmd.ExecuteReaderAsync();
+		return await reader.ReadJson(result);
+	}
+
+	internal static async Task<string> ReadJson(this DbDataReader reader, (string Name, JsonValueType ResultType)[] result)
+	{
+		var bufferWriter = new ArrayBufferWriter<byte>(2048);
+		using var writer = new Utf8JsonWriter(bufferWriter, Data.JsonWriterOptions);
+		await reader.ReadJson(result, writer);
+		writer.Flush();
+		return Encoding.UTF8.GetString(bufferWriter.WrittenSpan);
+	}
+
+	internal static async Task ReadJson(this DbDataReader reader, (string Name, JsonValueType ResultType)[] result, Utf8JsonWriter writer, CancellationToken cancellationToken = default)
+	{
+		var encodedNames = new JsonEncodedText[result.Length];
+		for (int p = 0; p < result.Length; p++)
+			encodedNames[p] = JsonEncodedText.Encode(result[p].Name);
+
+		writer.WriteStartObject();
+		for (int i = 0; i < result.Length; i++)
+		{
+			writer.WritePropertyName(encodedNames[i]);
+			if (!reader.HasRows)
+			{
+				writer.WriteNullValue();
+			}
+			else
+			{
+				switch (result[i].ResultType)
+				{
+					case JsonValueType.Value:
+						if (await reader.ReadAsync(cancellationToken))
+						{
+							if (reader.IsDBNull(0))
+								writer.WriteNullValue();
+							else
+								writer.WriteDbValue(reader, Data.GetJsonColType(reader.GetFieldType(0)), 0);
+						}
+						else
+							writer.WriteNullValue();
+						break;
+					case JsonValueType.Array:
+					case JsonValueType.Object:
+						await reader.ReadJson(result[i].ResultType, writer);
+						break;
+					case JsonValueType.Csv:
+						writer.WriteStringValue(await reader.ReadCsv());
+						break;
+				}
+			}
+			await reader.NextResultAsync(cancellationToken);
+		}
+		writer.WriteEndObject();
+		await writer.FlushAsync(cancellationToken);
 	}
 }
