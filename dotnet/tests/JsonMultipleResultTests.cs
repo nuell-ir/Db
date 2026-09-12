@@ -9,13 +9,13 @@ using nuel;
 namespace Db.Tests;
 
 [TestClass]
-public class DbComplexJsonResultTests
+public class DbJsonMultipleResultTests
 {
 	internal static Task WriteResponseAsync(System.Data.Common.DbDataReader reader, (string Name, JsonValueType ResultType)[] props, Stream stream)
 	{
 		var context = new ActionContext { HttpContext = new DefaultHttpContext() };
 		context.HttpContext.Response.Body = stream;
-		return DbComplexJsonResult.WriteResponseAsync(context, reader, props);
+		return DbJsonResult.WriteResponseAsync(context, reader, props);
 	}
 
 	[TestMethod]
@@ -59,7 +59,7 @@ public class DbComplexJsonResultTests
 		context.HttpContext.Response.Body = body;
 		context.HttpContext.Response.ContentLength = 1;
 
-		await DbComplexJsonResult.WriteResponseAsync(context, reader, props);
+		await DbJsonResult.WriteResponseAsync(context, reader, props);
 
 		var actual = Encoding.UTF8.GetString(body.ToArray());
 		Assert.AreEqual(expected, actual);
@@ -103,7 +103,7 @@ public class DbComplexJsonResultTests
 		var context = new ActionContext { HttpContext = new DefaultHttpContext() };
 		context.HttpContext.Response.Body = body;
 
-		await DbComplexJsonResult.WriteResponseAsync(context, reader, props);
+		await DbJsonResult.WriteResponseAsync(context, reader, props);
 
 		var json = Encoding.UTF8.GetString(body.ToArray());
 		using var doc = JsonDocument.Parse(json);
@@ -125,7 +125,7 @@ public class DbComplexJsonResultTests
 		var context = new ActionContext { HttpContext = new DefaultHttpContext() };
 		context.HttpContext.RequestAborted = new CancellationToken(true);
 		await Assert.ThrowsAsync<OperationCanceledException>(() =>
-			new DbComplexJsonResult("select 1", props).ExecuteResultAsync(context));
+			new DbJsonResult("select 1", props).ExecuteResultAsync(context));
 	}
 
 	[TestMethod]
@@ -136,13 +136,14 @@ public class DbComplexJsonResultTests
 			("id", JsonValueType.Value)
 		};
 
-		Assert.IsInstanceOfType<ActionResult>(new DbComplexJsonResult("select 1", props));
-		_ = new DbComplexJsonResult("dbo.Report", props, true);
-		_ = new DbComplexJsonResult("select @id", props, ("id", 1));
-		_ = new DbComplexJsonResult("dbo.Report", props, true, ("id", 1));
-		_ = new DbComplexJsonResult("select @id", props, false, new Microsoft.Data.SqlClient.SqlParameter("id", 1));
-		Assert.Throws<ArgumentException>(() => new DbComplexJsonResult(" ", props));
-		Assert.Throws<ArgumentNullException>(() => new DbComplexJsonResult("select 1", null));
+		Assert.IsInstanceOfType<ActionResult>(new DbJsonResult("select 1", result: props));
+		_ = new DbJsonResult("select 1", result: [("value", JsonValueType.Value)]);
+		_ = new DbJsonResult("dbo.Report", props, true);
+		_ = new DbJsonResult("select @id", props, ("id", 1));
+		_ = new DbJsonResult("dbo.Report", props, true, ("id", 1));
+		_ = new DbJsonResult("select @id", props, false, new Microsoft.Data.SqlClient.SqlParameter("id", 1));
+		Assert.Throws<ArgumentException>(() => new DbJsonResult(" ", props));
+		Assert.Throws<ArgumentNullException>(() => new DbJsonResult("select 1", result: null));
 	}
 
 	private sealed class AsyncOnlyStream : MemoryStream

@@ -37,7 +37,7 @@ public class ComplexJsonStreamTests
 		using var reader = ds.CreateDataReader();
 		using var stream = new MemoryStream();
 
-		await DbComplexJsonResultTests.WriteResponseAsync(reader, props, stream);
+		await DbJsonMultipleResultTests.WriteResponseAsync(reader, props, stream);
 
 		string json = Encoding.UTF8.GetString(stream.ToArray());
 		using var doc = JsonDocument.Parse(json);
@@ -94,10 +94,10 @@ public class ComplexJsonStreamTests
 		string expected = await stringReader.ReadJson(props);
 		Assert.IsNotNull(expected);
 
-		// 2. Stream to MemoryStream using DbComplexJsonResult
+		// 2. Stream to MemoryStream using DbJsonResult
 		using var streamReader = ds.CreateDataReader();
 		using var stream = new MemoryStream();
-		await DbComplexJsonResultTests.WriteResponseAsync(streamReader, props, stream);
+		await DbJsonMultipleResultTests.WriteResponseAsync(streamReader, props, stream);
 
 		Assert.IsTrue(stream.Length > 0);
 
@@ -179,7 +179,7 @@ public class ComplexJsonStreamTests
 				("test", JsonValueType.Value)
 		};
 
-		// Compile-time check: verifying Db.Json and DbComplexJsonResult calls compile without CS0121 ambiguity
+		// Compile-time check: verifying Db.Json and DbJsonResult calls compile without CS0121 ambiguity
 		Action compileCheck = () =>
 		{
 			_ = nuel.Db.Json("select 1", result: props);
@@ -191,11 +191,11 @@ public class ComplexJsonStreamTests
 			_ = nuel.Db.Json("select 1", props, ("p", 1));
 			_ = nuel.Db.Json("select 1", props, true, ("p", 1));
 			_ = nuel.Db.Json("select 1", props, true, new Microsoft.Data.SqlClient.SqlParameter("p", 1));
-			_ = new nuel.DbComplexJsonResult("select 1", props);
-			_ = new nuel.DbComplexJsonResult("select 1", props, true);
-			_ = new nuel.DbComplexJsonResult("select 1", props, ("p", 1));
-			_ = new nuel.DbComplexJsonResult("select 1", props, true, ("p", 1));
-			_ = new nuel.DbComplexJsonResult("select 1", props, true, new Microsoft.Data.SqlClient.SqlParameter("p", 1));
+			_ = new nuel.DbJsonResult("select 1", props);
+			_ = new nuel.DbJsonResult("select 1", props, true);
+			_ = new nuel.DbJsonResult("select 1", props, ("p", 1));
+			_ = new nuel.DbJsonResult("select 1", props, true, ("p", 1));
+			_ = new nuel.DbJsonResult("select 1", props, true, new Microsoft.Data.SqlClient.SqlParameter("p", 1));
 		};
 		Assert.IsNotNull(compileCheck);
 	}
@@ -216,7 +216,7 @@ public class ComplexJsonStreamTests
 		using var reader = ds.CreateDataReader();
 		using var stream = new AsyncOnlyStream();
 
-		await DbComplexJsonResultTests.WriteResponseAsync(reader, props, stream);
+		await DbJsonMultipleResultTests.WriteResponseAsync(reader, props, stream);
 		Assert.IsTrue(stream.Length > 0);
 	}
 
@@ -253,7 +253,7 @@ public class ComplexJsonStreamTests
 
 			using var streamReader = ds.CreateDataReader();
 			using var stream = new MemoryStream();
-			await DbComplexJsonResultTests.WriteResponseAsync(streamReader, props, stream);
+			await DbJsonMultipleResultTests.WriteResponseAsync(streamReader, props, stream);
 
 			string actual = Encoding.UTF8.GetString(stream.ToArray());
 			Assert.AreEqual(expected, actual);

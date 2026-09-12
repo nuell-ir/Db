@@ -304,14 +304,14 @@ string json = await Db.Json(query, result: resultTypes);
 
 The returned JSON object in the above example includes 4 properties, mapped to result sets in tuple-array order. Empty result sets become `null`, including those marked `Array`; a single-result `JsonValueType.Array` returns `[]` when empty.
 
-In ASP.NET Core MVC, return `DbComplexJsonResult` directly from a controller action:
+In ASP.NET Core MVC, return `DbJsonResult` directly from a controller action:
 
 ```c#
 public IActionResult Report()
-    => new DbComplexJsonResult(query, resultTypes);
+    => new DbJsonResult(query, result: resultTypes);
 ```
 
-`DbComplexJsonResult` uses `Db.ConnectionString` and executes the query when MVC processes the result. It streams the combined result sets as `application/json; charset=utf-8` directly to the response body, honoring request cancellation.
+`DbJsonResult` uses `Db.ConnectionString` and executes the query when MVC processes the result. It streams the combined result sets as `application/json; charset=utf-8` directly to the response body, honoring request cancellation.
 
 ## `Execute`
 

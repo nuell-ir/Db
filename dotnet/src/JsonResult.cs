@@ -6,15 +6,17 @@ using Microsoft.Data.SqlClient;
 
 namespace nuel;
 
-/// <summary>Streams a SQL Server query's first result set as UTF-8 JSON to an ASP.NET Core response.</summary>
+/// <summary>Streams SQL Server query results as UTF-8 JSON to an ASP.NET Core response.</summary>
 /// <remarks>
-/// Streams as JSON object or JSON array based on <see cref="JsonValueType"/>.
+/// A single <see cref="JsonValueType"/> streams the first result set as an object or array.
+/// A tuple array maps multiple result sets to named properties supporting Value, Object, Array, and Csv.
 /// The connection is opened when MVC executes the result and disposed after streaming.
 /// </remarks>
 public sealed class DbJsonResult : ActionResult
 {
 	private readonly string _query;
 	private readonly JsonValueType _result;
+	private readonly (string Name, JsonValueType ResultType)[] _results;
 	private readonly bool _isStoredProc;
 	private readonly SqlParameter[] _parameters;
 
@@ -80,6 +82,40 @@ public sealed class DbJsonResult : ActionResult
 	public DbJsonResult(string query, JsonValueType result, bool isStoredProc, params (string name, object value)[] parameters)
 		: this(query, result, isStoredProc, Data.SqlParams(parameters)) { }
 
+	/// <summary>Creates a streaming JSON result for multiple result sets without SQL parameters.</summary>
+	/// <param name="query">The SQL query or stored procedure name.</param>
+	/// <param name="result">An array of tuples defining property names and their corresponding result types.</param>
+	/// <param name="isStoredProc">Whether the query names a stored procedure.</param>
+	public DbJsonResult(string query, (string Name, JsonValueType ResultType)[] result, bool isStoredProc = false)
+		: this(query, result, isStoredProc, Data.NoParams) { }
+
+	/// <summary>Creates a streaming JSON result for multiple result sets using <see cref="Db.ConnectionString"/>.</summary>
+	/// <param name="query">The SQL query or stored procedure name.</param>
+	/// <param name="result">An array of tuples defining property names and their corresponding result types.</param>
+	/// <param name="isStoredProc">Whether the query names a stored procedure.</param>
+	/// <param name="parameters">The SQL parameters to apply to the command.</param>
+	public DbJsonResult(string query, (string Name, JsonValueType ResultType)[] result, bool isStoredProc, params SqlParameter[] parameters)
+		: this(query, JsonValueType.Object, isStoredProc, parameters)
+	{
+		ArgumentNullException.ThrowIfNull(result);
+		_results = result;
+	}
+
+	/// <summary>Creates a streaming JSON result for multiple result sets with named parameter values.</summary>
+	/// <param name="query">The SQL query.</param>
+	/// <param name="result">An array of tuples defining property names and their corresponding result types.</param>
+	/// <param name="parameters">The named parameter values.</param>
+	public DbJsonResult(string query, (string Name, JsonValueType ResultType)[] result, params (string name, object value)[] parameters)
+		: this(query, result, false, Data.SqlParams(parameters)) { }
+
+	/// <summary>Creates a streaming JSON result for multiple result sets from a query or stored procedure with named parameter values.</summary>
+	/// <param name="query">The SQL query or stored procedure name.</param>
+	/// <param name="result">An array of tuples defining property names and their corresponding result types.</param>
+	/// <param name="isStoredProc">Whether the query names a stored procedure.</param>
+	/// <param name="parameters">The named parameter values.</param>
+	public DbJsonResult(string query, (string Name, JsonValueType ResultType)[] result, bool isStoredProc, params (string name, object value)[] parameters)
+		: this(query, result, isStoredProc, Data.SqlParams(parameters)) { }
+
 	/// <summary>Executes the query and streams its rows as JSON, honoring request cancellation.</summary>
 	/// <param name="context">The MVC action context.</param>
 	public override async Task ExecuteResultAsync(ActionContext context)
@@ -95,8 +131,12 @@ public sealed class DbJsonResult : ActionResult
 		Data.AttachParams(command, _parameters);
 
 		await connection.OpenAsync(cancellationToken);
-		await using var reader = await command.ExecuteReaderAsync(CommandBehavior.SingleResult, cancellationToken);
-		await WriteResponseAsync(context, reader, _result);
+		var behavior = _results is null ? CommandBehavior.SingleResult : CommandBehavior.Default;
+		await using var reader = await command.ExecuteReaderAsync(behavior, cancellationToken);
+		if (_results is null)
+			await WriteResponseAsync(context, reader, _result);
+		else
+			await WriteResponseAsync(context, reader, _results);
 	}
 
 	internal static async Task WriteResponseAsync(ActionContext context, DbDataReader reader, JsonValueType result = JsonValueType.Object)
@@ -111,5 +151,17 @@ public sealed class DbJsonResult : ActionResult
 		await reader.ReadJson(result, writer, cancellationToken);
 		await writer.FlushAsync(cancellationToken);
 	}
-}
 
+	internal static async Task WriteResponseAsync(ActionContext context, DbDataReader reader, (string Name, JsonValueType ResultType)[] result)
+	{
+		var response = context.HttpContext.Response;
+		response.ContentType = "application/json; charset=utf-8";
+		response.ContentLength = null;
+		var cancellationToken = context.HttpContext.RequestAborted;
+		cancellationToken.ThrowIfCancellationRequested();
+
+		await using var writer = new Utf8JsonWriter(response.Body, Data.JsonWriterOptions);
+		await reader.ReadJson(result, writer, cancellationToken);
+		await writer.FlushAsync(cancellationToken);
+	}
+}
