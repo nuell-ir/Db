@@ -181,11 +181,15 @@ string json = await Db.Json($"select Id, Age from Customers", JsonValueType.Arra
 //[{"Id":1,"Age":24},{"Id":2,"Age":36},{"Id":3,"Age":31}]
 ```
 
-An optional `stream` parameter writes UTF-8 JSON directly to a stream (e.g. an HTTP `response.Body` or `FileStream`), reducing allocations by bypassing intermediate UTF-16 string conversion:
+In ASP.NET Core MVC, return `DbJsonResult` directly from a controller action:
 
 ```c#
-await Db.Json($"select Id, Age from Customers", response.Body, JsonValueType.Array);
+public IActionResult Customers()
+    => new DbJsonResult("select Id, Age from Customers", JsonValueType.Array);
 ```
+
+`DbJsonResult` uses `Db.ConnectionString` and executes the query when MVC processes the result. It streams the result set as `application/json; charset=utf-8` directly to the response body, honoring request cancellation.
+
 
 ## `JsonObject`
 

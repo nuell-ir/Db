@@ -197,17 +197,24 @@ public class JsonWriterTests
 	}
 
 	[TestMethod]
-	public void DbJson_StreamOverloads_ExistInDb()
+	public void DbJson_HasNoStreamOverloadsOnDb_AndAllReturnTaskString()
 	{
-		var asyncMethods = typeof(nuel.Db).GetMethods(BindingFlags.Public | BindingFlags.Static)
-			 .Where(m => m.Name == "Json" && m.GetParameters().Any(p => p.ParameterType == typeof(Stream)))
+		var jsonMethods = typeof(nuel.Db).GetMethods(BindingFlags.Public | BindingFlags.Static)
+			 .Where(m => m.Name == "Json")
 			 .ToList();
-		Assert.IsTrue(asyncMethods.Count >= 6, $"Expected at least 6 Json stream overloads, found {asyncMethods.Count}.");
+		Assert.IsTrue(jsonMethods.Count > 0, "Expected Json methods on Db.");
 
-		// Verify optional stream parameter on main Json overload
-		var asyncOptionalStreamMethod = typeof(nuel.Db).GetMethods(BindingFlags.Public | BindingFlags.Static)
-			 .FirstOrDefault(m => m.Name == "Json" && m.GetParameters().Length == 4 && m.GetParameters()[3].Name == "stream" && m.GetParameters()[3].IsOptional);
-		Assert.IsNotNull(asyncOptionalStreamMethod, "Expected Json method with optional stream parameter.");
+		// Verify no method takes a Stream
+		var asyncStreamMethods = jsonMethods
+			 .Where(m => m.GetParameters().Any(p => p.ParameterType == typeof(Stream)))
+			 .ToList();
+		Assert.AreEqual(0, asyncStreamMethods.Count, "Json should have no stream overloads on Db.");
+
+		// Verify all public Json methods return Task<string>
+		foreach (var m in jsonMethods)
+		{
+			Assert.AreEqual(typeof(Task<string>), m.ReturnType, $"Method {m} should return Task<string>.");
+		}
 
 		// Verify ComplexJson has no stream overloads
 		var asyncComplexMethods = typeof(nuel.Db).GetMethods(BindingFlags.Public | BindingFlags.Static)
