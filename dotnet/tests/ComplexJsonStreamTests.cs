@@ -37,8 +37,7 @@ public class ComplexJsonStreamTests
 		using var reader = ds.CreateDataReader();
 		using var stream = new MemoryStream();
 
-		var result = await reader.ReadComplexJson(props, stream);
-		Assert.IsNull(result);
+		await DbComplexJsonResultTests.WriteResponseAsync(reader, props, stream);
 
 		string json = Encoding.UTF8.GetString(stream.ToArray());
 		using var doc = JsonDocument.Parse(json);
@@ -92,15 +91,14 @@ public class ComplexJsonStreamTests
 
 		// 1. Get expected string from string path
 		using var stringReader = ds.CreateDataReader();
-		string expected = await stringReader.ReadComplexJson(props, stream: null);
+		string expected = await stringReader.ReadComplexJson(props);
 		Assert.IsNotNull(expected);
 
-		// 2. Stream to MemoryStream using the stream path
+		// 2. Stream to MemoryStream using DbComplexJsonResult
 		using var streamReader = ds.CreateDataReader();
 		using var stream = new MemoryStream();
-		string? result = await streamReader.ReadComplexJson(props, stream);
+		await DbComplexJsonResultTests.WriteResponseAsync(streamReader, props, stream);
 
-		Assert.IsNull(result);
 		Assert.IsTrue(stream.Length > 0);
 
 		string actual = Encoding.UTF8.GetString(stream.ToArray());
@@ -153,49 +151,46 @@ public class ComplexJsonStreamTests
 	}
 
 	[TestMethod]
-	public void DbComplexJson_StreamOverloads_ExistInDb()
+	public void DbComplexJson_NoStreamOverloads_InDb()
 	{
-		var asyncMethods = typeof(nuel.Db).GetMethods(BindingFlags.Public | BindingFlags.Static)
+		var streamMethods = typeof(nuel.Db).GetMethods(BindingFlags.Public | BindingFlags.Static)
 			 .Where(m => m.Name == "ComplexJson" && m.GetParameters().Any(p => p.ParameterType == typeof(Stream)))
 			 .ToList();
 
-		// Should have at least 5 stream-enabled overloads
-		Assert.IsTrue(asyncMethods.Count >= 5, $"Expected at least 5 ComplexJson stream overloads, found {asyncMethods.Count}.");
+		Assert.AreEqual(0, streamMethods.Count, "Db.ComplexJson should have no stream overloads.");
 
-		// Verify optional stream parameter on main ComplexJson overload: ComplexJson(string, props, bool, Stream)
-		var optionalStreamMethod = typeof(nuel.Db).GetMethods(BindingFlags.Public | BindingFlags.Static)
-			 .FirstOrDefault(m => m.Name == "ComplexJson" && m.GetParameters().Length == 4
-				  && m.GetParameters()[1].ParameterType == typeof((string Name, JsonValueType ResultType)[])
-				  && m.GetParameters()[2].ParameterType == typeof(bool)
-				  && m.GetParameters()[3].ParameterType == typeof(Stream)
-				  && m.GetParameters()[3].IsOptional);
-		Assert.IsNotNull(optionalStreamMethod, "Expected ComplexJson method with optional stream parameter.");
+		var allComplexMethods = typeof(nuel.Db).GetMethods(BindingFlags.Public | BindingFlags.Static)
+			 .Where(m => m.Name == "ComplexJson")
+			 .ToList();
 
-		// Verify stream-second overload: ComplexJson(string, Stream, props, bool)
-		var streamSecondMethod = typeof(nuel.Db).GetMethods(BindingFlags.Public | BindingFlags.Static)
-			 .FirstOrDefault(m => m.Name == "ComplexJson" && m.GetParameters().Length == 4
-				  && m.GetParameters()[1].ParameterType == typeof(Stream)
-				  && m.GetParameters()[2].ParameterType == typeof((string Name, JsonValueType ResultType)[]));
-		Assert.IsNotNull(streamSecondMethod, "Expected ComplexJson method with stream as second parameter.");
+		Assert.IsTrue(allComplexMethods.Count >= 4, "Db.ComplexJson should have at least 4 overloads.");
+		foreach (var method in allComplexMethods)
+		{
+			Assert.AreEqual(typeof(Task<string>), method.ReturnType, $"Overload {method} should return Task<string>");
+		}
 	}
 
 	[TestMethod]
-	public void DbComplexJson_NamedStreamCall_ResolvesUnambiguously()
+	public void DbComplexJson_Overloads_ResolveUnambiguously()
 	{
 		var props = new (string Name, JsonValueType ResultType)[]
 		{
 				("test", JsonValueType.Value)
 		};
 
-		// Compile-time check: verifying Db.ComplexJson calls compile without CS0121 ambiguity
+		// Compile-time check: verifying Db.ComplexJson and DbComplexJsonResult calls compile without CS0121 ambiguity
 		Action compileCheck = () =>
 		{
 			_ = nuel.Db.ComplexJson("select 1", props);
 			_ = nuel.Db.ComplexJson("select 1", props, true);
-			_ = nuel.Db.ComplexJson("select 1", props, stream: Stream.Null);
-			_ = nuel.Db.ComplexJson("select 1", props, true, Stream.Null);
-			_ = nuel.Db.ComplexJson("select 1", Stream.Null, props);
-			_ = nuel.Db.ComplexJson("select 1", Stream.Null, props, true);
+			_ = nuel.Db.ComplexJson("select 1", props, ("p", 1));
+			_ = nuel.Db.ComplexJson("select 1", props, true, ("p", 1));
+			_ = nuel.Db.ComplexJson("select 1", props, true, new Microsoft.Data.SqlClient.SqlParameter("p", 1));
+			_ = new nuel.DbComplexJsonResult("select 1", props);
+			_ = new nuel.DbComplexJsonResult("select 1", props, true);
+			_ = new nuel.DbComplexJsonResult("select 1", props, ("p", 1));
+			_ = new nuel.DbComplexJsonResult("select 1", props, true, ("p", 1));
+			_ = new nuel.DbComplexJsonResult("select 1", props, true, new Microsoft.Data.SqlClient.SqlParameter("p", 1));
 		};
 		Assert.IsNotNull(compileCheck);
 	}
@@ -216,8 +211,7 @@ public class ComplexJsonStreamTests
 		using var reader = ds.CreateDataReader();
 		using var stream = new AsyncOnlyStream();
 
-		var result = await reader.ReadComplexJson(props, stream);
-		Assert.IsNull(result);
+		await DbComplexJsonResultTests.WriteResponseAsync(reader, props, stream);
 		Assert.IsTrue(stream.Length > 0);
 	}
 
@@ -250,11 +244,11 @@ public class ComplexJsonStreamTests
 			};
 
 			using var stringReader = ds.CreateDataReader();
-			string expected = await stringReader.ReadComplexJson(props, stream: null);
+			string expected = await stringReader.ReadComplexJson(props);
 
 			using var streamReader = ds.CreateDataReader();
 			using var stream = new MemoryStream();
-			await streamReader.ReadComplexJson(props, stream);
+			await DbComplexJsonResultTests.WriteResponseAsync(streamReader, props, stream);
 
 			string actual = Encoding.UTF8.GetString(stream.ToArray());
 			Assert.AreEqual(expected, actual);

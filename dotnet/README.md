@@ -299,11 +299,15 @@ string json = await ComplexJson(query, resultTypes);
 ```
 
 The returned JSON object in the above example includes 4 properties with the names corresponding to those specified in the tuple.
-An optional `stream` parameter can also be supplied to write UTF-8 JSON directly to a stream:
+
+In ASP.NET Core MVC, return `DbComplexJsonResult` directly from a controller action:
 
 ```c#
-await Db.ComplexJson(query, response.Body, resultTypes);
+public IActionResult Report()
+    => new DbComplexJsonResult(query, resultTypes);
 ```
+
+`DbComplexJsonResult` uses `Db.ConnectionString` and executes the query when MVC processes the result. It streams the combined result sets as `application/json; charset=utf-8` directly to the response body, honoring request cancellation.
 
 ## `Execute`
 

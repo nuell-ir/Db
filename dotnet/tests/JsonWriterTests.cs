@@ -209,11 +209,11 @@ public class JsonWriterTests
 			 .FirstOrDefault(m => m.Name == "Json" && m.GetParameters().Length == 4 && m.GetParameters()[3].Name == "stream" && m.GetParameters()[3].IsOptional);
 		Assert.IsNotNull(asyncOptionalStreamMethod, "Expected Json method with optional stream parameter.");
 
-		// Verify ComplexJson stream overloads
+		// Verify ComplexJson has no stream overloads
 		var asyncComplexMethods = typeof(nuel.Db).GetMethods(BindingFlags.Public | BindingFlags.Static)
 			 .Where(m => m.Name == "ComplexJson" && m.GetParameters().Any(p => p.ParameterType == typeof(Stream)))
 			 .ToList();
-		Assert.IsTrue(asyncComplexMethods.Count >= 4, $"Expected at least 4 ComplexJson stream overloads, found {asyncComplexMethods.Count}.");
+		Assert.AreEqual(0, asyncComplexMethods.Count, "ComplexJson should have no stream overloads on Db.");
 	}
 
 	[TestMethod]
