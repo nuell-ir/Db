@@ -98,11 +98,14 @@ string csv = await Db.Csv("select * from Employees");
 //!Id~$FullName~#BirthDate~^IsMarried|1~Loraine Bickerdicke~777497400~1|2~Shelley Askem~723673800~0
 ```
 
-An optional `stream` parameter writes UTF-8 CSV directly to a stream (e.g. an HTTP `response.Body` or `FileStream`), reducing allocations by automatically buffering and bypassing intermediate UTF-16 string conversion:
+In ASP.NET Core MVC, return `DbCsvResult` directly from a controller action:
 
 ```c#
-await Db.Csv("select * from Employees", response.Body);
+public IActionResult Employees(int departmentId)
+    => new DbCsvResult("select * from Employees where DepartmentId = @id", ("id", departmentId));
 ```
+
+`DbCsvResult` uses `Db.ConnectionString` and executes the query when MVC processes the result. It streams the first result set as `text/csv; charset=utf-8`, preserves the custom format below, and returns an empty body when there are no rows. Request cancellation is passed to database operations and response writes. Use `isStoredProc: true` for stored procedures. The library references the `Microsoft.AspNetCore.App` shared framework, which must be available in consuming applications.
 
 Please note that the standard comma and new line characters have been replaced by tilde (~) and vertical line (|) respectively in order to avoid conflicts with typical texts. 
 

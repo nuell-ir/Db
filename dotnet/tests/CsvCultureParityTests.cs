@@ -137,7 +137,7 @@ public class CsvCultureParityTests
 
 			var baselineDt = CreateParityDataTable();
 			using var baselineStringReader = baselineDt.CreateDataReader();
-			string invariantExpected = await baselineStringReader.ReadCsv(null);
+			string invariantExpected = await baselineStringReader.ReadCsv();
 
 			Assert.IsNotNull(invariantExpected);
 			Assert.IsFalse(invariantExpected.Contains('\u2212'), "Invariant string should not contain U+2212 minus sign.");
@@ -153,12 +153,12 @@ public class CsvCultureParityTests
 
 				// 1. String path
 				using var stringReader = dt.CreateDataReader();
-				string stringOutput = await stringReader.ReadCsv(null);
+				string stringOutput = await stringReader.ReadCsv();
 
 				// 2. Stream path
 				using var streamReader = dt.CreateDataReader();
 				using var stream = new MemoryStream();
-				await streamReader.ReadCsv(stream);
+				await DbCsvResultTests.WriteResponseAsync(streamReader, stream);
 				string streamOutput = Encoding.UTF8.GetString(stream.ToArray());
 
 				// Parity check between string and streaming under this culture

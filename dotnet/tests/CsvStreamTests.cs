@@ -9,7 +9,7 @@ namespace Db.Tests;
 public class CsvStreamTests
 {
 	[TestMethod]
-	public async Task ReadCsv_Stream_NullWhenNoRows()
+	public async Task DbCsvResult_Stream_EmptyWhenNoRows()
 	{
 		var dt = new DataTable();
 		dt.Columns.Add("Id", typeof(int));
@@ -18,14 +18,13 @@ public class CsvStreamTests
 		using var reader = dt.CreateDataReader();
 		using var stream = new MemoryStream();
 
-		var result = await reader.ReadCsv(stream);
+		await DbCsvResultTests.WriteResponseAsync(reader, stream);
 
-		Assert.IsNull(result);
 		Assert.AreEqual(0, stream.Length);
 	}
 
 	[TestMethod]
-	public async Task ReadCsv_Stream_ProducesIdenticalOutputToString_ForAllTypes()
+	public async Task DbCsvResult_Stream_ProducesIdenticalOutputToString_ForAllTypes()
 	{
 		var guid = Guid.NewGuid();
 		var now = DateTime.UtcNow;
@@ -87,15 +86,14 @@ public class CsvStreamTests
 
 		// 1. Get expected string using the string path
 		using var stringReader = dt.CreateDataReader();
-		string expected = await stringReader.ReadCsv(null);
+		string expected = await stringReader.ReadCsv();
 		Assert.IsNotNull(expected);
 
 		// 2. Stream to MemoryStream using the stream path
 		using var streamReader = dt.CreateDataReader();
 		using var stream = new MemoryStream();
-		string? result = await streamReader.ReadCsv(stream);
+		await DbCsvResultTests.WriteResponseAsync(streamReader, stream);
 
-		Assert.IsNull(result);
 		Assert.IsTrue(stream.Length > 0);
 
 		string actual = Encoding.UTF8.GetString(stream.ToArray());
@@ -104,7 +102,7 @@ public class CsvStreamTests
 	}
 
 	[TestMethod]
-	public async Task ReadCsv_Stream_BuffersAndFlushesLargeDataset()
+	public async Task DbCsvResult_Stream_BuffersAndFlushesLargeDataset()
 	{
 		var dt = new DataTable();
 		dt.Columns.Add("Id", typeof(int));
@@ -119,11 +117,11 @@ public class CsvStreamTests
 		}
 
 		using var stringReader = dt.CreateDataReader();
-		string expected = await stringReader.ReadCsv(null);
+		string expected = await stringReader.ReadCsv();
 
 		using var streamReader = dt.CreateDataReader();
 		using var stream = new MemoryStream();
-		await streamReader.ReadCsv(stream);
+		await DbCsvResultTests.WriteResponseAsync(streamReader, stream);
 
 		string actual = Encoding.UTF8.GetString(stream.ToArray());
 
@@ -132,7 +130,7 @@ public class CsvStreamTests
 	}
 
 	[TestMethod]
-	public async Task ReadCsv_Stream_LargeColumn_EnsuresCapacity()
+	public async Task DbCsvResult_Stream_LargeColumn_EnsuresCapacity()
 	{
 		var dt = new DataTable();
 		dt.Columns.Add("Id", typeof(int));
@@ -143,11 +141,11 @@ public class CsvStreamTests
 		dt.Rows.Add(1, hugeText);
 
 		using var stringReader = dt.CreateDataReader();
-		string expected = await stringReader.ReadCsv(null);
+		string expected = await stringReader.ReadCsv();
 
 		using var streamReader = dt.CreateDataReader();
 		using var stream = new MemoryStream();
-		await streamReader.ReadCsv(stream);
+		await DbCsvResultTests.WriteResponseAsync(streamReader, stream);
 
 		string actual = Encoding.UTF8.GetString(stream.ToArray());
 
@@ -156,41 +154,31 @@ public class CsvStreamTests
 	}
 
 	[TestMethod]
-	public void DbCsv_StreamOverloads_ExistInDb()
+	public void DbCsv_Overloads_ReturnStringsAndHaveNoStreamParameters()
 	{
-		var asyncMethods = typeof(nuel.Db).GetMethods(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static)
-			 .Where(m => m.Name == "Csv" && m.GetParameters().Any(p => p.ParameterType == typeof(Stream)))
-			 .ToList();
-		Assert.IsTrue(asyncMethods.Count >= 4, $"Expected at least 4 Csv stream overloads, found {asyncMethods.Count}.");
+		var methods = typeof(nuel.Db).GetMethods()
+			.Where(m => m.Name == "Csv").ToArray();
+		Assert.AreEqual(5, methods.Length);
+		foreach (var method in methods)
+		{
+			Assert.IsFalse(method.GetParameters().Any(p => typeof(Stream).IsAssignableFrom(p.ParameterType)));
+			Assert.IsTrue(method.ReturnType == typeof(string) || method.ReturnType == typeof(Task<string>));
+		}
 
-		// Verify stream-second overload: Csv(string, Stream, bool)
-		var streamSecondMethod = typeof(nuel.Db).GetMethods(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static)
-			 .FirstOrDefault(m => m.Name == "Csv" && m.GetParameters().Length == 3 && m.GetParameters()[1].ParameterType == typeof(Stream) && m.GetParameters()[2].Name == "isStoredProc");
-		Assert.IsNotNull(streamSecondMethod, "Expected Csv method with stream as second parameter.");
-
-		// Verify original overload: Csv(string, bool) preserving binary compatibility
-		var originalMethod = typeof(nuel.Db).GetMethods(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static)
-			 .FirstOrDefault(m => m.Name == "Csv" && m.GetParameters().Length == 2 && m.GetParameters()[0].ParameterType == typeof(string) && m.GetParameters()[1].ParameterType == typeof(bool));
-		Assert.IsNotNull(originalMethod, "Expected original Csv(string, bool) method.");
-	}
-
-	[TestMethod]
-	public void DbCsv_NamedStreamCall_ResolvesUnambiguously()
-	{
-		// Compile-time check: verifying Db.Csv calls compile without CS0121 ambiguity
+		// Compile-time coverage without executing database queries.
 		Action compileCheck = () =>
 		{
-			_ = nuel.Db.Csv("select 1", stream: Stream.Null);
 			_ = nuel.Db.Csv("select 1");
-			_ = nuel.Db.Csv("select 1", true);
-			_ = nuel.Db.Csv("select 1", Stream.Null);
-			_ = nuel.Db.Csv("select 1", Stream.Null, true);
+			_ = nuel.Db.Csv("dbo.Report", true);
+			_ = nuel.Db.Csv("select @id", ("id", 1));
+			_ = nuel.Db.Csv("dbo.Report", true, ("id", 1));
+			_ = nuel.Db.Csv("select @id", false, new Microsoft.Data.SqlClient.SqlParameter("id", 1));
 		};
 		Assert.IsNotNull(compileCheck);
 	}
 
 	[TestMethod]
-	public async Task ReadCsv_Stream_SmallDataset_MatchesStringPath()
+	public async Task DbCsvResult_Stream_SmallDataset_MatchesStringPath()
 	{
 		var dt = new DataTable();
 		dt.Columns.Add("Id", typeof(int));
@@ -206,18 +194,18 @@ public class CsvStreamTests
 		}
 
 		using var stringReader = dt.CreateDataReader();
-		string expected = await stringReader.ReadCsv(null);
+		string expected = await stringReader.ReadCsv();
 
 		using var streamReader = dt.CreateDataReader();
 		using var stream = new MemoryStream();
-		await streamReader.ReadCsv(stream);
+		await DbCsvResultTests.WriteResponseAsync(streamReader, stream);
 
 		string actual = Encoding.UTF8.GetString(stream.ToArray());
 		Assert.AreEqual(expected, actual);
 	}
 
 	[TestMethod]
-	public async Task ReadCsv_Stream_HundredsOfConsecutiveSmallQueries_MatchesStringPath()
+	public async Task DbCsvResult_Stream_HundredsOfConsecutiveSmallQueries_MatchesStringPath()
 	{
 		for (int q = 0; q < 100; q++)
 		{
@@ -232,11 +220,11 @@ public class CsvStreamTests
 			}
 
 			using var stringReader = dt.CreateDataReader();
-			string expected = await stringReader.ReadCsv(null);
+			string expected = await stringReader.ReadCsv();
 
 			using var streamReader = dt.CreateDataReader();
 			using var stream = new MemoryStream();
-			await streamReader.ReadCsv(stream);
+			await DbCsvResultTests.WriteResponseAsync(streamReader, stream);
 
 			string actual = Encoding.UTF8.GetString(stream.ToArray());
 			Assert.AreEqual(expected, actual);
