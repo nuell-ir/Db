@@ -158,22 +158,6 @@ const parser = {
 };
 ```
 
-## `MultiCsv`
-
-In case your query returns more than one result, use `MultiCsv` to return a string array containing CSV values of the results. For example:
-
-```c#
-string[] results = await Db.MultiCsv("select * from Employees; select * from Customers");
-```
-
-The returned array has two elements containing Employees and Customers CSV values.
-
-An optional `stream` parameter writes UTF-8 CSV directly to a stream (e.g. an HTTP `response.Body` or `FileStream`), writing each result set delimited by a newline (`\n`):
-
-```c#
-await Db.MultiCsv("select * from Employees; select * from Customers", response.Body);
-```
-
 ## `Json`
 
 Converts the query result to JSON.

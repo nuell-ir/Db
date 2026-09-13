@@ -94,30 +94,6 @@ const skuMap = mapFromCsv<Product, string>(csv, 'Sku');
 console.log(skuMap.get('PROD-A1'));
 ```
 
-### 3. Parsing Multiple Resultsets (`parseMultiCsv`)
-
-Directly matches C#'s `Db.MultiCsv`:
-
-```typescript
-import { parseMultiCsv } from '@nuell/db';
-
-interface Order {
-  OrderId: number;
-  Total: number;
-}
-
-interface Item {
-  ItemId: number;
-  OrderId: number;
-  Qty: number;
-}
-
-const response = await fetch('/api/orders-and-items');
-const multiCsv = await response.text();
-
-const [orders, items] = parseMultiCsv<[Order[], Item[]]>(multiCsv);
-```
-
 ---
 
 ## ⚙️ Options

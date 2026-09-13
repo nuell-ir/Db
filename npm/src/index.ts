@@ -1,2 +1,2 @@
-export { parseCsv, mapFromCsv, parseMultiCsv } from './parser.ts';
+export { parseCsv, mapFromCsv } from './parser.ts';
 export type { ParseCsvOptions, ColumnTypeFlag } from './types.ts';

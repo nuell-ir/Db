@@ -1,6 +1,6 @@
 {
   "name": "@nuell/db",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "High-performance TypeScript/JavaScript CSV parser for data produced by C# nuel.Db",
   "type": "module",
   "main": "./dist/index.cjs",

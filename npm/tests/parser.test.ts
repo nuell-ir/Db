@@ -1,6 +1,6 @@
 import test, { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { parseCsv, mapFromCsv, parseMultiCsv } from '../src/index.ts';
+import { parseCsv, mapFromCsv } from '../src/index.ts';
 
 describe('parseCsv', () => {
 	it('should return empty array for null, undefined, or empty string', () => {
@@ -157,27 +157,3 @@ describe('mapFromCsv', () => {
 	});
 });
 
-describe('parseMultiCsv', () => {
-	it('should handle array of CSV strings', () => {
-		const ds1 = '!Id~$Name|1~Alice';
-		const ds2 = '!OrderId~%Total|10~99.50';
-		const result = parseMultiCsv([ds1, ds2]);
-		assert.equal(result.length, 2);
-		assert.deepEqual(result[0], [{ Id: 1, Name: 'Alice' }]);
-		assert.deepEqual(result[1], [{ OrderId: 10, Total: 99.50 }]);
-	});
-
-	it('should handle newline-separated stream string from Db.MultiCsv', () => {
-		const multiCsvStream = '!Id~$Name|1~Alice\n!OrderId~%Total|10~99.50\r\n';
-		const result = parseMultiCsv(multiCsvStream);
-		assert.equal(result.length, 2);
-		assert.deepEqual(result[0], [{ Id: 1, Name: 'Alice' }]);
-		assert.deepEqual(result[1], [{ OrderId: 10, Total: 99.50 }]);
-	});
-
-	it('should return empty array for null or empty input', () => {
-		assert.deepEqual(parseMultiCsv(), []);
-		assert.deepEqual(parseMultiCsv(null), []);
-		assert.deepEqual(parseMultiCsv(''), []);
-	});
-});

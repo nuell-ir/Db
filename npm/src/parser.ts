@@ -137,21 +137,3 @@ export function mapFromCsv<T = Record<string, unknown>, K = number | string>(
 
 	return map;
 }
-
-export function parseMultiCsv<T extends unknown[] = Record<string, unknown>[][]>(
-	csv?: string | string[] | null,
-	options?: ParseCsvOptions
-): T {
-	if (!csv) return [] as unknown as T;
-
-	if (Array.isArray(csv)) {
-		return csv.map((singleCsv) => parseCsv(singleCsv, options)) as unknown as T;
-	}
-
-	if (typeof csv === 'string') {
-		const datasets = csv.split(/\r?\n/).filter((s) => s.trim().length > 0);
-		return datasets.map((singleCsv) => parseCsv(singleCsv, options)) as unknown as T;
-	}
-
-	return [] as unknown as T;
-}
