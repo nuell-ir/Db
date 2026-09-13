@@ -13,8 +13,8 @@ public class DbJsonMultipleResultTests
 {
 	internal static Task WriteResponseAsync(System.Data.Common.DbDataReader reader, (string Name, JsonValueType ResultType)[] props, Stream stream)
 	{
-		var context = new ActionContext { HttpContext = new DefaultHttpContext() };
-		context.HttpContext.Response.Body = stream;
+		var context = new DefaultHttpContext();
+		context.Response.Body = stream;
 		return DbJsonResult.WriteResponseAsync(context, reader, props);
 	}
 
@@ -55,16 +55,16 @@ public class DbJsonMultipleResultTests
 
 		using var reader = ds.CreateDataReader();
 		using var body = new AsyncOnlyStream();
-		var context = new ActionContext { HttpContext = new DefaultHttpContext() };
-		context.HttpContext.Response.Body = body;
-		context.HttpContext.Response.ContentLength = 1;
+		var context = new DefaultHttpContext();
+		context.Response.Body = body;
+		context.Response.ContentLength = 1;
 
 		await DbJsonResult.WriteResponseAsync(context, reader, props);
 
 		var actual = Encoding.UTF8.GetString(body.ToArray());
 		Assert.AreEqual(expected, actual);
-		Assert.AreEqual("application/json; charset=utf-8", context.HttpContext.Response.ContentType);
-		Assert.IsNull(context.HttpContext.Response.ContentLength);
+		Assert.AreEqual("application/json; charset=utf-8", context.Response.ContentType);
+		Assert.IsNull(context.Response.ContentLength);
 		Assert.IsTrue(body.CanWrite);
 
 		using var doc = JsonDocument.Parse(actual);
@@ -100,8 +100,8 @@ public class DbJsonMultipleResultTests
 
 		using var reader = ds.CreateDataReader();
 		using var body = new MemoryStream();
-		var context = new ActionContext { HttpContext = new DefaultHttpContext() };
-		context.HttpContext.Response.Body = body;
+		var context = new DefaultHttpContext();
+		context.Response.Body = body;
 
 		await DbJsonResult.WriteResponseAsync(context, reader, props);
 
@@ -129,6 +129,30 @@ public class DbJsonMultipleResultTests
 	}
 
 	[TestMethod]
+	public async Task ExecuteAsync_CancelledRequest_DoesNotOpenDatabase()
+	{
+		var props = new (string Name, JsonValueType ResultType)[]
+		{
+			("count", JsonValueType.Value)
+		};
+		var context = new DefaultHttpContext { RequestAborted = new CancellationToken(true) };
+		IResult result = new DbJsonResult("select 1", props);
+		await Assert.ThrowsAsync<OperationCanceledException>(() => result.ExecuteAsync(context));
+	}
+
+	[TestMethod]
+	public async Task Execute_NullContexts_ThrowArgumentNullException()
+	{
+		var props = new (string Name, JsonValueType ResultType)[]
+		{
+			("count", JsonValueType.Value)
+		};
+		var result = new DbJsonResult("select 1", props);
+		Assert.Throws<ArgumentNullException>(() => result.ExecuteResultAsync(null!));
+		await Assert.ThrowsAsync<ArgumentNullException>(() => result.ExecuteAsync(null!));
+	}
+
+	[TestMethod]
 	public void Constructors_SupportQueriesProceduresAndParameters()
 	{
 		var props = new (string Name, JsonValueType ResultType)[]
@@ -137,6 +161,7 @@ public class DbJsonMultipleResultTests
 		};
 
 		Assert.IsInstanceOfType<ActionResult>(new DbJsonResult("select 1", result: props));
+		Assert.IsInstanceOfType<IResult>(new DbJsonResult("select 1", result: props));
 		_ = new DbJsonResult("select 1", result: [("value", JsonValueType.Value)]);
 		_ = new DbJsonResult("dbo.Report", props, true);
 		_ = new DbJsonResult("select @id", props, ("id", 1));

@@ -98,6 +98,15 @@ string csv = await Db.Csv("select * from Employees");
 //!Id~$FullName~#BirthDate~^IsMarried|1~Loraine Bickerdicke~777497400~1|2~Shelley Askem~723673800~0
 ```
 
+`DbCsvResult` supports both Minimal APIs (`IResult`) and MVC (`ActionResult`).
+
+In a Minimal API, return it directly from a route handler:
+
+```c#
+app.MapGet("/employees", (int departmentId) =>
+    new DbCsvResult("select * from Employees where DepartmentId = @id", ("id", departmentId)));
+```
+
 In ASP.NET Core MVC, return `DbCsvResult` directly from a controller action:
 
 ```c#
@@ -105,7 +114,7 @@ public IActionResult Employees(int departmentId)
     => new DbCsvResult("select * from Employees where DepartmentId = @id", ("id", departmentId));
 ```
 
-`DbCsvResult` uses `Db.ConnectionString` and executes the query when MVC processes the result. It streams the first result set as `text/csv; charset=utf-8`, preserves the custom format below, and returns an empty body when there are no rows. Request cancellation is passed to database operations and response writes. Use `isStoredProc: true` for stored procedures. The library references the `Microsoft.AspNetCore.App` shared framework, which must be available in consuming applications.
+`DbCsvResult` uses `Db.ConnectionString` and executes the query when ASP.NET Core processes the result. It streams the first result set as `text/csv; charset=utf-8`, preserves the custom format below, and returns an empty body when there are no rows. Request cancellation is passed to database operations and response writes. Use `isStoredProc: true` for stored procedures. The library references the `Microsoft.AspNetCore.App` shared framework, which must be available in consuming applications.
 
 Please note that the standard comma and new line characters have been replaced by tilde (~) and vertical line (|) respectively in order to avoid conflicts with typical texts. 
 
@@ -181,6 +190,15 @@ string json = await Db.Json($"select Id, Age from Customers", JsonValueType.Arra
 //[{"Id":1,"Age":24},{"Id":2,"Age":36},{"Id":3,"Age":31}]
 ```
 
+`DbJsonResult` supports both Minimal APIs (`IResult`) and MVC (`ActionResult`).
+
+In a Minimal API, return it directly from a route handler:
+
+```c#
+app.MapGet("/customers", () =>
+    new DbJsonResult("select Id, Age from Customers", JsonValueType.Array));
+```
+
 In ASP.NET Core MVC, return `DbJsonResult` directly from a controller action:
 
 ```c#
@@ -188,7 +206,7 @@ public IActionResult Customers()
     => new DbJsonResult("select Id, Age from Customers", JsonValueType.Array);
 ```
 
-`DbJsonResult` uses `Db.ConnectionString` and executes the query when MVC processes the result. It streams the result set as `application/json; charset=utf-8` directly to the response body, honoring request cancellation.
+`DbJsonResult` uses `Db.ConnectionString` and executes the query when ASP.NET Core processes the result. It streams the result set as `application/json; charset=utf-8` directly to the response body, honoring request cancellation.
 
 
 ## `JsonObject`
@@ -304,6 +322,13 @@ string json = await Db.Json(query, result: resultTypes);
 
 The returned JSON object in the above example includes 4 properties, mapped to result sets in tuple-array order. Empty result sets become `null`, including those marked `Array`; a single-result `JsonValueType.Array` returns `[]` when empty.
 
+In a Minimal API, return it directly from a route handler:
+
+```c#
+app.MapGet("/report", () =>
+    new DbJsonResult(query, result: resultTypes));
+```
+
 In ASP.NET Core MVC, return `DbJsonResult` directly from a controller action:
 
 ```c#
@@ -311,7 +336,7 @@ public IActionResult Report()
     => new DbJsonResult(query, result: resultTypes);
 ```
 
-`DbJsonResult` uses `Db.ConnectionString` and executes the query when MVC processes the result. It streams the combined result sets as `application/json; charset=utf-8` directly to the response body, honoring request cancellation.
+`DbJsonResult` uses `Db.ConnectionString` and executes the query when ASP.NET Core processes the result. It streams the combined result sets as `application/json; charset=utf-8` directly to the response body, honoring request cancellation.
 
 ## `Execute`
 

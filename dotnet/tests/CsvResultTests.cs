@@ -12,8 +12,8 @@ public class DbCsvResultTests
 {
 	internal static Task WriteResponseAsync(System.Data.Common.DbDataReader reader, Stream stream)
 	{
-		var context = new ActionContext { HttpContext = new DefaultHttpContext() };
-		context.HttpContext.Response.Body = stream;
+		var context = new DefaultHttpContext();
+		context.Response.Body = stream;
 		return DbCsvResult.WriteResponseAsync(context, reader);
 	}
 
@@ -31,15 +31,15 @@ public class DbCsvResultTests
 		var expected = await expectedReader.ReadCsv();
 		using var reader = table.CreateDataReader();
 		using var body = new AsyncOnlyStream();
-		var context = new ActionContext { HttpContext = new DefaultHttpContext() };
-		context.HttpContext.Response.Body = body;
-		context.HttpContext.Response.ContentLength = 1;
+		var context = new DefaultHttpContext();
+		context.Response.Body = body;
+		context.Response.ContentLength = 1;
 
 		await DbCsvResult.WriteResponseAsync(context, reader);
 
 		Assert.AreEqual(expected, Encoding.UTF8.GetString(body.ToArray()));
-		Assert.AreEqual("text/csv; charset=utf-8", context.HttpContext.Response.ContentType);
-		Assert.IsNull(context.HttpContext.Response.ContentLength);
+		Assert.AreEqual("text/csv; charset=utf-8", context.Response.ContentType);
+		Assert.IsNull(context.Response.ContentLength);
 		Assert.IsTrue(body.CanWrite);
 		Assert.IsTrue(body.Writes > 1);
 	}
@@ -51,8 +51,8 @@ public class DbCsvResultTests
 		table.Columns.Add("Id", typeof(int));
 		using var reader = table.CreateDataReader();
 		using var body = new MemoryStream();
-		var context = new ActionContext { HttpContext = new DefaultHttpContext() };
-		context.HttpContext.Response.Body = body;
+		var context = new DefaultHttpContext();
+		context.Response.Body = body;
 		await DbCsvResult.WriteResponseAsync(context, reader);
 		Assert.AreEqual(0L, body.Length);
 	}
@@ -64,6 +64,22 @@ public class DbCsvResultTests
 		context.HttpContext.RequestAborted = new CancellationToken(true);
 		await Assert.ThrowsAsync<OperationCanceledException>(() =>
 			new DbCsvResult("select 1").ExecuteResultAsync(context));
+	}
+
+	[TestMethod]
+	public async Task ExecuteAsync_CancelledRequest_DoesNotOpenDatabase()
+	{
+		var context = new DefaultHttpContext { RequestAborted = new CancellationToken(true) };
+		IResult result = new DbCsvResult("select 1");
+		await Assert.ThrowsAsync<OperationCanceledException>(() => result.ExecuteAsync(context));
+	}
+
+	[TestMethod]
+	public async Task Execute_NullContexts_ThrowArgumentNullException()
+	{
+		var result = new DbCsvResult("select 1");
+		Assert.Throws<ArgumentNullException>(() => result.ExecuteResultAsync(null!));
+		await Assert.ThrowsAsync<ArgumentNullException>(() => result.ExecuteAsync(null!));
 	}
 
 	[TestMethod]

@@ -1,5 +1,6 @@
 using System.Data;
 using System.Data.Common;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.SqlClient;
 
@@ -10,9 +11,9 @@ namespace nuel;
 /// Uses the same custom format as <see cref="Db.Csv(string, bool)"/>:
 /// type-prefixed headers, ~ column separators, | row separators, and Ø for nulls.
 /// This is not comma-delimited CSV. Empty results produce an empty response body.
-/// The connection is opened when MVC executes the result and disposed after streaming.
+/// The connection is opened when ASP.NET Core executes the result and disposed after streaming.
 /// </remarks>
-public sealed class DbCsvResult : ActionResult
+public sealed class DbCsvResult : ActionResult, IResult
 {
 	private readonly string _query;
 	private readonly bool _isStoredProc;
@@ -51,10 +52,18 @@ public sealed class DbCsvResult : ActionResult
 
 	/// <summary>Executes the query and streams its rows, honoring request cancellation.</summary>
 	/// <param name="context">The MVC action context.</param>
-	public override async Task ExecuteResultAsync(ActionContext context)
+	public override Task ExecuteResultAsync(ActionContext context)
 	{
 		ArgumentNullException.ThrowIfNull(context);
-		var cancellationToken = context.HttpContext.RequestAborted;
+		return ExecuteAsync(context.HttpContext);
+	}
+
+	/// <summary>Executes the query and streams its rows, honoring request cancellation.</summary>
+	/// <param name="context">The HTTP context.</param>
+	public async Task ExecuteAsync(HttpContext context)
+	{
+		ArgumentNullException.ThrowIfNull(context);
+		var cancellationToken = context.RequestAborted;
 		cancellationToken.ThrowIfCancellationRequested();
 
 		await using var connection = new SqlConnection(Data.ConnectionString);
@@ -68,12 +77,12 @@ public sealed class DbCsvResult : ActionResult
 		await WriteResponseAsync(context, reader);
 	}
 
-	internal static async Task WriteResponseAsync(ActionContext context, DbDataReader reader)
+	internal static async Task WriteResponseAsync(HttpContext context, DbDataReader reader)
 	{
-		var response = context.HttpContext.Response;
+		var response = context.Response;
 		response.ContentType = "text/csv; charset=utf-8";
 		response.ContentLength = null;
-		var cancellationToken = context.HttpContext.RequestAborted;
+		var cancellationToken = context.RequestAborted;
 		cancellationToken.ThrowIfCancellationRequested();
 		if (!await reader.ReadAsync(cancellationToken))
 			return;

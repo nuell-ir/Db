@@ -1,6 +1,7 @@
 using System.Data;
 using System.Data.Common;
 using System.Text.Json;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.SqlClient;
 
@@ -10,9 +11,9 @@ namespace nuel;
 /// <remarks>
 /// A single <see cref="JsonValueType"/> streams the first result set as an object or array.
 /// A tuple array maps multiple result sets to named properties supporting Value, Object, Array, and Csv.
-/// The connection is opened when MVC executes the result and disposed after streaming.
+/// The connection is opened when ASP.NET Core executes the result and disposed after streaming.
 /// </remarks>
-public sealed class DbJsonResult : ActionResult
+public sealed class DbJsonResult : ActionResult, IResult
 {
 	private readonly string _query;
 	private readonly JsonValueType _result;
@@ -118,10 +119,18 @@ public sealed class DbJsonResult : ActionResult
 
 	/// <summary>Executes the query and streams its rows as JSON, honoring request cancellation.</summary>
 	/// <param name="context">The MVC action context.</param>
-	public override async Task ExecuteResultAsync(ActionContext context)
+	public override Task ExecuteResultAsync(ActionContext context)
 	{
 		ArgumentNullException.ThrowIfNull(context);
-		var cancellationToken = context.HttpContext.RequestAborted;
+		return ExecuteAsync(context.HttpContext);
+	}
+
+	/// <summary>Executes the query and streams its rows as JSON, honoring request cancellation.</summary>
+	/// <param name="context">The HTTP context.</param>
+	public async Task ExecuteAsync(HttpContext context)
+	{
+		ArgumentNullException.ThrowIfNull(context);
+		var cancellationToken = context.RequestAborted;
 		cancellationToken.ThrowIfCancellationRequested();
 
 		await using var connection = new SqlConnection(Data.ConnectionString);
@@ -139,12 +148,12 @@ public sealed class DbJsonResult : ActionResult
 			await WriteResponseAsync(context, reader, _results);
 	}
 
-	internal static async Task WriteResponseAsync(ActionContext context, DbDataReader reader, JsonValueType result = JsonValueType.Object)
+	internal static async Task WriteResponseAsync(HttpContext context, DbDataReader reader, JsonValueType result = JsonValueType.Object)
 	{
-		var response = context.HttpContext.Response;
+		var response = context.Response;
 		response.ContentType = "application/json; charset=utf-8";
 		response.ContentLength = null;
-		var cancellationToken = context.HttpContext.RequestAborted;
+		var cancellationToken = context.RequestAborted;
 		cancellationToken.ThrowIfCancellationRequested();
 
 		await using var writer = new Utf8JsonWriter(response.Body, Data.JsonWriterOptions);
@@ -152,12 +161,12 @@ public sealed class DbJsonResult : ActionResult
 		await writer.FlushAsync(cancellationToken);
 	}
 
-	internal static async Task WriteResponseAsync(ActionContext context, DbDataReader reader, (string Name, JsonValueType ResultType)[] result)
+	internal static async Task WriteResponseAsync(HttpContext context, DbDataReader reader, (string Name, JsonValueType ResultType)[] result)
 	{
-		var response = context.HttpContext.Response;
+		var response = context.Response;
 		response.ContentType = "application/json; charset=utf-8";
 		response.ContentLength = null;
-		var cancellationToken = context.HttpContext.RequestAborted;
+		var cancellationToken = context.RequestAborted;
 		cancellationToken.ThrowIfCancellationRequested();
 
 		await using var writer = new Utf8JsonWriter(response.Body, Data.JsonWriterOptions);
