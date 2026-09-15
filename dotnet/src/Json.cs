@@ -206,7 +206,7 @@ public static partial class Db
 	/// <returns>A task representing the asynchronous operation, returning a JSON string representing the query results.</returns>
 	public static async Task<string> Json(string query, JsonValueType result, bool isStoredProc, params SqlParameter[] parameters)
 	{
-		using var connection = new SqlConnection(Data.ConnectionString);
+		await using var connection = new SqlConnection(Data.ConnectionString);
 		using var cmd = new SqlCommand(query, connection);
 		if (isStoredProc)
 			cmd.CommandType = CommandType.StoredProcedure;
@@ -294,7 +294,7 @@ public static partial class Db
 	/// <returns>A task representing the asynchronous operation, returning a JSON string of the combined results.</returns>
 	public static async Task<string> Json(string query, (string Name, JsonValueType ResultType)[] result, bool isStoredProc, params SqlParameter[] parameters)
 	{
-		using var connection = new SqlConnection(Data.ConnectionString);
+		await using var connection = new SqlConnection(Data.ConnectionString);
 		using var cmd = new SqlCommand(query, connection);
 		if (isStoredProc)
 			cmd.CommandType = CommandType.StoredProcedure;

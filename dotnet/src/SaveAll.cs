@@ -409,7 +409,7 @@ public static partial class Db
 
 	private static async Task<int> SaveAllInternal(string query)
 	{
-		using var connection = new SqlConnection(Data.ConnectionString);
+		await using var connection = new SqlConnection(Data.ConnectionString);
 		using var cmd = new SqlCommand(query, connection);
 		await connection.OpenAsync();
 		return await cmd.ExecuteNonQueryAsync();

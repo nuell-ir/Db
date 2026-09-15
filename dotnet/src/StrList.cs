@@ -34,7 +34,7 @@ public static partial class Db
 	/// <returns>A task representing the asynchronous operation, returning a <see cref="System.Collections.Generic.List{String}"/> containing the values of the first column, or null if no rows were returned.</returns>
 	public static async Task<List<string>> StrList(string query, bool isStoredProc, params SqlParameter[] parameters)
 	{
-		using var connection = new SqlConnection(Data.ConnectionString);
+		await using var connection = new SqlConnection(Data.ConnectionString);
 		using var cmd = new SqlCommand(query, connection);
 		if (isStoredProc)
 			cmd.CommandType = CommandType.StoredProcedure;

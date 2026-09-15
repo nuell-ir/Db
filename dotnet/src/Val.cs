@@ -38,7 +38,7 @@ public static partial class Db
 	/// <returns>A task representing the asynchronous operation, returning the scalar value of type <typeparamref name="T"/>, or default(<typeparamref name="T"/>) if null or DBNull.</returns>
 	public async static Task<T> Val<T>(string query, bool isStoredProc, params SqlParameter[] parameters) where T : struct
 	{
-		using var connection = new SqlConnection(Data.ConnectionString);
+		await using var connection = new SqlConnection(Data.ConnectionString);
 		using var cmd = new SqlCommand(query, connection);
 		if (isStoredProc)
 			cmd.CommandType = CommandType.StoredProcedure;

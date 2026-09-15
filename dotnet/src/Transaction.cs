@@ -49,7 +49,7 @@ public static partial class Db
 	{
 		if (query == null)
 			return null;
-		using var connection = new SqlConnection(Data.ConnectionString);
+		await using var connection = new SqlConnection(Data.ConnectionString);
 		using var cmd = new SqlCommand(query, connection);
 		if (isStoredProc)
 			cmd.CommandType = CommandType.StoredProcedure;
@@ -71,7 +71,7 @@ public static partial class Db
 		if (queries == null)
 			return null;
 		var result = queries.TryGetNonEnumeratedCount(out int count) ? new List<int>(count) : new List<int>();
-		using var connection = new SqlConnection(Data.ConnectionString);
+		await using var connection = new SqlConnection(Data.ConnectionString);
 		using var cmd = connection.CreateCommand();
 		await connection.OpenAsync();
 		using var transaction = connection.BeginTransaction();
@@ -93,7 +93,7 @@ public static partial class Db
 		if (commands == null)
 			return null;
 		var result = commands.TryGetNonEnumeratedCount(out int count) ? new List<int>(count) : new List<int>();
-		using var connection = new SqlConnection(Data.ConnectionString);
+		await using var connection = new SqlConnection(Data.ConnectionString);
 		await connection.OpenAsync();
 		using var transaction = connection.BeginTransaction();
 		foreach (var (query, parameters) in commands)
@@ -121,7 +121,7 @@ public static partial class Db
 		if (commands == null)
 			return null;
 		var result = commands.TryGetNonEnumeratedCount(out int count) ? new List<int>(count) : new List<int>();
-		using var connection = new SqlConnection(Data.ConnectionString);
+		await using var connection = new SqlConnection(Data.ConnectionString);
 		await connection.OpenAsync();
 		using var transaction = connection.BeginTransaction();
 		foreach (var (query, parameters) in commands)
@@ -149,7 +149,7 @@ public static partial class Db
 		if (commands == null)
 			return null;
 		var result = commands.TryGetNonEnumeratedCount(out int count) ? new List<int>(count) : new List<int>();
-		using var connection = new SqlConnection(Data.ConnectionString);
+		await using var connection = new SqlConnection(Data.ConnectionString);
 		await connection.OpenAsync();
 		using var transaction = connection.BeginTransaction();
 		foreach (var (query, isStoredProc, parameters) in commands)
@@ -179,7 +179,7 @@ public static partial class Db
 		if (commands == null)
 			return null;
 		var result = commands.TryGetNonEnumeratedCount(out int count) ? new List<int>(count) : new List<int>();
-		using var connection = new SqlConnection(Data.ConnectionString);
+		await using var connection = new SqlConnection(Data.ConnectionString);
 		await connection.OpenAsync();
 		using var transaction = connection.BeginTransaction();
 		foreach (var (query, isStoredProc, parameters) in commands)
@@ -209,7 +209,7 @@ public static partial class Db
 		if (commands == null)
 			return null;
 		var result = commands.TryGetNonEnumeratedCount(out int count) ? new List<int>(count) : new List<int>();
-		using var connection = new SqlConnection(Data.ConnectionString);
+		await using var connection = new SqlConnection(Data.ConnectionString);
 		await connection.OpenAsync();
 		using var transaction = connection.BeginTransaction();
 		foreach (var cmd in commands)

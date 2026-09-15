@@ -248,7 +248,7 @@ public static partial class Db
 
 	private static async Task<int> Save(SaveParams param)
 	{
-		using var connection = new SqlConnection(Data.ConnectionString);
+		await using var connection = new SqlConnection(Data.ConnectionString);
 		using var cmd = new SqlCommand(param.Query, connection);
 		if (param.SqlParams.Length > 0)
 			cmd.Parameters.AddRange(param.SqlParams);
