@@ -65,9 +65,46 @@ public class JsonWriterTests
 
 		Assert.AreEqual(42, root.GetProperty("intVal").GetInt32());
 		Assert.AreEqual(guid, root.GetProperty("guidVal").GetGuid());
+		Assert.AreEqual(dto.ToUnixTimeSeconds(), root.GetProperty("dtoVal").GetInt64());
 		Assert.AreEqual(ts.ToString(), root.GetProperty("tsVal").GetString());
 		Assert.AreEqual(Convert.ToBase64String(bytes), root.GetProperty("byteVal").GetString());
 		Assert.AreEqual(JsonValueKind.Null, root.GetProperty("nullVal").ValueKind);
+	}
+
+	[TestMethod]
+	[DataRow(DataSetDateTime.Utc)]
+	[DataRow(DataSetDateTime.Local)]
+	[DataRow(DataSetDateTime.Unspecified)]
+	public async Task ReadJson_Dates_MatchCsvUnixSeconds(DataSetDateTime dateTimeMode)
+	{
+		var table = new DataTable();
+		table.Columns.Add("Date", typeof(DateTime)).DateTimeMode = dateTimeMode;
+		table.Columns.Add("Offset", typeof(DateTimeOffset));
+		var instant = DateTimeOffset.UnixEpoch.AddMilliseconds(-500);
+		table.Rows.Add(instant.UtcDateTime, instant.ToOffset(TimeSpan.FromHours(3.5)));
+		table.Rows.Add(DateTime.UnixEpoch.AddMilliseconds(1500), DateTimeOffset.UnixEpoch.AddMilliseconds(1500));
+		table.Rows.Add(DBNull.Value, DBNull.Value);
+
+		using var reader = table.CreateDataReader();
+		using var stream = new MemoryStream();
+		using (var writer = new Utf8JsonWriter(stream))
+			await reader.ReadJson(JsonValueType.Array, writer);
+
+		using var doc = JsonDocument.Parse(stream.ToArray());
+		for (int i = 0; i < 2; i++)
+		{
+			var row = doc.RootElement[i];
+			Assert.AreEqual(new DateTimeOffset((DateTime)table.Rows[i][0]).ToUnixTimeSeconds(), row.GetProperty("Date").GetInt64());
+			Assert.AreEqual(i == 0 ? -1L : 1L, row.GetProperty("Offset").GetInt64());
+			using var csvReader = table.CreateDataReader();
+			for (int j = 0; j <= i; j++)
+				Assert.IsTrue(csvReader.Read());
+			var csv = new StringBuilder();
+			csv.WriteCsvRow(csvReader, new[] { typeof(DateTime), typeof(DateTimeOffset) });
+			Assert.AreEqual($"|{row.GetProperty("Date").GetInt64()}~{row.GetProperty("Offset").GetInt64()}", csv.ToString());
+		}
+		Assert.AreEqual(JsonValueKind.Null, doc.RootElement[2].GetProperty("Date").ValueKind);
+		Assert.AreEqual(JsonValueKind.Null, doc.RootElement[2].GetProperty("Offset").ValueKind);
 	}
 
 	[TestMethod]

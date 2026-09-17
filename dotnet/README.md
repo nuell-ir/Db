@@ -160,11 +160,12 @@ const parser = {
 
 ## `Json`
 
-Converts the query result to JSON.
+Converts the query result to JSON. `Db.Json` and `DbJsonResult` serialize `DateTime` and `DateTimeOffset` as numeric Unix timestamps in seconds, matching CSV. This replaces the previous date/time strings. `DateTime` values use the same timezone interpretation as CSV: UTC values remain UTC, while local and unspecified values use the local timezone.
 
 ```c#
 string json = await Db.Json($"select * from Customers where Id={id}");
-//{"Id":1,"FullName":"Loraine Bickerdicke","BirthDate":"1994-08-22","IsMarried":true}
+//{"Id":1,"FullName":"Loraine Bickerdicke","BirthDate":777513600,"IsMarried":true}
+// BirthDate above assumes midnight UTC on 1994-08-22.
 ```
 
 The default result is a JSON object. However, using an optional parameter you may require a JSON array result.

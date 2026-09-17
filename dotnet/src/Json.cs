@@ -108,7 +108,7 @@ public static partial class Data
 				writer.WriteNumberValue(reader.GetDecimal(columnIndex));
 				return;
 			case JsonColType.DateTime:
-				writer.WriteStringValue(reader.GetDateTime(columnIndex));
+				writer.WriteNumberValue(new DateTimeOffset(reader.GetDateTime(columnIndex)).ToUnixTimeSeconds());
 				return;
 			case JsonColType.Boolean:
 				writer.WriteBooleanValue(reader.GetBoolean(columnIndex));
@@ -120,7 +120,7 @@ public static partial class Data
 				writer.WriteStringValue(reader.GetGuid(columnIndex));
 				return;
 			case JsonColType.DateTimeOffset:
-				writer.WriteStringValue(reader is SqlDataReader sdr ? sdr.GetDateTimeOffset(columnIndex) : reader.GetFieldValue<DateTimeOffset>(columnIndex));
+				writer.WriteNumberValue((reader is SqlDataReader sdr ? sdr.GetDateTimeOffset(columnIndex) : reader.GetFieldValue<DateTimeOffset>(columnIndex)).ToUnixTimeSeconds());
 				return;
 			case JsonColType.TimeSpan:
 				TimeSpan ts = reader is SqlDataReader tsSdr ? tsSdr.GetTimeSpan(columnIndex) : reader.GetFieldValue<TimeSpan>(columnIndex);
