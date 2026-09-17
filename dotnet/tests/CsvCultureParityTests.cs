@@ -56,7 +56,7 @@ public class CsvCultureParityTests
 		dt.Columns.Add("BoolCol", typeof(bool));
 		dt.Columns.Add("StringCol", typeof(string));
 
-		// Row 1: Negative numbers and pre-1970 dates (negative Unix timestamps)
+		// Row 1: Negative numbers and pre-1970 dates
 		var preEpochDate = new DateTime(1965, 3, 14, 12, 0, 0, DateTimeKind.Utc);
 		var preEpochDto = new DateTimeOffset(1950, 1, 1, 0, 0, 0, TimeSpan.Zero);
 		var negativeTs = TimeSpan.FromHours(-2.5);
@@ -224,8 +224,8 @@ public class CsvCultureParityTests
 			Assert.IsFalse(invariantCsv.Contains('\u2212'), "Invariant CSV should not contain U+2212 minus sign.");
 			Assert.IsTrue(invariantCsv.Contains("-42"), "Invariant CSV should contain ASCII '-' for -42.");
 			Assert.IsTrue(invariantCsv.Contains("-1234567890123"), "Invariant CSV should contain ASCII '-' for long.");
-			Assert.IsTrue(invariantCsv.Contains(new DateTimeOffset(preEpochDate).ToUnixTimeSeconds().ToString(CultureInfo.InvariantCulture)),
-				 "Invariant CSV should contain pre-1970 Unix timestamp with ASCII '-'.");
+			Assert.IsTrue(invariantCsv.Contains(preEpochDate.ToString("yyyy-MM-dd'T'HH:mm:ss", CultureInfo.InvariantCulture)),
+				 "Invariant CSV should contain an ISO date with ASCII '-'.");
 
 			foreach (var cultureName in CulturesToTest)
 			{

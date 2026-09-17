@@ -3,6 +3,17 @@ import assert from 'node:assert/strict';
 import { parseCsv, mapFromCsv } from '../src/index.ts';
 
 describe('parseCsv', () => {
+	it('should parse ISO date fields with explicit offsets and local wall-clock values', () => {
+		const csv = '#Local~#Offset~#Missing|2026-09-17T12:30:00.1234567~2026-09-17T12:30:00.1234567-04:00~Ø';
+		const expectedLocal = new Date(2026, 8, 17, 12, 30, 0, 123).getTime();
+		const expectedOffset = Date.UTC(2026, 8, 17, 16, 30, 0, 123);
+		assert.deepEqual(parseCsv(csv), [{ Local: new Date(expectedLocal), Offset: new Date(expectedOffset), Missing: null }]);
+		const dates = parseCsv<{ Local: Date; Offset: Date; Missing: null }>(csv);
+		assert.equal(dates[0].Local.getTime(), expectedLocal);
+		assert.equal(dates[0].Offset.getTime(), expectedOffset);
+		assert.equal(dates[0].Missing, null);
+	});
+
 	it('should distinguish missing, empty, and null fields and ignore extra fields', () => {
 		assert.deepEqual(parseCsv('$A~$B~$C|x|x~|x~~|~Ø~z~ignored||\r\n'), [
 			{ A: 'x', B: null, C: null },
@@ -14,7 +25,7 @@ describe('parseCsv', () => {
 
 	it('should preserve numeric prefix parsing and invalid-number handling', () => {
 		assert.deepEqual(parseCsv('!Id~%Rate~#Created|12x~1.5x~123x|bad~~Ø'), [
-			{ Id: 12, Rate: 1.5, Created: 123000 },
+			{ Id: 12, Rate: 1.5, Created: null },
 			{ Id: null, Rate: null, Created: null }
 		]);
 	});
@@ -37,14 +48,14 @@ describe('parseCsv', () => {
 
 	it('should correctly parse all supported data types', () => {
 		const csv = '!Id~$Name~%Rate~^IsActive~#Created~ØNullCol' +
-			'|1~Widget~19.99~1~1757419200~Ø';
+			'|1~Widget~19.99~1~2025-09-09T12:00:00.0000000+00:00~Ø';
 
 		interface Item {
 			Id: number;
 			Name: string;
 			Rate: number;
 			IsActive: boolean;
-			Created: number;
+			Created: Date;
 			NullCol: unknown;
 		}
 
@@ -55,7 +66,7 @@ describe('parseCsv', () => {
 			Name: 'Widget',
 			Rate: 19.99,
 			IsActive: true,
-			Created: 1757419200000,
+			Created: new Date('2025-09-09T12:00:00Z'),
 			NullCol: null
 		});
 	});
@@ -81,22 +92,22 @@ describe('parseCsv', () => {
 		const guid = '11111111-2222-3333-4444-555555555555';
 		const timespan = '01:30:00';
 		const base64 = 'AQIDBA==';
-		const unixSec = 1757419200;
+		const isoDate = "2025-09-09T12:00:00.0000000+00:00";
 
 		const csv = '!Id~$Name~$UniqueId~#Timestamp~$Duration~$Data~%Rate~^IsActive~#Created~!NullableInt' +
-			`|1~Item 1~${guid}~${unixSec}~${timespan}~${base64}~3.14~1~${unixSec}~Ø` +
-			`|2~Ø~00000000-0000-0000-0000-000000000000~${unixSec}~00:00:00~Ø~0.5~0~${unixSec}~42`;
+			`|1~Item 1~${guid}~${isoDate}~${timespan}~${base64}~3.14~1~${isoDate}~Ø` +
+			`|2~Ø~00000000-0000-0000-0000-000000000000~${isoDate}~00:00:00~Ø~0.5~0~${isoDate}~42`;
 
 		interface AllTypes {
 			Id: number;
 			Name: string | null;
 			UniqueId: string;
-			Timestamp: number;
+			Timestamp: Date;
 			Duration: string;
 			Data: string | null;
 			Rate: number;
 			IsActive: boolean;
-			Created: number;
+			Created: Date;
 			NullableInt: number | null;
 		}
 
@@ -122,13 +133,13 @@ describe('parseCsv', () => {
 		assert.equal(result[1].NullableInt, 42);
 	});
 
-	it('should support dateMode: "date" to return Date objects', () => {
-		const unixSec = 1757419200; // 2025-09-09T12:00:00Z
-		const csv = '!Id~#Created|1~' + unixSec;
-		const result = parseCsv<{ Id: number; Created: Date }>(csv, { dateMode: 'date' });
+	it('should return Date objects for date fields', () => {
+		const isoDate = "2025-09-09T12:00:00.0000000+00:00"; // 2025-09-09T12:00:00Z
+		const csv = '!Id~#Created|1~' + isoDate;
+		const result = parseCsv<{ Id: number; Created: Date }>(csv);
 		assert.equal(result.length, 1);
 		assert.ok(result[0].Created instanceof Date);
-		assert.equal(result[0].Created.getTime(), unixSec * 1000);
+		assert.equal(result[0].Created.getTime(), Date.parse(isoDate));
 	});
 
 	it('should handle trailing pipe and trailing newlines gracefully', () => {

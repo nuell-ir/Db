@@ -63,7 +63,7 @@ All the methods are static.
 
 ## `Csv`
 
-Converts the query result or an object array to a CSV string, which drastically reduces response size, in comparison to JSON values.
+Converts the query result or an object array to a CSV string, which reduces response size compared with JSON. Date columns keep the `#` flag and serialize as ISO 8601 strings with second precision (fractional seconds are omitted, not rounded). `DateTime` preserves the wall-clock value without a timezone suffix, regardless of `Kind`; `DateTimeOffset` preserves its explicit offset. No timezone conversion is performed. Consumers must parse these strings instead of Unix timestamps.
 
 For instance, let's retrieve the following data in a SQL Server table named Employees:
 
@@ -95,7 +95,7 @@ The `Csv` method returns the result of the given query as a CSV string.
 
 ```c#
 string csv = await Db.Csv("select * from Employees");
-//!Id~$FullName~#BirthDate~^IsMarried|1~Loraine Bickerdicke~777497400~1|2~Shelley Askem~723673800~0
+//!Id~$FullName~#BirthDate~^IsMarried|1~Loraine Bickerdicke~1994-08-22T00:00:00~1|2~Shelley Askem~1992-12-07T00:00:00~0
 ```
 
 `DbCsvResult` supports both Minimal APIs (`IResult`) and MVC (`ActionResult`).
@@ -126,46 +126,35 @@ Moreover, column names have been flagged with the following type markers:
 | !      | integer    |
 | %      | float      |
 | ^      | boolean    |
-| #      | date/time  |
+| #      | ISO 8601 date/time string |
 
-The returned CSV value may be parsed in the front-end as a JavaScript array of objects using the following function:
+Parse the returned CSV with [`@nuell/db`](../npm/README.md). Both `parseCsv` and `mapFromCsv` convert `#` fields to JavaScript `Date` objects; invalid, missing, or null date values become `null`.
 
 ```typescript
-function parseCsv<T>(csv: string): T[] {
-    const output: T[] = [];
-    if (!csv)
-        return output;
-    const rows = csv.split('|');
-    const rowCount = rows.length;
-    const headers = rows[0].split('~');
-    const headerCount = headers.length;
-    for (let i = 1; i < rowCount; i++) {
-        const obj: T = {} as T;
-        const values = rows[i].split('~');
-        for (let h = 0; h < headerCount; h++)
-            obj[headers[h].slice(1)] = values[h] == 'Ø' ? null : parser[headers[h][0]](values[h]);
-        output.push(obj);
-    }
-    return output;
+import { parseCsv, mapFromCsv } from '@nuell/db';
+
+interface Employee {
+    Id: number;
+    FullName: string;
+    BirthDate: Date | null;
+    IsMarried: boolean;
 }
 
-const parser = {
-    '$': (val: string) => val,
-    '!': (val: string) => parseInt(val),
-    '%': (val: string) => parseFloat(val),
-    '^': (val: string) => val == '1',
-    '#': (val: string) => new Date(parseInt(val) * 1000),
-};
+const employees = parseCsv<Employee>(csv);
+const employeesById = mapFromCsv<Employee>(csv, 'Id');
 ```
+
+`parseCsv(csv)` returns an array. `mapFromCsv(csv, keyColumn?)` returns a map keyed by the first column unless a column name or index is supplied. Neither function accepts parsing options or a row callback; there is no Unix timestamp mode.
+
+Offset-free date/time strings are interpreted in the JavaScript runtime's local timezone. Explicit offsets identify an instant, but JavaScript `Date` does not retain the original offset and preserves only millisecond precision.
 
 ## `Json`
 
-Converts the query result to JSON. `Db.Json` and `DbJsonResult` serialize `DateTime` and `DateTimeOffset` as numeric Unix timestamps in seconds, matching CSV. This replaces the previous date/time strings. `DateTime` values use the same timezone interpretation as CSV: UTC values remain UTC, while local and unspecified values use the local timezone.
+Converts the query result to JSON. `Db.Json` and `DbJsonResult` serialize dates as ISO 8601 strings, matching CSV: `DateTime` has no timezone suffix, and `DateTimeOffset` retains its explicit offset. Both omit fractional seconds without rounding or timezone conversion. Browser JSON parsing leaves these values as strings. Calling `new Date(value)` interprets offset-free date/time strings in the browser's local timezone; keep them as strings to preserve wall-clock semantics.
 
 ```c#
 string json = await Db.Json($"select * from Customers where Id={id}");
-//{"Id":1,"FullName":"Loraine Bickerdicke","BirthDate":777513600,"IsMarried":true}
-// BirthDate above assumes midnight UTC on 1994-08-22.
+//{"Id":1,"FullName":"Loraine Bickerdicke","BirthDate":"1994-08-22T00:00:00","IsMarried":true}
 ```
 
 The default result is a JSON object. However, using an optional parameter you may require a JSON array result.

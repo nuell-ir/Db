@@ -153,8 +153,7 @@ public static partial class CsvWriter
 						str.Append(span[..wDec]);
 						break;
 					case CsvColType.DateTime:
-						long dtSec = new DateTimeOffset(reader.GetDateTime(i)).ToUnixTimeSeconds();
-						dtSec.TryFormat(span, out int wDt, default, CultureInfo.InvariantCulture);
+						reader.GetDateTime(i).TryFormat(span, out int wDt, "yyyy-MM-dd'T'HH:mm:ss", CultureInfo.InvariantCulture);
 						str.Append(span[..wDt]);
 						break;
 					case CsvColType.Boolean:
@@ -168,8 +167,7 @@ public static partial class CsvWriter
 						str.Append(span[..wGuid]);
 						break;
 					case CsvColType.DateTimeOffset:
-						long dtoSec = (reader is SqlDataReader sdr ? sdr.GetDateTimeOffset(i) : reader.GetFieldValue<DateTimeOffset>(i)).ToUnixTimeSeconds();
-						dtoSec.TryFormat(span, out int wDto, default, CultureInfo.InvariantCulture);
+						(reader is SqlDataReader sdr ? sdr.GetDateTimeOffset(i) : reader.GetFieldValue<DateTimeOffset>(i)).TryFormat(span, out int wDto, "yyyy-MM-dd'T'HH:mm:sszzz", CultureInfo.InvariantCulture);
 						str.Append(span[..wDto]);
 						break;
 					case CsvColType.TimeSpan:
@@ -258,13 +256,12 @@ public static partial class Db
 
 					if (val is DateTime dt)
 					{
-						long dtSec = new DateTimeOffset(dt).ToUnixTimeSeconds();
-						dtSec.TryFormat(span, out int written, default, CultureInfo.InvariantCulture);
+						dt.TryFormat(span, out int written, "yyyy-MM-dd'T'HH:mm:ss", CultureInfo.InvariantCulture);
 						str.Append(span[..written]);
 					}
 					else if (val is DateTimeOffset dto)
 					{
-						dto.ToUnixTimeSeconds().TryFormat(span, out int written, default, CultureInfo.InvariantCulture);
+						dto.TryFormat(span, out int written, "yyyy-MM-dd'T'HH:mm:sszzz", CultureInfo.InvariantCulture);
 						str.Append(span[..written]);
 					}
 					else if (val is bool b)

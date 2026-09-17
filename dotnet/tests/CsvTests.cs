@@ -117,7 +117,7 @@ public class CsvTests
 		Assert.IsTrue(csv.Contains("11111111-2222-3333-4444-555555555555"));
 		Assert.IsTrue(csv.Contains("01:30:00"));
 		Assert.IsTrue(csv.Contains(Convert.ToBase64String(bytes)));
-		Assert.IsTrue(csv.Contains(dto.ToUnixTimeSeconds().ToString()));
+		Assert.IsTrue(csv.Contains(dto.ToString("yyyy-MM-dd'T'HH:mm:sszzz", CultureInfo.InvariantCulture)));
 
 		// Row 2 checks (nulls rendered as Ø)
 		var rows = csv.Split('|');

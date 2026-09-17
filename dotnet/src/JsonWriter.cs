@@ -1,4 +1,5 @@
 using System.Data.Common;
+using System.Globalization;
 using System.Text.Json;
 using Microsoft.Data.SqlClient;
 
@@ -105,7 +106,10 @@ public static partial class Data
 				writer.WriteNumberValue(reader.GetDecimal(columnIndex));
 				return;
 			case JsonColType.DateTime:
-				writer.WriteNumberValue(new DateTimeOffset(reader.GetDateTime(columnIndex)).ToUnixTimeSeconds());
+				// SQL date/time values carry no timezone; preserve their wall-clock value.
+				Span<char> dateSpan = stackalloc char[33];
+				reader.GetDateTime(columnIndex).TryFormat(dateSpan, out int dateWritten, "yyyy-MM-dd'T'HH:mm:ss", CultureInfo.InvariantCulture);
+				writer.WriteStringValue(dateSpan[..dateWritten]);
 				return;
 			case JsonColType.Boolean:
 				writer.WriteBooleanValue(reader.GetBoolean(columnIndex));
@@ -117,7 +121,9 @@ public static partial class Data
 				writer.WriteStringValue(reader.GetGuid(columnIndex));
 				return;
 			case JsonColType.DateTimeOffset:
-				writer.WriteNumberValue((reader is SqlDataReader sdr ? sdr.GetDateTimeOffset(columnIndex) : reader.GetFieldValue<DateTimeOffset>(columnIndex)).ToUnixTimeSeconds());
+				Span<char> offsetSpan = stackalloc char[33];
+				(reader is SqlDataReader sdr ? sdr.GetDateTimeOffset(columnIndex) : reader.GetFieldValue<DateTimeOffset>(columnIndex)).TryFormat(offsetSpan, out int offsetWritten, "yyyy-MM-dd'T'HH:mm:sszzz", CultureInfo.InvariantCulture);
+				writer.WriteStringValue(offsetSpan[..offsetWritten]);
 				return;
 			case JsonColType.TimeSpan:
 				TimeSpan ts = reader is SqlDataReader tsSdr ? tsSdr.GetTimeSpan(columnIndex) : reader.GetFieldValue<TimeSpan>(columnIndex);

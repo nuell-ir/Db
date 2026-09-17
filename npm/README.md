@@ -25,7 +25,7 @@ The `nuel.Db` format solves this by:
 | `%` | `float`, `double`, `decimal` | `number` (float) |
 | `^` | `bool` (`1` / `0`) | `boolean` (`true` / `false`) |
 | `$` | `string`, `char`, `Guid`, `TimeSpan`, `byte[]` (base64) | `string` |
-| `#` | `DateTime`, `DateTimeOffset` (Unix seconds) | `number` (epoch ms) or `Date` |
+| `#` | `DateTime`, `DateTimeOffset` (ISO 8601 string) | `Date` |
 | `Ø` | `DBNull` / `null` | `null` |
 
 ---
@@ -57,7 +57,7 @@ interface User {
   Name: string;
   Balance: number;
   IsActive: boolean;
-  CreatedAt: number; // epoch ms
+  CreatedAt: Date;
 }
 
 // Fetch CSV from ASP.NET Core backend
@@ -66,9 +66,10 @@ const csv = await response.text();
 
 const users = parseCsv<User>(csv);
 console.log(users);
+// Example values for offset-free CreatedAt fields:
 // [
-//   { Id: 1, Name: 'Alice', Balance: 150.5, IsActive: true, CreatedAt: 1757419200000 },
-//   { Id: 2, Name: 'Bob', Balance: 0.0, IsActive: false, CreatedAt: 1757419200000 }
+//   { Id: 1, Name: 'Alice', Balance: 150.5, IsActive: true, CreatedAt: new Date('2025-09-09T12:00:00') },
+//   { Id: 2, Name: 'Bob', Balance: 0.0, IsActive: false, CreatedAt: new Date('2025-09-09T12:00:00') }
 // ]
 ```
 
@@ -96,16 +97,30 @@ console.log(skuMap.get('PROD-A1'));
 
 ---
 
-## ⚙️ Options
-
-### Parsing Dates as JavaScript `Date` Objects
-
-By default, `#` fields return milliseconds since Unix epoch (`number`) for fastest performance and serialization. If you want native `Date` instances:
+## API
 
 ```typescript
-const users = parseCsv<User>(csv, { dateMode: 'date' });
+parseCsv<T = Record<string, unknown>>(csv?: string | null): T[]
+mapFromCsv<T = Record<string, unknown>, K = number | string>(
+  csv?: string | null,
+  keyColumn?: string | number
+): Map<K, T>
+```
+
+Both functions return their results directly and accept no parsing options or row callback. `mapFromCsv` uses the first column as its key by default; `keyColumn` can be a column name or zero-based index. Empty input returns an empty array or map.
+
+### Date handling
+
+The `#` fields contain ISO 8601 strings with second precision (fractional seconds are omitted, not rounded). The backend emits `DateTime` without a timezone suffix and `DateTimeOffset` with its stored offset, without timezone conversion. The parser always converts valid values to JavaScript `Date` objects; invalid, missing, or null values become `null`. Offset-free date/time strings are interpreted in the browser's local timezone; explicit offsets identify an instant. JavaScript dates retain only millisecond precision and do not retain the original offset.
+
+```typescript
+const users = parseCsv<User>(csv);
 console.log(users[0].CreatedAt instanceof Date); // true
 ```
+
+JSON responses differ: `response.json()` leaves ISO dates as strings. CSV responses should be read with `response.text()` and passed to this parser.
+
+When upgrading from the numeric date format, update the backend and parser together. Remove `ParseCsvOptions`, `dateMode`, and options arguments from calling code. There is no Unix timestamp mode; model date fields as `Date` (or `Date | null` for nullable fields).
 
 ---
 

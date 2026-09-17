@@ -65,7 +65,7 @@ public class JsonWriterTests
 
 		Assert.AreEqual(42, root.GetProperty("intVal").GetInt32());
 		Assert.AreEqual(guid, root.GetProperty("guidVal").GetGuid());
-		Assert.AreEqual(dto.ToUnixTimeSeconds(), root.GetProperty("dtoVal").GetInt64());
+		Assert.AreEqual(dto.ToString("yyyy-MM-dd'T'HH:mm:sszzz", System.Globalization.CultureInfo.InvariantCulture), root.GetProperty("dtoVal").GetString());
 		Assert.AreEqual(ts.ToString(), root.GetProperty("tsVal").GetString());
 		Assert.AreEqual(Convert.ToBase64String(bytes), root.GetProperty("byteVal").GetString());
 		Assert.AreEqual(JsonValueKind.Null, root.GetProperty("nullVal").ValueKind);
@@ -75,14 +75,14 @@ public class JsonWriterTests
 	[DataRow(DataSetDateTime.Utc)]
 	[DataRow(DataSetDateTime.Local)]
 	[DataRow(DataSetDateTime.Unspecified)]
-	public async Task ReadJson_Dates_MatchCsvUnixSeconds(DataSetDateTime dateTimeMode)
+	public async Task ReadJson_Dates_PreserveWallClockAndOffsetAsIsoStrings(DataSetDateTime dateTimeMode)
 	{
 		var table = new DataTable();
 		table.Columns.Add("Date", typeof(DateTime)).DateTimeMode = dateTimeMode;
 		table.Columns.Add("Offset", typeof(DateTimeOffset));
 		var instant = DateTimeOffset.UnixEpoch.AddMilliseconds(-500);
-		table.Rows.Add(instant.UtcDateTime, instant.ToOffset(TimeSpan.FromHours(3.5)));
-		table.Rows.Add(DateTime.UnixEpoch.AddMilliseconds(1500), DateTimeOffset.UnixEpoch.AddMilliseconds(1500));
+		table.Rows.Add(DateTime.SpecifyKind(instant.UtcDateTime, DateTimeKind.Unspecified), instant.ToOffset(TimeSpan.FromHours(3.5)));
+		table.Rows.Add(DateTime.SpecifyKind(DateTime.UnixEpoch.AddMilliseconds(1500), DateTimeKind.Unspecified), DateTimeOffset.UnixEpoch.AddMilliseconds(1500));
 		table.Rows.Add(DBNull.Value, DBNull.Value);
 
 		using var reader = table.CreateDataReader();
@@ -94,14 +94,8 @@ public class JsonWriterTests
 		for (int i = 0; i < 2; i++)
 		{
 			var row = doc.RootElement[i];
-			Assert.AreEqual(new DateTimeOffset((DateTime)table.Rows[i][0]).ToUnixTimeSeconds(), row.GetProperty("Date").GetInt64());
-			Assert.AreEqual(i == 0 ? -1L : 1L, row.GetProperty("Offset").GetInt64());
-			using var csvReader = table.CreateDataReader();
-			for (int j = 0; j <= i; j++)
-				Assert.IsTrue(csvReader.Read());
-			var csv = new StringBuilder();
-			csv.WriteCsvRow(csvReader, new[] { typeof(DateTime), typeof(DateTimeOffset) });
-			Assert.AreEqual($"|{row.GetProperty("Date").GetInt64()}~{row.GetProperty("Offset").GetInt64()}", csv.ToString());
+			Assert.AreEqual(i == 0 ? "1969-12-31T23:59:59" : "1970-01-01T00:00:01", row.GetProperty("Date").GetString());
+			Assert.AreEqual(i == 0 ? "1970-01-01T03:29:59+03:30" : "1970-01-01T00:00:01+00:00", row.GetProperty("Offset").GetString());
 		}
 		Assert.AreEqual(JsonValueKind.Null, doc.RootElement[2].GetProperty("Date").ValueKind);
 		Assert.AreEqual(JsonValueKind.Null, doc.RootElement[2].GetProperty("Offset").ValueKind);

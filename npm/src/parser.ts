@@ -1,14 +1,10 @@
-import type { ParseCsvOptions } from './types.ts';
-
-function parseCsvRows(
-	csv: string | undefined | null,
-	options: ParseCsvOptions | undefined,
-	onRow: (obj: Record<string, unknown>, row: string, keys: string[]) => void
-): string[] {
-	if (!csv) return [];
+function* parseCsvRows(
+	csv: string | undefined | null
+): Generator<{ obj: Record<string, unknown>; row: string; keys: string[] }> {
+	if (!csv) return;
 
 	const firstPipe = csv.indexOf('|');
-	if (firstPipe === -1) return [];
+	if (firstPipe === -1) return;
 
 	const headerRow = csv.slice(0, firstPipe);
 	const headerParts = headerRow.split('~');
@@ -23,7 +19,6 @@ function parseCsvRows(
 		keys[i] = part.slice(1);
 	}
 
-	const isDateMode = options?.dateMode === 'date';
 	let pos = firstPipe + 1;
 	const len = csv.length;
 
@@ -84,12 +79,11 @@ function parseCsvRows(
 					obj[key] = val === '1';
 					break;
 				case '#': {
-					const sec = parseInt(val, 10);
-					if (isNaN(sec)) {
+					const ms = Date.parse(val);
+					if (isNaN(ms)) {
 						obj[key] = null;
 					} else {
-						const ms = sec * 1000;
-						obj[key] = isDateMode ? new Date(ms) : ms;
+						obj[key] = new Date(ms);
 					}
 					break;
 				}
@@ -99,37 +93,33 @@ function parseCsvRows(
 			}
 		}
 
-		onRow(obj, row, keys);
+		yield { obj, row, keys };
 
 		if (nextPipe === -1) break;
 	}
-
-	return keys;
 }
 
 export function parseCsv<T = Record<string, unknown>>(
-	csv?: string | null,
-	options?: ParseCsvOptions
+	csv?: string | null
 ): T[] {
 	const output: T[] = [];
-	parseCsvRows(csv, options, (obj) => {
+	for (const { obj } of parseCsvRows(csv)) {
 		output.push(obj as T);
-	});
+	}
 	return output;
 }
 
 export function mapFromCsv<T = Record<string, unknown>, K = number | string>(
 	csv?: string | null,
-	keyColumn?: string | number,
-	options?: ParseCsvOptions
+	keyColumn?: string | number
 ): Map<K, T> {
 	const map = new Map<K, T>();
 	let resolvedKeyIndex = typeof keyColumn === 'number' ? keyColumn : -1;
 	const resolvedKeyName = typeof keyColumn === 'string' ? keyColumn : '';
-	let keyName: string;
+	let keyName = '';
 	let keyResolved = false;
 
-	parseCsvRows(csv, options, (obj, row, keys) => {
+	for (const { obj, row, keys } of parseCsvRows(csv)) {
 		if (!keyResolved) {
 			if (resolvedKeyIndex === -1) {
 				resolvedKeyIndex = resolvedKeyName === '' ? 0 : keys.indexOf(resolvedKeyName);
@@ -143,7 +133,7 @@ export function mapFromCsv<T = Record<string, unknown>, K = number | string>(
 		// allocating a field array for the normal, named-column path.
 		const key = (keyName in obj ? obj[keyName] : row.split('~')[resolvedKeyIndex]) as K;
 		map.set(key, obj as T);
-	});
+	}
 
 	return map;
 }

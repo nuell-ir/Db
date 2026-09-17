@@ -45,7 +45,7 @@ public class CsvRowTests
 
 		// Header and row are present
 		Assert.IsTrue(csv.Contains("!Id~$GuidCol~#DtoCol~$TsCol~$BytesCol~$NullCol"));
-		Assert.IsTrue(csv.Contains($"|123~{guid}~{dto.ToUnixTimeSeconds()}~03:45:10~{Convert.ToBase64String(bytes)}~Ø"));
+		Assert.IsTrue(csv.Contains($"|123~{guid}~{dto:yyyy-MM-dd'T'HH:mm:sszzz}~03:45:10~{Convert.ToBase64String(bytes)}~Ø"));
 	}
 
 	[TestMethod]

@@ -218,15 +218,14 @@ internal sealed class Utf8CsvStreamWriter : IAsyncDisposable
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
 	public void WriteDateTime(DateTime val)
 	{
-		long dtSec = new DateTimeOffset(val).ToUnixTimeSeconds();
-		Utf8Formatter.TryFormat(dtSec, FreeSpan, out int written);
+		val.TryFormat(FreeSpan, out int written, "yyyy-MM-dd'T'HH:mm:ss", CultureInfo.InvariantCulture);
 		_pos += written;
 	}
 
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
 	public void WriteDateTimeOffset(DateTimeOffset val)
 	{
-		Utf8Formatter.TryFormat(val.ToUnixTimeSeconds(), FreeSpan, out int written);
+		val.TryFormat(FreeSpan, out int written, "yyyy-MM-dd'T'HH:mm:sszzz", CultureInfo.InvariantCulture);
 		_pos += written;
 	}
 

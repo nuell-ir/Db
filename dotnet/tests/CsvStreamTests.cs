@@ -9,6 +9,38 @@ namespace Db.Tests;
 public class CsvStreamTests
 {
 	[TestMethod]
+	[DataRow(DateTimeKind.Utc)]
+	[DataRow(DateTimeKind.Local)]
+	[DataRow(DateTimeKind.Unspecified)]
+	public async Task Csv_Dates_PreserveWallClockAndOffsetAcrossAllWriters(DateTimeKind kind)
+	{
+		var items = new[] { -500L, 1500L }.Select(ms => new
+		{
+			Date = DateTime.SpecifyKind(DateTime.UnixEpoch.AddMilliseconds(ms), kind),
+			Offset = DateTimeOffset.FromUnixTimeMilliseconds(ms).ToOffset(TimeSpan.FromHours(3.5))
+		}).ToArray();
+		const string expected = "#Date~#Offset|1969-12-31T23:59:59~1970-01-01T03:29:59+03:30|1970-01-01T00:00:01~1970-01-01T03:30:01+03:30";
+		Assert.AreEqual(expected, nuel.Db.Csv(items));
+
+		var table = new DataTable();
+		table.Columns.Add("Date", typeof(DateTime)).DateTimeMode = kind switch
+		{
+			DateTimeKind.Utc => DataSetDateTime.Utc,
+			DateTimeKind.Local => DataSetDateTime.Local,
+			_ => DataSetDateTime.Unspecified
+		};
+		table.Columns.Add("Offset", typeof(DateTimeOffset));
+		foreach (var item in items)
+			table.Rows.Add(item.Date, item.Offset);
+		using var reader = table.CreateDataReader();
+		Assert.AreEqual(expected, await reader.ReadCsv());
+		using var streamReader = table.CreateDataReader();
+		using var stream = new MemoryStream();
+		await DbCsvResultTests.WriteResponseAsync(streamReader, stream);
+		Assert.AreEqual(expected, Encoding.UTF8.GetString(stream.ToArray()));
+	}
+
+	[TestMethod]
 	public async Task DbCsvResult_Stream_EmptyWhenNoRows()
 	{
 		var dt = new DataTable();
@@ -231,4 +263,3 @@ public class CsvStreamTests
 		}
 	}
 }
-
