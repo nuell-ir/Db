@@ -3,7 +3,7 @@ import type { ParseCsvOptions } from './types.ts';
 function parseCsvRows(
 	csv: string | undefined | null,
 	options: ParseCsvOptions | undefined,
-	onRow: (obj: Record<string, unknown>, rawValues: string[], keys: string[]) => void
+	onRow: (obj: Record<string, unknown>, row: string, keys: string[]) => void
 ): string[] {
 	if (!csv) return [];
 
@@ -47,11 +47,18 @@ function parseCsvRows(
 			continue;
 		}
 
-		const values = row.split('~');
+		let fieldPos = 0;
 		const obj: Record<string, unknown> = {};
 
 		for (let h = 0; h < headerCount; h++) {
-			const val = values[h];
+			let val: string | undefined;
+			if (fieldPos <= row.length) {
+				const delimiter = row.indexOf('~', fieldPos);
+				const end = delimiter === -1 ? row.length : delimiter;
+				val = row.slice(fieldPos, end);
+				// Keep a trailing empty field distinct from a missing field.
+				fieldPos = delimiter === -1 ? row.length + 1 : delimiter + 1;
+			}
 			const key = keys[h];
 
 			if (val === undefined || val === 'Ø') {
@@ -92,7 +99,7 @@ function parseCsvRows(
 			}
 		}
 
-		onRow(obj, values, keys);
+		onRow(obj, row, keys);
 
 		if (nextPipe === -1) break;
 	}
@@ -118,20 +125,23 @@ export function mapFromCsv<T = Record<string, unknown>, K = number | string>(
 ): Map<K, T> {
 	const map = new Map<K, T>();
 	let resolvedKeyIndex = typeof keyColumn === 'number' ? keyColumn : -1;
-	let resolvedKeyName = typeof keyColumn === 'string' ? keyColumn : '';
+	const resolvedKeyName = typeof keyColumn === 'string' ? keyColumn : '';
+	let keyName: string;
+	let keyResolved = false;
 
-	parseCsvRows(csv, options, (obj, values, keys) => {
-		if (resolvedKeyIndex === -1 && resolvedKeyName === '') {
-			resolvedKeyIndex = 0;
-		} else if (resolvedKeyIndex === -1 && resolvedKeyName !== '') {
-			resolvedKeyIndex = keys.indexOf(resolvedKeyName);
+	parseCsvRows(csv, options, (obj, row, keys) => {
+		if (!keyResolved) {
 			if (resolvedKeyIndex === -1) {
-				resolvedKeyIndex = 0;
+				resolvedKeyIndex = resolvedKeyName === '' ? 0 : keys.indexOf(resolvedKeyName);
+				if (resolvedKeyIndex === -1) resolvedKeyIndex = 0;
 			}
+			keyName = keys[resolvedKeyIndex];
+			keyResolved = true;
 		}
 
-		const keyName = keys[resolvedKeyIndex];
-		const key = (keyName in obj ? obj[keyName] : values[resolvedKeyIndex]) as K;
+		// Preserve raw-field fallback for indices outside the header without
+		// allocating a field array for the normal, named-column path.
+		const key = (keyName in obj ? obj[keyName] : row.split('~')[resolvedKeyIndex]) as K;
 		map.set(key, obj as T);
 	});
 

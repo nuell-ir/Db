@@ -1,8 +1,30 @@
-import test, { describe, it } from 'node:test';
+import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { parseCsv, mapFromCsv } from '../src/index.ts';
 
 describe('parseCsv', () => {
+	it('should distinguish missing, empty, and null fields and ignore extra fields', () => {
+		assert.deepEqual(parseCsv('$A~$B~$C|x|x~|x~~|~Ø~z~ignored||\r\n'), [
+			{ A: 'x', B: null, C: null },
+			{ A: 'x', B: '', C: null },
+			{ A: 'x', B: '', C: '' },
+			{ A: '', B: null, C: 'z' }
+		]);
+	});
+
+	it('should preserve numeric prefix parsing and invalid-number handling', () => {
+		assert.deepEqual(parseCsv('!Id~%Rate~#Created|12x~1.5x~123x|bad~~Ø'), [
+			{ Id: 12, Rate: 1.5, Created: 123000 },
+			{ Id: null, Rate: null, Created: null }
+		]);
+	});
+
+	it('should strip row-ending newlines while preserving internal newlines', () => {
+		assert.deepEqual(parseCsv('$A~$B|a\nb~\r\n|c~d\r\n'), [
+			{ A: 'a\nb', B: '' }, { A: 'c', B: 'd' }
+		]);
+	});
+
 	it('should return empty array for null, undefined, or empty string', () => {
 		assert.deepEqual(parseCsv(), []);
 		assert.deepEqual(parseCsv(null), []);
@@ -127,6 +149,27 @@ describe('parseCsv', () => {
 });
 
 describe('mapFromCsv', () => {
+	it('should fall back to the first column for unknown names and index -1', () => {
+		const csv = '!Id~$Name|1~Alpha|2~Beta';
+		for (const key of ['Missing', '', -1]) {
+			assert.deepEqual(mapFromCsv(csv, key), mapFromCsv(csv));
+		}
+	});
+
+	it('should preserve raw extra-field keys and missing keys', () => {
+		const csv = '!Id|1~extra|2~|3~Ø|4';
+		assert.deepEqual([...mapFromCsv(csv, 1)], [
+			['extra', { Id: 1 }], ['', { Id: 2 }], ['Ø', { Id: 3 }], [undefined, { Id: 4 }]
+		]);
+		for (const key of [-2, 0.5, NaN, Infinity, 10]) {
+			assert.deepEqual([...mapFromCsv(csv, key)], [[undefined, { Id: 4 }]]);
+		}
+	});
+
+	it('should use the final parsed value for duplicate header names', () => {
+		assert.deepEqual([...mapFromCsv('!Id~!Id|1~2|3~2', 0)], [[2, { Id: 2 }]]);
+	});
+
 	it('should return empty Map for empty input', () => {
 		const map = mapFromCsv();
 		assert.equal(map.size, 0);
@@ -156,4 +199,3 @@ describe('mapFromCsv', () => {
 		assert.equal(map.get('B2')?.Id, 2);
 	});
 });
-
